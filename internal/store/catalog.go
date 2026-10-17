@@ -3,10 +3,10 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"net/url"
 	"strings"
 	"time"
+
+	"podmutt/internal/httpurl"
 )
 
 type Feed struct {
@@ -26,18 +26,10 @@ type Episode struct {
 	Completed                bool
 }
 
-func publicURL(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil {
-		return fmt.Errorf("store: expected public HTTP(S) URL without credentials")
-	}
-	return nil
-}
-
 // UpsertFeed updates fetched metadata without changing an existing subscription.
 // Subscribed applies only to new feeds; use SetSubscribed for user actions.
 func (s *Store) UpsertFeed(ctx context.Context, feed Feed) (int64, error) {
-	if err := publicURL(feed.URL); err != nil {
+	if _, err := httpurl.Parse(feed.URL); err != nil {
 		return 0, err
 	}
 	var id int64
@@ -84,7 +76,7 @@ func (s *Store) Feeds(ctx context.Context, subscribedOnly bool) ([]Feed, error) 
 func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Episode) error {
 	return transaction(ctx, s.db, func(tx *sql.Tx) error {
 		for _, episode := range episodes {
-			if err := publicURL(episode.AudioURL); err != nil {
+			if _, err := httpurl.Parse(episode.AudioURL); err != nil {
 				return err
 			}
 			identity := "url:" + episode.AudioURL
