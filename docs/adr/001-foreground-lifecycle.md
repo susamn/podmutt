@@ -8,9 +8,10 @@ The Bubble Tea application owns playback state, queue advancement, refresh jobs,
 and a child mpv process. It uses a private local IPC endpoint to control mpv.
 There is no daemon or service, and quitting stops all app-owned work.
 
-Persist position periodically and on pause, stop, episode change, and graceful
-exit. Restore the current episode and queue on startup without requiring mpv to
-have survived. A crash may lose the last checkpoint; exact interval is pending.
+Persist position every 5 seconds and on pause, stop, episode change, and graceful
+exit. Restore the current episode and queue on startup without autoplay or
+requiring mpv to have survived. A crash may lose progress since the last
+checkpoint.
 
 A profile lock admits one TUI. Short-lived CLI invocations contact a separate
 private application control endpoint, so actions use the same state transitions
@@ -28,5 +29,5 @@ parent-liveness mechanism on both platforms so the child also exits after an
 unexpected parent death; this is a required lifecycle prototype, not an assumed
 property of os/exec.
 
-Audio spectrum extraction is independent of JSON playback control and needs a
-separate validated approach.
+V1 uses a decorative visualization, not decoded-audio spectrum extraction.
+No audio-analysis pipeline or extra visualizer dependency is required.

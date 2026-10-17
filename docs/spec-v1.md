@@ -1,16 +1,18 @@
 # podmutt v1
 
-Status: scope agreed in discussion; open decisions below block implementation.
+Status: core v1 scope agreed; remaining engineering details listed below.
 
 ## Experience
 
 - Linux and macOS; Go + Bubble Tea; mpv streams public podcast audio.
 - Local-first: show cached subscriptions/episodes immediately. Refresh feeds at
   startup and periodically while the TUI runs; update lists incrementally.
-- Discover shows by name, inspect episodes before subscribing, add RSS and
-  ordinary podcast website URLs. Global search includes episodes and shows;
-  exact local/remote scope remains open.
-- Newest episodes first; aggregate new-episode tab; changeable sort order.
+- Discover shows by name online, inspect episodes before subscribing, add RSS
+  and ordinary podcast website URLs. Global episode search covers subscribed
+  feeds only, using cached titles/descriptions; no remote episode index.
+- Newest episodes first; aggregate new-episode tab; sort by newest, oldest, or
+  title. Preserve selection by episode identity as feeds refresh.
+- Refresh at startup, every 30 minutes while running, and manually with R.
 - Priorities: ease of use, clean visuals, podcast artwork via Kitty graphics
   with an image-derived ASCII fallback. Design reference: sibling mpdtui.
 
@@ -24,11 +26,15 @@ Status: scope agreed in discussion; open decisions below block implementation.
 +----------------------+---------------------------+
 ```
 
-Compact layout retains podcasts, episodes, and player controls. Exact breakpoints
-and access to hidden queue/details are pending.
+Compact layout stacks podcasts, episodes, and player controls. Queue/details
+remain accessible as overlays; hide artwork and visualization first as space
+shrinks. Exact breakpoints are an implementation detail.
 
-Vim-style navigation; j/k move selection, h/l change panes. Space plays/resumes;
-'a' enqueues an episode. Space selection vs global pause priority is pending.
+Vim-style navigation: j/k move selection, h/l change panes, J/K reorder queue,
+/ filters locally, f opens global search, ? shows help. Space starts the selected
+episode in Episodes/Queue, or toggles pause if it is already current. In other
+panes Space toggles current playback; in text input it types a space. Enter
+selects a podcast or expands episode details; a enqueues; s stops playback.
 No configurable bindings or themes in v1. Keep contextual hints and help short.
 
 ## Playback and state
@@ -37,16 +43,19 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 - No daemon, login service, or detached playback. Quit saves state, stops mpv,
   cancels refreshes, and exits. No app-owned child should remain running.
 - Persist current episode, position, subscriptions, history, and queue.
-- Reopening restores state; automatic playback on startup is not decided.
+- Reopening restores state without autoplay. Checkpoint position every 5 seconds
+  and on pause, stop, episode change, and graceful exit.
 - Resume interrupted episodes. Completion means reaching natural EOF or explicit
   user marking, not merely receiving a playback error or pressing Stop.
 - At natural EOF advance through the explicit queue; stop when it is empty.
-- Controls: play, pause, stop. Queue: persistent, reorderable, batch enqueue.
-- Playback failure: visible notification and stop; retry policy pending.
+- Controls: play, pause, stop. Queue: persistent, reorderable, batch enqueue;
+  no duplicate episode entries. Direct playback preserves the remaining queue.
+- Playback failure: persistent notification and stop; no automatic retry or skip.
 - CLI controls/status target the running TUI for use in external keybindings;
   they must not create a background player when no TUI is running.
-- Simple scrolling spectrum requested; genuine audio analysis vs decorative
-  animation, extraction method, dependencies, and fallback remain open.
+- Simple scrolling decorative visualization; real audio analysis is not required
+  for v1. No additional audio-analysis dependency. Do not present animation as
+  a measured spectrum; freeze it when paused and clear it when stopped.
 
 ## Deliberately excluded
 
@@ -64,8 +73,8 @@ superseded by the explicit streaming-only scope.
 - One executable with TUI and CLI commands; separate mpv runtime dependency.
   On launch, detect missing mpv and prompt the user to install it with appropriate
   instructions; do not silently install software or request elevated privileges.
-- Linux MPRIS/media-key integration is required in v1. macOS integration scope
-  remains to be clarified.
+- Linux MPRIS/media keys and macOS media keys are required in v1. macOS Now
+  Playing metadata beyond what media-key integration needs is not yet committed.
 - License: MIT.
 - TOML configuration; no telemetry by default; redact secrets from logs.
 - Makefile, GitLab CI, automated tests and >=90% statement coverage target.
@@ -75,16 +84,13 @@ superseded by the explicit streaming-only scope.
 - Database migrations, backups/export, and Linux/macOS testing are desired;
   formats and release acceptance criteria remain open.
 
-## Decisions still needed
+## Remaining engineering details
 
-1. Search: cached episodes vs arbitrary internet-wide episode text search;
-   provider/access terms, credentials, geography, and rate limits.
-2. Real spectrum source, release requirement, and optional dependencies.
-3. Space behavior, Enter behavior, subscribe/complete actions, compact navigation.
-4. Queue duplicates/direct-play semantics; startup resume without autoplay;
-   refresh interval, sort choices, and cursor stability during refresh.
-5. macOS Now Playing/media keys, notifications, and browser/file actions:
-   which are launch requirements?
-6. Storage driver, paths, backup policy; release support matrix.
+- Show-discovery provider/access terms, geography, and rate limits.
+- Subscribe/mark-completed bindings and exact responsive breakpoints.
+- Native macOS media-key approach and its packaging/build requirements.
+- Desktop notifications and browser/file actions are not yet committed.
+- Storage driver, paths, backup policy, and release support matrix.
+- Coverage scope and availability of native GitLab runners.
 
 No executable, Makefile, tests, or CI pipeline exists yet.
