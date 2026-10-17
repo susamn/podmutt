@@ -6,15 +6,13 @@ import (
 	"errors"
 	"io"
 
-	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/profile"
 )
 
 func Run(input io.Reader, output io.Writer) error {
 	return withProfile(func(cfg profile.Config, paths profile.Paths) error {
 		return withSession(cfg, paths, func(s *session) error {
-			_, err := tea.NewProgram(newShell(s), tea.WithInput(input), tea.WithOutput(output)).Run()
-			return err
+			return runLibrary(s, input, output)
 		})
 	})
 }

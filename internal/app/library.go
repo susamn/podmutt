@@ -1,0 +1,363 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/feed"
+	"podmutt/internal/library"
+	"podmutt/internal/store"
+	"podmutt/internal/ui"
+)
+
+type libraryLoaded struct {
+	version  uint64
+	snapshot library.Snapshot
+	err      error
+}
+type libraryEdited struct {
+	id    int64
+	added bool
+	err   error
+}
+type refreshUpdate struct {
+	result feed.Result
+	ok     bool
+}
+type libraryShell struct {
+	shell
+	service            *library.Service
+	refresher          *feed.Refresher
+	results            <-chan feed.Result
+	snapshot           library.Snapshot
+	rows               []store.Episode
+	feedID, wantFeedID int64
+	newOnly            bool
+	order              library.Order
+	version            uint64
+	loadCancel         context.CancelFunc
+	notice, input      string
+	adding, mutating   bool
+	refreshErrors      map[int64]string
+	lastPlayingID      int64
+	lastCompleted      bool
+}
+
+func runLibrary(s *session, input io.Reader, output io.Writer) error {
+	lifetime, cancel := context.WithCancel(s.ctx)
+	defer cancel()
+	local := *s
+	local.ctx = lifetime
+	refresher := feed.New(s.store, nil, time.Duration(s.config.RefreshMinutes)*time.Minute)
+	model, err := newLibrary(&local, refresher)
+	if err != nil {
+		return err
+	}
+	results, err := refresher.Start(lifetime)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		cancel()
+		for range results {
+		}
+	}()
+	model.results = results
+	_, err = tea.NewProgram(model, tea.WithInput(input), tea.WithOutput(output)).Run()
+	return err
+}
+func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
+	service := library.New(s.store, refresher)
+	snapshot, err := service.Read(s.ctx, 0)
+	if err != nil {
+		return libraryShell{}, err
+	}
+	model := libraryShell{shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
+		notice: "Cached library · refreshing", refreshErrors: make(map[int64]string)}
+	model.renderLibrary()
+	model.feedID = model.selectedFeed()
+	return model, nil
+}
+func (m libraryShell) Init() tea.Cmd { return tea.Batch(m.shell.Init(), m.waitRefresh()) }
+func (m libraryShell) waitRefresh() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case result, ok := <-m.results:
+			return refreshUpdate{result, ok}
+		case <-m.s.ctx.Done():
+			return refreshUpdate{}
+		}
+	}
+}
+func (m *libraryShell) reload() tea.Cmd {
+	if m.loadCancel != nil {
+		m.loadCancel()
+	}
+	ctx, cancel := context.WithCancel(m.s.ctx)
+	m.loadCancel = cancel
+	m.version++
+	version, id, service := m.version, m.feedID, m.service
+	return func() tea.Msg { snapshot, err := service.Read(ctx, id); return libraryLoaded{version, snapshot, err} }
+}
+func (m libraryShell) selectedFeed() int64 {
+	item, _ := m.Model.Selected(ui.Podcasts)
+	id, _ := strconv.ParseInt(item.ID, 10, 64)
+	return id
+}
+func (m libraryShell) selectedEpisode() (store.Episode, bool) {
+	item, ok := m.Model.Selected(ui.Episodes)
+	if !ok {
+		return store.Episode{}, false
+	}
+	for _, episode := range m.rows {
+		if item.ID == strconv.FormatInt(episode.ID, 10) {
+			return episode, true
+		}
+	}
+	return store.Episode{}, false
+}
+
+func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case libraryLoaded:
+		if msg.version != m.version {
+			return m, nil
+		}
+		if m.loadCancel != nil {
+			m.loadCancel()
+			m.loadCancel = nil
+		}
+		if msg.err != nil {
+			m.notice = msg.err.Error()
+		} else {
+			m.snapshot = msg.snapshot
+		}
+	case libraryEdited:
+		m.mutating = false
+		if msg.err != nil {
+			m.notice = msg.err.Error()
+			break
+		}
+		m.notice = "Library updated"
+		if msg.added {
+			m.feedID, m.wantFeedID = msg.id, msg.id
+			m.newOnly = false
+			m.snapshot.Show = nil
+			m.refresher.RefreshNow()
+		}
+		cmd = m.reload()
+	case refreshUpdate:
+		if !msg.ok {
+			return m, nil
+		}
+		if msg.result.Error != nil {
+			m.refreshErrors[msg.result.FeedID] = msg.result.Error.Error()
+		} else {
+			delete(m.refreshErrors, msg.result.FeedID)
+		}
+		m.notice = "Refresh finished"
+		cmd = tea.Batch(m.waitRefresh(), m.reload())
+	case playbackUpdate:
+		if msg.ok {
+			id, completed := int64(0), false
+			if msg.state.Current != nil {
+				id, completed = msg.state.Current.ID, msg.state.Current.Completed
+			}
+			if m.lastPlayingID != 0 && (m.lastPlayingID != id || m.lastCompleted != completed) {
+				cmd = m.reload()
+			}
+			m.lastPlayingID, m.lastCompleted = id, completed
+		}
+		updated, wait := m.shell.Update(msg)
+		m.shell = updated.(shell)
+		cmd = tea.Batch(wait, cmd)
+	case tea.PasteMsg:
+		if m.adding {
+			m.appendInput(msg.Content)
+			break
+		}
+		return m.delegate(msg)
+	case tea.KeyPressMsg:
+		if m.adding {
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			cmd = m.inputKey(msg)
+			break
+		}
+		if m.Model.Busy() {
+			return m.delegate(msg)
+		}
+		switch msg.String() {
+		case "N":
+			if !m.mutating {
+				m.adding = true
+				m.input = ""
+			}
+		case "v":
+			m.newOnly = !m.newOnly
+			cmd = m.reload()
+		case "o":
+			m.order = (m.order + 1) % 3
+		case "R":
+			m.notice = "Refreshing…"
+			m.refresher.RefreshNow()
+		case "u":
+			cmd = m.subscribe()
+		case "c":
+			cmd = m.complete()
+		case "enter":
+			if m.Model.Focus() == ui.Podcasts {
+				m.newOnly = false
+				m.Model = m.Model.WithFocus(ui.Episodes)
+				cmd = m.reload()
+			}
+		default:
+			return m.delegate(msg)
+		}
+	default:
+		return m.delegate(msg)
+	}
+	m.renderLibrary()
+	return m, cmd
+}
+func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	updated, cmd := m.shell.Update(msg)
+	m.shell = updated.(shell)
+	if id := m.selectedFeed(); m.wantFeedID == 0 && id != m.feedID {
+		m.feedID = id
+		m.snapshot.Show = nil
+		if !m.newOnly {
+			m.Model = m.Model.Reset(ui.Episodes)
+		}
+		cmd = tea.Batch(cmd, m.reload())
+	}
+	m.renderLibrary()
+	return m, cmd
+}
+func (m *libraryShell) appendInput(text string) {
+	runes := []rune(m.input + text)
+	m.input = string(runes[:min(len(runes), 4096)])
+}
+func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
+	switch key.String() {
+	case "esc":
+		m.adding = false
+		m.input = ""
+	case "ctrl+u":
+		m.input = ""
+	case "backspace":
+		runes := []rune(m.input)
+		m.input = string(runes[:max(0, len(runes)-1)])
+	case "enter":
+		m.adding = false
+		m.mutating = true
+		m.notice = "Adding feed…"
+		address, service, ctx := m.input, m.service, m.s.ctx
+		m.input = ""
+		return func() tea.Msg { id, err := service.Add(ctx, address); return libraryEdited{id, true, err} }
+	default:
+		m.appendInput(key.Text)
+	}
+	return nil
+}
+func (m *libraryShell) subscribe() tea.Cmd {
+	if m.mutating {
+		return nil
+	}
+	for _, source := range m.snapshot.Feeds {
+		if source.ID == m.feedID {
+			m.mutating = true
+			service, ctx := m.service, m.s.ctx
+			return func() tea.Msg { return libraryEdited{err: service.Subscribe(ctx, source.ID, !source.Subscribed)} }
+		}
+	}
+	m.notice = "Select a show first"
+	return nil
+}
+func (m *libraryShell) complete() tea.Cmd {
+	if m.mutating {
+		return nil
+	}
+	episode, ok := m.selectedEpisode()
+	if !ok || m.Model.Focus() != ui.Episodes {
+		m.notice = "Select an episode first"
+		return nil
+	}
+	m.mutating = true
+	engine, ctx := m.s.playback, m.s.ctx
+	return func() tea.Msg { return libraryEdited{err: engine.MarkCompleted(ctx, episode.ID, !episode.Completed)} }
+}
+
+func (m *libraryShell) renderLibrary() {
+	label := "Show"
+	if m.newOnly {
+		label = "New (uncompleted)"
+	}
+	data := ui.Data{EpisodeLabel: label + " · " + m.order.String(), Notice: m.notice}
+	var errorID int64
+	var warning string
+	for id, text := range m.refreshErrors {
+		if warning == "" || id < errorID {
+			errorID, warning = id, text
+		}
+	}
+	if warning != "" {
+		data.Notice = "Refresh failed: " + warning + " · " + data.Notice
+	}
+	if m.adding {
+		data.Prompt = "URL: " + m.input
+	}
+	for _, source := range m.snapshot.Feeds {
+		marker := "[-] "
+		if source.Subscribed {
+			marker = "[+] "
+		}
+		title := library.PlainText(source.Title)
+		if title == "" {
+			title = source.URL
+		}
+		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: marker + title})
+	}
+	m.rows = library.Episodes(m.snapshot, m.newOnly, m.order)
+	for _, episode := range m.rows {
+		marker := "[ ] "
+		if episode.Completed {
+			marker = "[x] "
+		}
+		title := library.PlainText(episode.Title)
+		if title == "" {
+			title = "Untitled episode"
+		}
+		data.Episodes = append(data.Episodes, ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: marker + title})
+	}
+	m.Model = m.Model.WithLibrary(data)
+	if m.wantFeedID != 0 {
+		m.Model = m.Model.Select(ui.Podcasts, strconv.FormatInt(m.wantFeedID, 10))
+		if m.selectedFeed() == m.wantFeedID {
+			m.wantFeedID = 0
+		}
+	}
+	details := ""
+	if episode, ok := m.selectedEpisode(); ok {
+		show := ""
+		for _, source := range m.snapshot.Feeds {
+			if source.ID == episode.FeedID {
+				show = library.PlainText(source.Title)
+				break
+			}
+		}
+		published := "unknown date"
+		if !episode.PublishedAt.IsZero() {
+			published = episode.PublishedAt.Format("2006-01-02")
+		}
+		details = fmt.Sprintf("%s\n%s · %s · %d:%02d\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
+			episode.DurationSeconds/60, episode.DurationSeconds%60, episode.Completed, library.PlainText(episode.Description))
+	}
+	m.Model = m.Model.WithDetails(details)
+}
