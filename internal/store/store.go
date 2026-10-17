@@ -76,6 +76,9 @@ func migrate(ctx context.Context, db *sql.DB, migrations []string) error {
 		if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 			return err
 		}
+		if version < 0 {
+			return fmt.Errorf("invalid negative database version %d", version)
+		}
 		if version > len(migrations) {
 			return fmt.Errorf("database version %d is newer than supported version %d", version, len(migrations))
 		}

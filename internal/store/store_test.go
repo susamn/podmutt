@@ -113,6 +113,12 @@ func TestMigrationRollbackAndUpgrade(t *testing.T) {
 	if err := migrate(ctx, db, []string{first}); err == nil || !strings.Contains(err.Error(), "newer") {
 		t.Fatalf("expected downgrade rejection: %v", err)
 	}
+	if _, err := db.Exec("PRAGMA user_version = -1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, db, upgrade); err == nil || !strings.Contains(err.Error(), "negative") {
+		t.Fatalf("expected invalid schema version rejection: %v", err)
+	}
 }
 
 func TestOpenRejectsNewerSchema(t *testing.T) {
