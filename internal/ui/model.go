@@ -33,10 +33,14 @@ type Model struct {
 	editing       bool
 	previous      string
 	help          bool
+	actions       func(string) tea.Cmd
 }
 
 func New(data Data) Model     { return Model{data: data} }
 func (m Model) Init() tea.Cmd { return nil }
+
+func (m Model) WithActions(actions func(string) tea.Cmd) Model { m.actions = actions; return m }
+func (m Model) WithPlayer(text string) Model                   { m.data.Player = text; return m }
 
 func (m Model) compact() bool { return m.width < 100 || m.height < 24 }
 
@@ -132,6 +136,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch key {
+		case "space", "s", "n":
+			if m.actions != nil {
+				command := map[string]string{"space": "toggle", "s": "stop", "n": "next"}[key]
+				return m, m.actions(command)
+			}
 		case "?":
 			m.help = true
 		case "tab", "l":
