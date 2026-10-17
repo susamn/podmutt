@@ -3,8 +3,9 @@
 A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
 Bubble Tea, SQLite, and mpv. Licensed under [MIT](LICENSE).
 
-**Status:** development bootstrap only. The executable supports `--help` and
-`--version`; podcast playback and the TUI are not implemented yet.
+**Status:** responsive TUI shell available. Run `podmutt` for empty panes and
+keyboard navigation; podcast browsing and playback are not connected yet.
+`--help` and `--version` work without creating profile files.
 
 ## Development
 
@@ -49,11 +50,12 @@ without changing source or weakening the normal 90% threshold.
 
 - [V1 scope](docs/spec-v1.md)
 - [Foreground lifecycle ADR](docs/adr/001-foreground-lifecycle.md)
+- [Responsive TUI ADR](docs/adr/005-tui-shell.md)
 
 ## Configuration and profile
 
-The profile package is ready for the future TUI; the bootstrap does not yet load
-configuration or own a running profile. An absent `config.toml` uses these defaults:
+The TUI loads configuration and holds exclusive profile ownership until exit.
+An absent `config.toml` uses these defaults:
 
 ```toml
 refresh_minutes = 30
@@ -71,3 +73,14 @@ Linux configuration lives at `~/.config/podmutt/config.toml`, state at
 `$XDG_RUNTIME_DIR/podmutt` or a private subdirectory of state. macOS uses
 `~/Library/Application Support/podmutt/config.toml` with state beside it and a
 private `run` directory. See [profile paths and ownership](docs/adr/002-profile-paths.md).
+
+## Shell controls
+
+`j/k` or arrows select; `g/G` go first/last. `h/l`, Tab/Shift+Tab, or `1-4`
+switch panes. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
+clears input. `?` opens help; `q` or Ctrl+C quits. Printable keys stay literal
+while typing a filter.
+
+The four-pane layout switches to stacked podcasts/episodes/player below 100
+columns or 24 rows. Queue/details open as overlays; Esc returns to the last
+visible list. Below 30×12, resize guidance replaces the panes.
