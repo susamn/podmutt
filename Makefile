@@ -31,11 +31,12 @@ test:
 
 coverage:
 	@mkdir -p coverage
-	$(GO) test -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage/coverage.out ./...
+	$(GO) test -count=1 -covermode=atomic -coverpkg=$$($(GO) list ./... | paste -sd, -) -coverprofile=coverage/coverage.out ./...
 	$(GO) tool cover -func=coverage/coverage.out
 	$(GO) tool cover -html=coverage/coverage.out -o coverage/index.html
-	@awk -v min='$(COVERAGE_MIN)' 'NR > 1 { total += $$2; if ($$3 > 0) covered += $$2 } \
-		END { if (total == 0) { print "No instrumented statements"; exit 1 } \
+	@awk -v min='$(COVERAGE_MIN)' 'NR > 1 { statements[$$1] = $$2; if ($$3 > 0) hit[$$1] = 1 } \
+		END { for (block in statements) { total += statements[block]; if (hit[block]) covered += statements[block] } \
+		if (total == 0) { print "No instrumented statements"; exit 1 } \
 		pct = 100 * covered / total; printf "Total coverage: %.2f%%\n", pct; \
 		if (pct < min) { printf "Coverage must be >= %s%%\n", min; exit 1 } }' coverage/coverage.out
 
