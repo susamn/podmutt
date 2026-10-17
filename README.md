@@ -15,12 +15,15 @@ require a separately installed mpv; no Go toolchain is needed for release users.
 ```sh
 make check       # formatting, module consistency, vet, tests, >=90% coverage
 make race        # native race-detector tests
+make mpv-test    # real-mpv lifecycle/playback tests, null audio; requires mpv
 make build       # bin/podmutt
 make dist        # Linux/macOS amd64/arm64 archives in dist/
 ```
 
 `make fmt` formats source. Coverage reports are written to `coverage/`.
-`make clean` removes generated build and coverage artifacts.
+`make clean` removes generated build and coverage artifacts. On memory-constrained
+machines use `GOGC=20 make race`; CI uses this setting for SQLite compilation.
+Cross-build checks compile all application packages, not just the CLI bootstrap.
 
 ## GitLab workflow
 
@@ -50,6 +53,8 @@ without changing source or weakening the normal 90% threshold.
 
 - [V1 scope](docs/spec-v1.md)
 - [Foreground lifecycle ADR](docs/adr/001-foreground-lifecycle.md)
+- [SQLite storage ADR](docs/adr/003-sqlite-storage.md)
+- [mpv ownership ADR](docs/adr/004-mpv-ownership.md)
 - [Responsive TUI ADR](docs/adr/005-tui-shell.md)
 
 ## Configuration and profile
@@ -84,3 +89,20 @@ while typing a filter.
 The four-pane layout switches to stacked podcasts/episodes/player below 100
 columns or 24 rows. Queue/details open as overlays; Esc returns to the last
 visible list. Below 30×12, resize guidance replaces the panes.
+
+## Storage
+
+The storage package is ready for integration: `podcasts.db` holds subscriptions,
+episodes, history, current episode, and queue. The shell does not open it yet.
+Do not copy only an open database file for backup; SQLite WAL sidecars may contain
+recent writes. Backup tooling is tracked in #17.
+
+## Player adapter
+
+The mpv adapter is ready for integration; the TUI shell still does not play
+podcasts. It uses a private inherited socketpair, not a public socket. Missing
+mpv produces installation guidance. User mpv configuration/scripts are disabled.
+Run `make mpv-test MPV=/path/to/mpv` to verify resume, pause/play/stop, EOF versus
+errors, graceful shutdown, and exit after abrupt owner death. No audio device or
+network podcast is needed. Linux CI runs these checks; native macOS validation
+still needs a macOS host.
