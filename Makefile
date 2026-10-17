@@ -31,7 +31,7 @@ test:
 
 coverage:
 	@mkdir -p coverage
-	$(GO) test -count=1 -covermode=atomic -coverpkg=./... -coverprofile=coverage/coverage.out ./...
+	$(GO) test -count=1 -covermode=atomic -coverpkg=$$($(GO) list ./... | paste -sd, -) -coverprofile=coverage/coverage.out ./...
 	$(GO) tool cover -func=coverage/coverage.out
 	$(GO) tool cover -html=coverage/coverage.out -o coverage/index.html
 	@awk -v min='$(COVERAGE_MIN)' 'NR > 1 { statements[$$1] = $$2; if ($$3 > 0) hit[$$1] = 1 } \
