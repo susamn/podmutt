@@ -19,7 +19,9 @@ make dist        # Linux/macOS amd64/arm64 archives in dist/
 ```
 
 `make fmt` formats source. Coverage reports are written to `coverage/`.
-`make clean` removes generated build and coverage artifacts.
+`make clean` removes generated build and coverage artifacts. On memory-constrained
+machines use `GOGC=20 make race`; CI uses this setting for SQLite compilation.
+Cross-build checks compile all application packages, not just the CLI bootstrap.
 
 ## GitLab workflow
 
@@ -49,6 +51,7 @@ without changing source or weakening the normal 90% threshold.
 
 - [V1 scope](docs/spec-v1.md)
 - [Foreground lifecycle ADR](docs/adr/001-foreground-lifecycle.md)
+- [SQLite storage ADR](docs/adr/003-sqlite-storage.md)
 
 ## Configuration and profile
 
@@ -71,3 +74,8 @@ Linux configuration lives at `~/.config/podmutt/config.toml`, state at
 `$XDG_RUNTIME_DIR/podmutt` or a private subdirectory of state. macOS uses
 `~/Library/Application Support/podmutt/config.toml` with state beside it and a
 private `run` directory. See [profile paths and ownership](docs/adr/002-profile-paths.md).
+
+The storage package is ready for the future TUI: `podcasts.db` holds subscriptions,
+episodes, history, current episode, and queue. The bootstrap does not open it yet.
+Do not copy only an open database file for backup; SQLite WAL sidecars may contain
+recent writes. Backup tooling is tracked in #17.

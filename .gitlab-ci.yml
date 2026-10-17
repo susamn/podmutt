@@ -27,6 +27,8 @@ variables:
   GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
   GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
   GOTOOLCHAIN: local
+  # Bound compiler memory for the pure-Go SQLite driver, including race builds.
+  GOGC: "20"
 
 verify:
   stage: verify

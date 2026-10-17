@@ -55,6 +55,7 @@ dist:
 		for arch in amd64 arm64; do \
 			name="podmutt-$$os-$$arch"; \
 			mkdir -p "dist/$$name"; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build ./...; \
 			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -trimpath \
 				-ldflags='$(LDFLAGS)' -o "dist/$$name/podmutt" ./cmd/podmutt; \
 			tar -czf "dist/$$name.tar.gz" -C "dist/$$name" podmutt; \
