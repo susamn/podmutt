@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 
 	"podmutt/internal/app"
+	"podmutt/internal/control"
 )
 
 var version = "dev"
@@ -14,15 +16,15 @@ var version = "dev"
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, func() error {
 		return app.Run(os.Stdin, os.Stdout)
-	}))
+	}, app.Command))
 }
 
-func run(args []string, stdout, stderr io.Writer, startUI func() error) int {
+func run(args []string, stdout, stderr io.Writer, startUI func() error, command func(string, io.Writer) error) int {
 	flags := flag.NewFlagSet("podmutt", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	showVersion := flags.Bool("version", false, "print version and exit")
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: podmutt [--version | --help]")
+		fmt.Fprintln(stderr, "Usage: podmutt [--version | --help | play | pause | stop | next | status]")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -32,8 +34,18 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error) int {
 		return 2
 	}
 	if flags.NArg() != 0 {
-		fmt.Fprintln(stderr, "podmutt: unexpected arguments")
-		return 2
+		if flags.NArg() != 1 || *showVersion || !control.Valid(flags.Arg(0)) {
+			fmt.Fprintln(stderr, "podmutt: unexpected arguments")
+			return 2
+		}
+		if err := command(flags.Arg(0), stdout); err != nil {
+			fmt.Fprintln(stderr, "podmutt:", err)
+			if errors.Is(err, control.ErrNotRunning) {
+				return 3
+			}
+			return 1
+		}
+		return 0
 	}
 	if *showVersion {
 		fmt.Fprintln(stdout, "podmutt", version)

@@ -18,7 +18,7 @@ func TestRun(t *testing.T) {
 		{name: "version", args: []string{"--version"}, stdout: "podmutt dev\n"},
 		{name: "help", args: []string{"--help"}, stderr: "Usage: podmutt"},
 		{name: "unknown flag", args: []string{"--unknown"}, code: 2, stderr: "flag provided but not defined"},
-		{name: "unexpected argument", args: []string{"play"}, code: 2, stderr: "unexpected arguments"},
+		{name: "unexpected argument", args: []string{"unknown"}, code: 2, stderr: "unexpected arguments"},
 		{name: "version with argument", args: []string{"--version", "extra"}, code: 2, stderr: "unexpected arguments"},
 		{name: "start TUI"},
 	}
@@ -26,7 +26,7 @@ func TestRun(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			started := false
-			if got := run(tt.args, &stdout, &stderr, func() error { started = true; return nil }); got != tt.code {
+			if got := run(tt.args, &stdout, &stderr, func() error { started = true; return nil }, nil); got != tt.code {
 				t.Fatalf("exit code = %d, want %d", got, tt.code)
 			}
 			if started != (len(tt.args) == 0) {
@@ -44,7 +44,7 @@ func TestRun(t *testing.T) {
 
 func TestRunReportsStartupFailure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(nil, &stdout, &stderr, func() error { return errors.New("profile already running") })
+	code := run(nil, &stdout, &stderr, func() error { return errors.New("profile already running") }, nil)
 	if code != 1 || !strings.Contains(stderr.String(), "profile already running") {
 		t.Fatalf("startup error: code=%d, stderr=%q", code, stderr.String())
 	}
