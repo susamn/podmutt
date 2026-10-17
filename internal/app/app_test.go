@@ -14,7 +14,11 @@ import (
 
 func isolatedProfile(t *testing.T) profile.Paths {
 	t.Helper()
-	home := t.TempDir()
+	home, err := os.MkdirTemp("", "pma-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(home) })
 	t.Setenv("HOME", home)
 	for _, name := range []string{"XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR"} {
 		t.Setenv(name, "")

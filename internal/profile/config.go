@@ -92,6 +92,9 @@ func (p Paths) Prepare() error {
 	return nil
 }
 
+// CheckRuntime validates an existing runtime directory without creating it.
+func (p Paths) CheckRuntime() error { return privateDirectory(p.Runtime) }
+
 func privateDirectory(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil {

@@ -118,7 +118,7 @@ func (m Model) View() tea.View {
 					"h/l, Tab      Change pane", "1-4           Focus pane",
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
-					"Playback and feed actions arrive in later items.",
+					"Space toggle · s stop · n next (current episode)",
 				}, width, height, true)
 			} else {
 				modal = m.pane(m.focus, width, height)

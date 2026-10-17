@@ -4,7 +4,7 @@ A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
 Bubble Tea, SQLite, and mpv. Licensed under [MIT](LICENSE).
 
 **Status:** responsive TUI shell available. Run `podmutt` for empty panes and
-keyboard navigation; podcast browsing and playback are not connected yet.
+keyboard navigation and restored playback controls; podcast browsing is not connected yet.
 `--help` and `--version` work without creating profile files.
 
 ## Development
@@ -90,17 +90,27 @@ The four-pane layout switches to stacked podcasts/episodes/player below 100
 columns or 24 rows. Queue/details open as overlays; Esc returns to the last
 visible list. Below 30×12, resize guidance replaces the panes.
 
+Space toggles the current episode; `s` stops and `n` skips to the explicit queue's
+next episode. Selected-episode playback is tracked in #11.
+
+## Running-instance commands
+
+`podmutt play`, `pause`, `stop`, `next`, and `status` contact the running TUI.
+Only `status` prints JSON. They never start a player or create profile files when
+the TUI is absent. Exit codes: 0 success, 1 failure, 2 usage, 3 not running.
+See [private controls](docs/adr/008-running-instance-control.md).
+
 ## Storage
 
-The storage package is ready for integration: `podcasts.db` holds subscriptions,
-episodes, history, current episode, and queue. The shell does not open it yet.
+The foreground session opens `podcasts.db` for subscriptions, episodes, history,
+current episode, and queue. It restores playback without autoplay.
 Do not copy only an open database file for backup; SQLite WAL sidecars may contain
 recent writes. Backup tooling is tracked in #17.
 
 ## Player adapter
 
-The mpv adapter is ready for integration; the TUI shell still does not play
-podcasts. It uses a private inherited socketpair, not a public socket. Missing
+The playback service starts mpv lazily for the current/queued episodes. It uses
+a private inherited socketpair, separate from the application control socket. Missing
 mpv produces installation guidance. User mpv configuration/scripts are disabled.
 Run `make mpv-test MPV=/path/to/mpv` to verify resume, pause/play/stop, EOF versus
 errors, graceful shutdown, and exit after abrupt owner death. No audio device or
