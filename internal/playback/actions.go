@@ -28,10 +28,11 @@ func (e *Engine) load(ctx context.Context, id int64) error {
 		episode.PositionSeconds = e.state.Current.PositionSeconds
 	}
 	if e.player == nil {
-		e.player, err = e.factory(e.ctx)
+		created, err := e.factory(e.ctx)
 		if err != nil {
 			return e.fail(ctx, err)
 		}
+		e.player = created
 		if e.player == nil {
 			return e.fail(ctx, fmt.Errorf("playback: player factory returned nil"))
 		}

@@ -78,6 +78,7 @@ func TestConstructorAndFactoryFailures(t *testing.T) {
 	}
 	for _, factory := range []Factory{
 		func(context.Context) (Player, error) { return nil, testFailure },
+		func(context.Context) (Player, error) { var p *fakePlayer; return p, testFailure },
 		func(context.Context) (Player, error) { return nil, nil },
 	} {
 		e, err := New(background, db, factory)
