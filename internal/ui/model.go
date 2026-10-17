@@ -75,6 +75,10 @@ func (m Model) WithLibrary(data Data) Model {
 	updated, _ := m.Update(data)
 	return updated.(Model)
 }
+func (m Model) WithStatus(notice, prompt string) Model {
+	m.data.Notice, m.data.Prompt = notice, prompt
+	return m
+}
 func (m Model) WithDetails(text string) Model {
 	if text != m.data.Details {
 		m.detailScroll = 0

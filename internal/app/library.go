@@ -123,6 +123,7 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 
 func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	rebuild := false
 	switch msg := msg.(type) {
 	case libraryLoaded:
 		if msg.version != m.version {
@@ -136,6 +137,7 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.notice = msg.err.Error()
 		} else {
 			m.snapshot = msg.snapshot
+			rebuild = true
 		}
 	case libraryEdited:
 		m.mutating = false
@@ -148,6 +150,7 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.feedID, m.wantFeedID = msg.id, msg.id
 			m.newOnly = false
 			m.snapshot.Show = nil
+			rebuild = true
 			m.refresher.RefreshNow()
 		}
 		cmd = m.reload()
@@ -201,9 +204,11 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "v":
 			m.newOnly = !m.newOnly
+			rebuild = true
 			cmd = m.reload()
 		case "o":
 			m.order = (m.order + 1) % 3
+			rebuild = true
 		case "R":
 			m.notice = "Refreshing…"
 			m.refresher.RefreshNow()
@@ -214,6 +219,7 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.Model.Focus() == ui.Podcasts {
 				m.newOnly = false
+				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
 				cmd = m.reload()
 			}
@@ -223,7 +229,11 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m.delegate(msg)
 	}
-	m.renderLibrary()
+	if rebuild {
+		m.renderLibrary()
+	} else {
+		m.renderStatus()
+	}
 	return m, cmd
 }
 func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -236,8 +246,10 @@ func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Model = m.Model.Reset(ui.Episodes)
 		}
 		cmd = tea.Batch(cmd, m.reload())
+		m.renderLibrary()
+	} else {
+		m.renderDetails()
 	}
-	m.renderLibrary()
 	return m, cmd
 }
 func (m *libraryShell) appendInput(text string) {
@@ -299,20 +311,7 @@ func (m *libraryShell) renderLibrary() {
 	if m.newOnly {
 		label = "New (uncompleted)"
 	}
-	data := ui.Data{EpisodeLabel: label + " · " + m.order.String(), Notice: m.notice}
-	var errorID int64
-	var warning string
-	for id, text := range m.refreshErrors {
-		if warning == "" || id < errorID {
-			errorID, warning = id, text
-		}
-	}
-	if warning != "" {
-		data.Notice = "Refresh failed: " + warning + " · " + data.Notice
-	}
-	if m.adding {
-		data.Prompt = "URL: " + m.input
-	}
+	data := ui.Data{EpisodeLabel: label + " · " + m.order.String()}
 	for _, source := range m.snapshot.Feeds {
 		marker := "[-] "
 		if source.Subscribed {
@@ -343,6 +342,29 @@ func (m *libraryShell) renderLibrary() {
 			m.wantFeedID = 0
 		}
 	}
+	m.renderDetails()
+	m.renderStatus()
+}
+
+func (m *libraryShell) renderStatus() {
+	notice, prompt := m.notice, ""
+	var errorID int64
+	var warning string
+	for id, text := range m.refreshErrors {
+		if warning == "" || id < errorID {
+			errorID, warning = id, text
+		}
+	}
+	if warning != "" {
+		notice = "Refresh failed: " + warning + " · " + notice
+	}
+	if m.adding {
+		prompt = "URL: " + m.input
+	}
+	m.Model = m.Model.WithStatus(notice, prompt)
+}
+
+func (m *libraryShell) renderDetails() {
 	details := ""
 	if episode, ok := m.selectedEpisode(); ok {
 		show := ""
