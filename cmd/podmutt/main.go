@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"podmutt/internal/app"
 )
 
 var version = "dev"
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, func() error {
+		return app.Run(os.Stdin, os.Stdout)
+	}))
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdout, stderr io.Writer, startUI func() error) int {
 	flags := flag.NewFlagSet("podmutt", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	showVersion := flags.Bool("version", false, "print version and exit")
@@ -35,6 +39,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "podmutt", version)
 		return 0
 	}
-	fmt.Fprintln(stderr, "podmutt: TUI not implemented yet")
-	return 1
+	if err := startUI(); err != nil {
+		fmt.Fprintln(stderr, "podmutt:", err)
+		return 1
+	}
+	return 0
 }

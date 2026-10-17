@@ -87,11 +87,12 @@ superseded by the explicit streaming-only scope.
 ## Remaining engineering details
 
 - Show-discovery provider/access terms, geography, and rate limits.
-- Subscribe/mark-completed bindings and exact responsive breakpoints.
+- Subscribe/mark-completed bindings. Full layout starts at 100×24; minimum
+  terminal size is 30×12.
 - Native macOS media-key approach and its packaging/build requirements.
 - Desktop notifications and browser/file actions are not yet committed.
 - Storage driver, paths, backup policy, and release support matrix.
 - Availability of native macOS GitLab runners.
 
-CLI bootstrap, Makefile, tests, and GitLab pipeline exist. Playback and TUI
-implementation have not started.
+CLI, responsive TUI shell, profile ownership, Makefile, tests, and GitLab
+pipeline exist. Library and playback integration have not started.
