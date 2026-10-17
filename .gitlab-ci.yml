@@ -1,0 +1,67 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+stages:
+  - verify
+  - build
+
+default:
+  image: golang:1.27.2-bookworm
+  interruptible: true
+  cache:
+    key:
+      prefix: go-1.27.2-linux-amd64
+      files:
+        - go.mod
+        - go.sum
+    paths:
+      - .cache/go-build/
+      - .cache/go-mod/
+
+variables:
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
+  GOTOOLCHAIN: local
+
+verify:
+  stage: verify
+  script:
+    - make check
+  coverage: '/Total coverage: ([0-9]+\.[0-9]+)%/'
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - coverage/
+
+race:
+  stage: verify
+  script:
+    - make race
+
+build:
+  stage: build
+  script:
+    - make build VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+    - ./bin/podmutt --version
+  artifacts:
+    expire_in: 14 days
+    paths:
+      - bin/podmutt
+
+cross-build:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - make dist VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - dist/*.tar.gz
