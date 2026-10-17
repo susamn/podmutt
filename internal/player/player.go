@@ -4,6 +4,7 @@ package player
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -116,6 +117,20 @@ func (p *Player) Pause(ctx context.Context) error { return p.setPaused(ctx, true
 func (p *Player) Stop(ctx context.Context) error {
 	_, err := p.command(ctx, []any{"stop"})
 	return err
+}
+
+// EntryID identifies the replacement playlist item even before loading finishes.
+// End-file events carry this ID, allowing callers to reject stale completions.
+func (p *Player) EntryID(ctx context.Context) (int64, error) {
+	data, err := p.command(ctx, []any{"get_property", "playlist/0/id"})
+	if err != nil {
+		return 0, err
+	}
+	var id int64
+	if err := json.Unmarshal(data, &id); err != nil || id < 0 || string(data) == "null" {
+		return 0, fmt.Errorf("mpv: invalid playlist entry ID")
+	}
+	return id, nil
 }
 
 // Position returns an error while no file is loaded, rather than inventing zero.

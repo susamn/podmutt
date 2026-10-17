@@ -129,6 +129,22 @@ func (s *Store) Episodes(ctx context.Context, feedID int64) ([]Episode, error) {
 	return readEpisodes(rows)
 }
 
+// Episode looks up a stable local ID, including unsubscribed preview episodes.
+func (s *Store) Episode(ctx context.Context, id int64) (Episode, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+episodeColumns+` FROM `+episodeTables+` WHERE e.id=?`, id)
+	if err != nil {
+		return Episode{}, err
+	}
+	episodes, err := readEpisodes(rows)
+	if err != nil {
+		return Episode{}, err
+	}
+	if len(episodes) == 0 {
+		return Episode{}, sql.ErrNoRows
+	}
+	return episodes[0], nil
+}
+
 func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 	defer rows.Close()
 	var episodes []Episode

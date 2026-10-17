@@ -84,6 +84,10 @@ func TestRealMPVControlsAndEndReasons(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitEvent(t, p, "file-loaded", "")
+	entryID, err := p.EntryID(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := p.Pause(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +109,10 @@ func TestRealMPVControlsAndEndReasons(t *testing.T) {
 	if err := p.Stop(ctx); err != nil {
 		t.Fatal(err)
 	}
-	awaitEvent(t, p, "end-file", "stop")
+	stopped := awaitEvent(t, p, "end-file", "stop")
+	if stopped.PlaylistEntryID == nil || *stopped.PlaylistEntryID != entryID {
+		t.Fatalf("end-file entry ID = %v, expected %d", stopped.PlaylistEntryID, entryID)
+	}
 	if err := p.Load(ctx, silenceWAV(t, 1), 0); err != nil {
 		t.Fatal(err)
 	}

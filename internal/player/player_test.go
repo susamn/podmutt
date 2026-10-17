@@ -49,6 +49,8 @@ func TestMPVHelper(t *testing.T) {
 				result["data"] = 12.5
 				if args[1] == "mpv-version" {
 					result["data"] = "test-mpv"
+				} else if args[1] == "playlist/0/id" && mode != "bad-position" {
+					result["data"] = 7
 				} else if mode == "bad-position" {
 					result["data"] = "unknown"
 				}
@@ -89,6 +91,9 @@ func TestPlayerControlsAndClose(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if id, err := p.EntryID(ctx); err != nil || id != 7 {
+		t.Fatalf("entry ID = %v, %v", id, err)
+	}
 	if position, err := p.Position(ctx); err != nil || position != 12.5 {
 		t.Fatalf("position = %v, %v", position, err)
 	}
@@ -107,6 +112,9 @@ func TestPlayerControlsAndClose(t *testing.T) {
 		if err := p.Close(); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := p.EntryID(ctx); !errors.Is(err, ErrDisconnected) {
+		t.Fatalf("closed player entry ID: %v", err)
 	}
 	if _, err := p.Position(ctx); !errors.Is(err, ErrDisconnected) {
 		t.Fatalf("closed player command: %v", err)
@@ -134,6 +142,9 @@ func TestPlayerBadPositionAndForcedShutdown(t *testing.T) {
 	p, err := helperPlayer(t, "bad-position", time.Second)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := p.EntryID(context.Background()); err == nil {
+		t.Fatal("invalid playlist entry ID accepted")
 	}
 	if _, err := p.Position(context.Background()); err == nil {
 		t.Fatal("invalid position accepted")
