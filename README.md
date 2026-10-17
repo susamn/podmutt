@@ -34,10 +34,16 @@ make dist        # Linux/macOS amd64/arm64 archives in dist/
 - Cross-building does not prove native macOS runtime behavior. Native macOS
   media-key testing, signing, and package publication will be added separately.
 
-Repository settings to apply in GitLab: protect `main`, prohibit direct pushes,
-require successful pipelines before merge, and enable an appropriate Linux
-Docker runner. These settings are not configured by `.gitlab-ci.yml` itself.
+`main` is protected: direct pushes and force pushes are disabled, and Maintainers
+merge reviewed MRs only after a successful pipeline. Skipped pipelines do not
+satisfy the merge gate. Online project runners accept untagged Linux jobs; shared
+runners are not required. These settings live in GitLab, outside `.gitlab-ci.yml`.
 Native macOS tests will additionally need a macOS runner.
+
+Before requesting review, run `make check` and `make race`, then push the branch
+and open an MR. Check its pipeline and downloadable coverage/build artifacts.
+`make coverage COVERAGE_MIN=101` should fail and can be used to verify rejection
+without changing source or weakening the normal 90% threshold.
 
 ## Design
 
