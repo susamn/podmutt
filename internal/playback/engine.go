@@ -163,8 +163,6 @@ func (e *Engine) run(ticks <-chan time.Time, stop func()) {
 					err = player.ErrDisconnected
 				}
 				e.fail(ctx, err)
-				e.player.Close()
-				e.player = nil
 			}
 			cancel()
 			e.publish()

@@ -211,10 +211,15 @@ func (e *Engine) save(ctx context.Context, poll bool) error {
 }
 
 func (e *Engine) fail(ctx context.Context, err error) error {
+	// A timed-out/canceled request must still silence the player. Closing IPC
+	// is stronger than issuing Stop with an already-canceled context.
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), operationTimeout)
+	defer cancel()
+	err = errors.Join(err, e.save(cleanup, false))
 	if e.player != nil {
-		e.player.Stop(ctx)
+		err = errors.Join(err, e.player.Close())
+		e.player = nil
 	}
-	err = errors.Join(err, e.save(ctx, false))
 	e.active, e.ready = false, false
 	e.state.Status, e.state.Error = Failed, err.Error()
 	return err

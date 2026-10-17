@@ -423,7 +423,13 @@ func TestInvalidPositionAndDisconnectedPlayer(t *testing.T) {
 	if err := e.Pause(background); err == nil {
 		t.Fatal("invalid position accepted")
 	}
+	if p.closed != 1 {
+		t.Fatal("failure did not close the player")
+	}
 	p.setPosition(10)
+	if err := e.PlayEpisode(background, items[0].ID); err != nil {
+		t.Fatal(err)
+	}
 	close(p.events)
 	eventually(t, func() bool {
 		return state(t, e).Status == Failed && state(t, e).Error == player.ErrDisconnected.Error()
