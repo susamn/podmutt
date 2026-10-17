@@ -77,7 +77,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 		return libraryShell{}, err
 	}
 	model := libraryShell{shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
-		notice: "Cached library · refreshing", refreshErrors: make(map[int64]string)}
+		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.renderLibrary()
 	model.feedID = model.selectedFeed()
 	return model, nil
@@ -163,7 +163,7 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			delete(m.refreshErrors, msg.result.FeedID)
 		}
-		m.notice = "Refresh finished"
+		m.notice = "Refresh update"
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
 	case playbackUpdate:
 		if msg.ok {
@@ -210,8 +210,14 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.order = (m.order + 1) % 3
 			rebuild = true
 		case "R":
-			m.notice = "Refreshing…"
-			m.refresher.RefreshNow()
+			m.notice = "No subscribed feeds to refresh"
+			for _, source := range m.snapshot.Feeds {
+				if source.Subscribed {
+					m.notice = "Refreshing…"
+					m.refresher.RefreshNow()
+					break
+				}
+			}
 		case "u":
 			cmd = m.subscribe()
 		case "c":

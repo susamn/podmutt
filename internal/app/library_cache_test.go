@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestEmptyLibraryRefreshIsNotPerpetuallyBusy(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, err := newLibrary(s, feed.New(s.store, nil, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.notice != "Cached library" {
+			t.Fatal("empty library claims an active refresh")
+		}
+		libraryKey(&m, 'R')
+		if m.notice != "No subscribed feeds to refresh" {
+			t.Fatal(m.notice)
+		}
+		libraryKey(&m, 'u')
+		if m.mutating {
+			t.Fatal("empty library dispatched subscription")
+		}
+		libraryKey(&m, 'c')
+		if m.mutating {
+			t.Fatal("empty library dispatched completion")
+		}
+	})
+}
+
 func TestNavigationAndInputReuseCachedRows(t *testing.T) {
 	librarySession(t, func(s *session) {
 		seededLibrary(t, s)
