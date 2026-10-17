@@ -44,12 +44,17 @@ func Start(ctx context.Context, path string) (*Player, error) {
 }
 
 func launch(ctx context.Context, cmd *exec.Cmd, timeout time.Duration) (*Player, error) {
+	// Prevent another Go exec from inheriting either endpoint before CLOEXEC.
+	syscall.ForkLock.RLock()
 	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	if err == nil {
+		for _, fd := range fds {
+			syscall.CloseOnExec(fd)
+		}
+	}
+	syscall.ForkLock.RUnlock()
 	if err != nil {
 		return nil, err
-	}
-	for _, fd := range fds {
-		syscall.CloseOnExec(fd)
 	}
 	parent, child := os.NewFile(uintptr(fds[0]), "mpv-parent"), os.NewFile(uintptr(fds[1]), "mpv-child")
 	defer parent.Close()

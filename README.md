@@ -14,6 +14,7 @@ require a separately installed mpv; no Go toolchain is needed for release users.
 ```sh
 make check       # formatting, module consistency, vet, tests, >=90% coverage
 make race        # native race-detector tests
+make mpv-test    # real-mpv lifecycle/playback tests, null audio; requires mpv
 make build       # bin/podmutt
 make dist        # Linux/macOS amd64/arm64 archives in dist/
 ```
@@ -49,6 +50,7 @@ without changing source or weakening the normal 90% threshold.
 
 - [V1 scope](docs/spec-v1.md)
 - [Foreground lifecycle ADR](docs/adr/001-foreground-lifecycle.md)
+- [mpv ownership ADR](docs/adr/004-mpv-ownership.md)
 
 ## Configuration and profile
 
@@ -71,3 +73,13 @@ Linux configuration lives at `~/.config/podmutt/config.toml`, state at
 `$XDG_RUNTIME_DIR/podmutt` or a private subdirectory of state. macOS uses
 `~/Library/Application Support/podmutt/config.toml` with state beside it and a
 private `run` directory. See [profile paths and ownership](docs/adr/002-profile-paths.md).
+
+## Player adapter
+
+The mpv adapter is ready for integration; the CLI bootstrap still does not play
+podcasts. It uses a private inherited socketpair, not a public socket. Missing
+mpv produces installation guidance. User mpv configuration/scripts are disabled.
+Run `make mpv-test MPV=/path/to/mpv` to verify resume, pause/play/stop, EOF versus
+errors, graceful shutdown, and exit after abrupt owner death. No audio device or
+network podcast is needed. Linux CI runs these checks; native macOS validation
+still needs a macOS host.
