@@ -49,3 +49,25 @@ without changing source or weakening the normal 90% threshold.
 
 - [V1 scope](docs/spec-v1.md)
 - [Foreground lifecycle ADR](docs/adr/001-foreground-lifecycle.md)
+
+## Configuration and profile
+
+The profile package is ready for the future TUI; the bootstrap does not yet load
+configuration or own a running profile. An absent `config.toml` uses these defaults:
+
+```toml
+refresh_minutes = 30
+mpv_path = "mpv"
+telemetry = false
+```
+
+Refresh intervals must be positive whole minutes. `mpv_path` is a nonempty
+executable name or path. Telemetry is unsupported; enabling it is rejected.
+Malformed TOML and unknown keys are errors. Configuration files are never
+rewritten automatically.
+
+Linux configuration lives at `~/.config/podmutt/config.toml`, state at
+`~/.local/state/podmutt`; absolute XDG overrides are honored. Runtime files use
+`$XDG_RUNTIME_DIR/podmutt` or a private subdirectory of state. macOS uses
+`~/Library/Application Support/podmutt/config.toml` with state beside it and a
+private `run` directory. See [profile paths and ownership](docs/adr/002-profile-paths.md).
