@@ -77,8 +77,8 @@ superseded by the explicit streaming-only scope.
   Playing metadata beyond what media-key integration needs is not yet committed.
 - License: MIT.
 - TOML configuration; no telemetry by default; redact secrets from logs.
-- Makefile, GitLab CI, automated tests and >=90% statement coverage target.
-  Exact coverage scope and native platform CI availability remain open.
+- Makefile, GitLab CI, automated tests and >=90% aggregate first-party statement
+  coverage, including command code. Native macOS CI availability remains open.
 - Desired distribution: binaries, source, Homebrew, AUR, Nix. Architecture,
   compatibility, packaging ownership, and signing matrix remain open.
 - Database migrations, backups/export, and Linux/macOS testing are desired;
@@ -91,6 +91,7 @@ superseded by the explicit streaming-only scope.
 - Native macOS media-key approach and its packaging/build requirements.
 - Desktop notifications and browser/file actions are not yet committed.
 - Storage driver, paths, backup policy, and release support matrix.
-- Coverage scope and availability of native GitLab runners.
+- Availability of native macOS GitLab runners.
 
-No executable, Makefile, tests, or CI pipeline exists yet.
+CLI bootstrap, Makefile, tests, and GitLab pipeline exist. Playback and TUI
+implementation have not started.
