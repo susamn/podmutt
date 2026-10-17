@@ -62,6 +62,11 @@ superseded by the explicit streaming-only scope.
   duplicated logic or speculative abstraction frameworks.
 - Prefer Go standard library; justify necessary third-party dependencies.
 - One executable with TUI and CLI commands; separate mpv runtime dependency.
+  On launch, detect missing mpv and prompt the user to install it with appropriate
+  instructions; do not silently install software or request elevated privileges.
+- Linux MPRIS/media-key integration is required in v1. macOS integration scope
+  remains to be clarified.
+- License: MIT.
 - TOML configuration; no telemetry by default; redact secrets from logs.
 - Makefile, GitLab CI, automated tests and >=90% statement coverage target.
   Exact coverage scope and native platform CI availability remain open.
@@ -74,12 +79,12 @@ superseded by the explicit streaming-only scope.
 
 1. Search: cached episodes vs arbitrary internet-wide episode text search;
    provider/access terms, credentials, geography, and rate limits.
-2. External mpv installation and real spectrum source; optional dependencies.
+2. Real spectrum source, release requirement, and optional dependencies.
 3. Space behavior, Enter behavior, subscribe/complete actions, compact navigation.
 4. Queue duplicates/direct-play semantics; startup resume without autoplay;
    refresh interval, sort choices, and cursor stability during refresh.
-5. Linux media keys/MPRIS, macOS Now Playing/media keys, notifications, and
-   browser/file actions: which are launch requirements?
-6. Storage driver, paths, backup policy; license; release support matrix.
+5. macOS Now Playing/media keys, notifications, and browser/file actions:
+   which are launch requirements?
+6. Storage driver, paths, backup policy; release support matrix.
 
 No executable, Makefile, tests, or CI pipeline exists yet.
