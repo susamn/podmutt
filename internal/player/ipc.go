@@ -15,12 +15,13 @@ var ErrDisconnected = errors.New("mpv: IPC disconnected")
 var ErrEventOverflow = errors.New("mpv: event consumer fell behind")
 
 type Event struct {
-	Name      string          `json:"event"`
-	Property  string          `json:"name"`
-	Data      json.RawMessage `json:"data"`
-	Reason    string          `json:"reason"`
-	Error     string          `json:"error"`
-	FileError json.RawMessage `json:"file_error"`
+	PlaylistEntryID *int64          `json:"playlist_entry_id"`
+	Name            string          `json:"event"`
+	Property        string          `json:"name"`
+	Data            json.RawMessage `json:"data"`
+	Reason          string          `json:"reason"`
+	Error           string          `json:"error"`
+	FileError       json.RawMessage `json:"file_error"`
 }
 
 type reply struct {
