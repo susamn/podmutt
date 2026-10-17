@@ -46,6 +46,13 @@ race:
   script:
     - make race
 
+mpv-integration:
+  stage: verify
+  script:
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends mpv
+    - make mpv-test
+
 build:
   stage: build
   script:
