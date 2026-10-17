@@ -102,6 +102,9 @@ func (m Model) View() tea.View {
 				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, available-top), m.pane(Details, m.width-left, available-top)))
 		}
 		hints := "hjkl navigate · Tab/1-4 panes · / filter · ? help · q quit"
+		if m.compact() && m.focus >= Queue {
+			hints = "Esc return · j/k select · / filter · ? help · q quit"
+		}
 		if m.editing {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
