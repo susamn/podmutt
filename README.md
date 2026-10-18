@@ -3,8 +3,8 @@
 A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
 Bubble Tea, SQLite, and mpv. Licensed under [MIT](LICENSE).
 
-**Status:** responsive TUI shell available. Run `podmutt` for empty panes and
-keyboard navigation and restored playback controls; podcast browsing is not connected yet.
+**Status:** cached podcast browsing, feed refresh, and running-instance playback
+controls are available. Selected-episode playback/queue UI is tracked in #11.
 `--help` and `--version` work without creating profile files.
 
 ## Development
@@ -89,6 +89,14 @@ while typing a filter.
 The four-pane layout switches to stacked podcasts/episodes/player below 100
 columns or 24 rows. Queue/details open as overlays; Esc returns to the last
 visible list. Below 30×12, resize guidance replaces the panes.
+
+`N` adds a public RSS/Atom feed URL. Enter on a show opens its episodes; `v`
+switches Show/New (uncompleted subscribed episodes), and `o` cycles newest,
+oldest, and title ordering. `u` toggles the selected show's subscription; `c`
+toggles completion in the episode pane. `R` refreshes manually. Cached content
+opens before background refresh; unsubscribed shows remain available as previews.
+`[+]`/`[-]` indicate subscription, `[x]` indicates completion. PgUp/PgDn scroll
+details. See [library UI policy](docs/adr/009-library-ui.md).
 
 Space toggles the current episode; `s` stops and `n` skips to the explicit queue's
 next episode. Selected-episode playback is tracked in #11.

@@ -2,9 +2,7 @@ package feed
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -22,14 +20,17 @@ type Repository interface {
 	UpsertEpisodes(context.Context, int64, []store.Episode) error
 	UpsertFeed(context.Context, store.Feed) (int64, error)
 }
-
 type Result struct {
 	FeedID       int64
 	EpisodeCount int // parsed episodes, not a count of newly discovered episodes
 	NotModified  bool
 	Error        error
 }
-
+type Fetched struct {
+	Document           Document
+	ETag, LastModified string
+	NotModified        bool
+}
 type Refresher struct {
 	repo     Repository
 	client   *http.Client
@@ -38,7 +39,7 @@ type Refresher struct {
 	trigger  chan struct{}
 	started  atomic.Bool
 	mu       sync.Mutex
-	flights  map[int64]chan struct{}
+	flights  map[string]chan struct{}
 }
 
 // New copies the HTTP client before adding redirect policy. Zero/negative
@@ -64,14 +65,12 @@ func New(repo Repository, client *http.Client, interval time.Duration) *Refreshe
 	if interval <= 0 {
 		interval = 30 * time.Minute
 	}
-	return &Refresher{repo: repo, client: &copyClient, interval: interval, slots: make(chan struct{}, parallelism),
-		trigger: make(chan struct{}, 1), flights: make(map[int64]chan struct{})}
+	return &Refresher{repo: repo, client: &copyClient, interval: interval, slots: make(chan struct{}, parallelism), trigger: make(chan struct{}, 1), flights: make(map[string]chan struct{})}
 }
-
-func (r *Refresher) acquire(ctx context.Context, id int64) (func(), error) {
+func (r *Refresher) acquire(ctx context.Context, key string) (func(), error) {
 	for {
 		r.mu.Lock()
-		if flight, exists := r.flights[id]; exists {
+		if flight, exists := r.flights[key]; exists {
 			r.mu.Unlock()
 			select {
 			case <-flight:
@@ -81,105 +80,67 @@ func (r *Refresher) acquire(ctx context.Context, id int64) (func(), error) {
 			}
 		}
 		flight := make(chan struct{})
-		r.flights[id] = flight
+		r.flights[key] = flight
 		r.mu.Unlock()
-		return func() { r.mu.Lock(); delete(r.flights, id); close(flight); r.mu.Unlock() }, nil
+		return func() { r.mu.Lock(); delete(r.flights, key); close(flight); r.mu.Unlock() }, nil
 	}
 }
-
-// Refresh fetches one stored feed. The slot and per-feed lock are cancellable.
-// Feed metadata/cache validators are committed only after all episodes succeed.
-func (r *Refresher) Refresh(ctx context.Context, feed store.Feed) (result Result) {
-	result.FeedID = feed.ID
-	if feed.ID <= 0 {
-		result.Error = fmt.Errorf("feed must be stored before refresh")
-		return
-	}
+func (r *Refresher) withFeed(ctx context.Context, feed store.Feed, action func(context.Context) error) error {
 	if _, err := httpurl.Parse(feed.URL); err != nil {
-		result.Error = err
-		return
+		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	release, err := r.acquire(ctx, feed.ID)
+	release, err := r.acquire(ctx, feed.URL)
 	if err != nil {
-		result.Error = err
-		return
+		return err
 	}
 	defer release()
 	select {
 	case r.slots <- struct{}{}:
 		defer func() { <-r.slots }()
 	case <-ctx.Done():
-		result.Error = ctx.Err()
+		return ctx.Err()
+	}
+	return action(ctx)
+}
+
+// Fetch reads without persistence, sharing refresh's transport, limits and locks.
+// Use it to validate an add/preview before creating a stored subscription.
+func (r *Refresher) Fetch(ctx context.Context, source store.Feed) (Fetched, error) {
+	var result Fetched
+	err := r.withFeed(ctx, source, func(ctx context.Context) error {
+		var err error
+		result, err = r.fetch(ctx, source)
+		return err
+	})
+	return result, err
+}
+
+// Refresh commits episode data before metadata/cache validators. The per-feed
+// lock remains held through persistence, not merely the HTTP request.
+func (r *Refresher) Refresh(ctx context.Context, source store.Feed) (result Result) {
+	result.FeedID = source.ID
+	if source.ID <= 0 {
+		result.Error = fmt.Errorf("feed must be stored before refresh")
 		return
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, feed.URL, nil)
-	if err != nil {
-		result.Error = fmt.Errorf("invalid feed request")
-		return
-	}
-	req.Header.Set("User-Agent", "podmutt/dev")
-	if feed.ETag != "" {
-		req.Header.Set("If-None-Match", feed.ETag)
-	}
-	if feed.LastModified != "" {
-		req.Header.Set("If-Modified-Since", feed.LastModified)
-	}
-	response, err := r.client.Do(req)
-	if err != nil {
-		result.Error = fmt.Errorf("feed request failed (network, TLS, or redirect error)")
-		if errors.Is(err, context.Canceled) {
-			result.Error = context.Canceled
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			result.Error = context.DeadlineExceeded
-		}
-		return
-	}
-	defer response.Body.Close()
-	switch response.StatusCode {
-	case http.StatusNotModified:
-		if feed.ETag == "" && feed.LastModified == "" {
-			result.Error = fmt.Errorf("unexpected 304 without cached validators")
-			return
-		}
-		result.NotModified = true
-		feed.ETag = first(response.Header.Get("ETag"), feed.ETag)
-		feed.LastModified = first(response.Header.Get("Last-Modified"), feed.LastModified)
-	case http.StatusOK:
-		if response.ContentLength > MaxBytes {
-			result.Error = fmt.Errorf("feed response too large")
-			return
-		}
-		data, err := io.ReadAll(io.LimitReader(response.Body, MaxBytes+1))
+	result.Error = r.withFeed(ctx, source, func(ctx context.Context) error {
+		fetched, err := r.fetch(ctx, source)
 		if err != nil {
-			result.Error = fmt.Errorf("feed response read failed")
-			if ctx.Err() != nil {
-				result.Error = ctx.Err()
+			return err
+		}
+		result.NotModified = fetched.NotModified
+		if !fetched.NotModified {
+			if err := r.repo.UpsertEpisodes(ctx, source.ID, fetched.Document.Episodes); err != nil {
+				return err
 			}
-			return
+			result.EpisodeCount = len(fetched.Document.Episodes)
+			source.Title, source.ArtworkURL = fetched.Document.Title, fetched.Document.ArtworkURL
 		}
-		finalURL := req.URL.String()
-		if response.Request != nil && response.Request.URL != nil {
-			finalURL = response.Request.URL.String()
-		}
-		doc, err := Parse(data, finalURL)
-		if err != nil {
-			result.Error = err
-			return
-		}
-		if err := r.repo.UpsertEpisodes(ctx, feed.ID, doc.Episodes); err != nil {
-			result.Error = err
-			return
-		}
-		result.EpisodeCount = len(doc.Episodes)
-		feed.Title, feed.ArtworkURL = doc.Title, doc.ArtworkURL
-		// A 200 without validators clears old ones, unlike a 304.
-		feed.ETag, feed.LastModified = response.Header.Get("ETag"), response.Header.Get("Last-Modified")
-	default:
-		result.Error = fmt.Errorf("feed request returned HTTP %d", response.StatusCode)
-		return
-	}
-	_, result.Error = r.repo.UpsertFeed(ctx, feed)
+		source.ETag, source.LastModified = fetched.ETag, fetched.LastModified
+		_, err = r.repo.UpsertFeed(ctx, source)
+		return err
+	})
 	return
 }
