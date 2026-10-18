@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -15,6 +16,9 @@ import (
 type Player struct {
 	Status, Title, Position, Duration string
 	Error, Warning                    string
+	PositionSeconds, DurationSeconds  float64
+	ClockAt                           time.Time
+	Remaining                         string
 	Progress                          float64
 	HasCurrent                        bool
 	CanNext                           bool
@@ -42,7 +46,7 @@ func (m Model) activatePlayer() tea.Cmd {
 	return m.actions(command)
 }
 func (m Model) playerPane(width, height int) string {
-	player := m.data.Player
+	player := m.displayPlayer()
 	status := player.Status
 	if status == "" {
 		status = "stopped"
@@ -109,6 +113,9 @@ func progressLine(player Player, width int) string {
 		duration = "--:--"
 	}
 	stamp := clean(position+" / "+duration, false)
+	if player.Remaining != "" {
+		stamp += " · -" + clean(player.Remaining, false)
+	}
 	cells := min(40, width-ansi.StringWidth(stamp)-3)
 	if cells < 3 {
 		return ansi.Truncate(stamp, max(0, width), "…")
@@ -119,7 +126,18 @@ func progressLine(player Player, width int) string {
 	}
 	progress = max(0, min(1, progress))
 	filled := int(progress * float64(cells))
-	return fmt.Sprintf("%s [%s%s]", stamp, strings.Repeat("=", filled), strings.Repeat("-", cells-filled))
+	partial := ""
+	if filled < cells {
+		fraction := int((progress*float64(cells) - float64(filled)) * 8)
+		if fraction > 0 {
+			partial = []string{"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"}[fraction]
+		}
+	}
+	empty := cells - filled
+	if partial != "" {
+		empty--
+	}
+	return fmt.Sprintf("%s [%s%s%s]", stamp, strings.Repeat("█", filled), partial, strings.Repeat("░", empty))
 }
 
 // compactHeights reserves a persistent player; at the minimum terminal size,

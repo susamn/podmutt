@@ -28,6 +28,7 @@ const (
 )
 
 type State struct {
+	ClockAt time.Time // last moving position anchor; queue-only updates preserve it
 	Current *store.Episode
 	Queue   []store.Episode
 	Status  Status
@@ -78,6 +79,7 @@ type Engine struct {
 	player       Player
 	playerCancel context.CancelFunc
 	state        State
+	clock        positionClock
 	entryID      int64
 	seenID       int64
 	seen         bool
@@ -222,6 +224,7 @@ func (e *Engine) snapshot() State {
 }
 
 func (e *Engine) publish() {
+	e.anchorPosition()
 	offer(e.updates, e.snapshot())
 	e.publishWatchers()
 }

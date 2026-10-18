@@ -51,7 +51,7 @@ type shell struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithAnimation(s.ctx, nil).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
 			if command == "toggle" {
@@ -87,6 +87,9 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0}
 		if episode := msg.state.Current; episode != nil {
 			player.HasCurrent = true
+			player.PositionSeconds = episode.PositionSeconds
+			player.DurationSeconds = float64(episode.DurationSeconds)
+			player.ClockAt = msg.state.ClockAt
 			player.Title = library.PlainText(episode.Title)
 			player.Position = clock(episode.PositionSeconds)
 			if episode.DurationSeconds > 0 {
@@ -105,12 +108,16 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Model = m.Model.WithPlayback(queue, player)
 		var animation tea.Cmd
 		m.Model, animation = m.Model.SyncAnimation()
-		return m, tea.Batch(m.wait(), animation)
+		var progress tea.Cmd
+		m.Model, progress = m.Model.SyncProgress()
+		return m, tea.Batch(m.wait(), animation, progress)
 	case actionError:
 		m.Model = m.Model.WithPlayerError(msg.Error())
 		return m, nil
 	}
 	updated, cmd := m.Model.Update(msg)
 	m.Model = updated.(ui.Model)
-	return m, cmd
+	var progress tea.Cmd
+	m.Model, progress = m.Model.SyncProgress()
+	return m, tea.Batch(cmd, progress)
 }

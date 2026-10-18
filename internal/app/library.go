@@ -102,6 +102,9 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	}
 	updated, _ := model.shell.Update(playbackUpdate{state, true})
 	model.shell = updated.(shell)
+	// Constructor discards commands; arm presentation timers from Init messages,
+	// not from the synthetic initial snapshot.
+	model.Model = model.Model.WithProgress(s.ctx, nil, nil)
 	model.feedID = model.selectedFeed()
 	return model, nil
 }
@@ -154,8 +157,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if updated, ok := result.(libraryShell); ok {
 			var cmd tea.Cmd
 			updated, cmd = updated.syncArt()
+			var progress tea.Cmd
+			updated.Model, progress = updated.Model.SyncProgress()
 			result = updated
-			command = tea.Batch(command, cmd)
+			command = tea.Batch(command, cmd, progress)
 		}
 	}()
 	var cmd tea.Cmd
