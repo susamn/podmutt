@@ -76,7 +76,11 @@ func (m Model) pane(panel Panel, width, height int) string {
 			rows = append(rows, prefix+clean(items[i].Title, false))
 		}
 		if len(items) == 0 {
-			rows = append(rows, "No items")
+			empty := "No items"
+			if panel == Podcasts && m.data.PodcastEmpty != "" {
+				empty = clean(m.data.PodcastEmpty, false)
+			}
+			rows = append(rows, empty)
 		}
 	}
 	title := titles[panel]
