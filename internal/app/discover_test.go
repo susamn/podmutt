@@ -82,14 +82,10 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 		if err != nil || len(feeds) != 0 {
 			t.Fatal("preview persisted a subscription", err)
 		}
-		for _, key := range []rune{'a', 'A', 'c'} {
-			if cmd := libraryKey(&m, key); cmd != nil {
-				t.Fatal("preview dispatched a mutation", key)
-			}
+		if cmd := libraryKey(&m, 'c'); cmd != nil {
+			t.Fatal("preview completion mutated history")
 		}
-		if cmd := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}); cmd != nil {
-			t.Fatal("preview started playback")
-		}
+		// Browsing remains read-only. Explicit Space/a/A are covered separately.
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		if !strings.Contains(m.View().Content, "Inspect before subscribing") || !strings.Contains(m.View().Content, "https://podcasts.apple.com/show") {
 			t.Fatal("preview details/source hidden")
