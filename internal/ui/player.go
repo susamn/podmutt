@@ -52,16 +52,29 @@ func (m Model) playerPane(width, height int) string {
 	if status == "" {
 		status = "stopped"
 	}
+	pal := m.Theme()
+	glyph := "■"
+	glyphColor := pal.BrightRed
+	switch status {
+	case "playing":
+		glyph = "▶"
+		glyphColor = pal.BrightGreen
+	case "paused":
+		glyph = "⏸"
+		glyphColor = pal.BrightYellow
+	}
+	glyphStr := lipgloss.NewStyle().Foreground(lipgloss.Color(string(glyphColor))).Render(glyph)
+
 	title := clean(player.Title, false)
 	if title == "" {
 		title = "No episode selected"
 	} else if player.Channel != "" {
-		chanColor := lipgloss.Color(string(m.Theme().ChannelColor(player.Channel)))
+		chanColor := lipgloss.Color(string(pal.ChannelColor(player.Channel)))
 		title += " · " + lipgloss.NewStyle().Foreground(chanColor).Render(player.Channel)
 	}
-	summary := m.Icon(stateIcon(status), status) + " · " + title
+	summary := glyphStr + " " + status + " · " + title
 	if player.Error != "" {
-		summary = m.Icon(stateIcon(status), status) + " · " + clean(player.Error, false)
+		summary = glyphStr + " " + status + " · " + clean(player.Error, false)
 	}
 	capacity := max(0, height-3)
 	rows := []string{summary}
@@ -74,7 +87,7 @@ func (m Model) playerPane(width, height int) string {
 	}
 	if extra > 0 {
 		if player.Error == "" {
-			rows[0] = m.Icon(stateIcon(status), status)
+			rows[0] = glyphStr + " " + status
 		}
 		rows = append(rows, title)
 		extra--
@@ -94,7 +107,7 @@ func (m Model) playerPane(width, height int) string {
 		extra--
 	}
 	if capacity >= 3 {
-		rows = append(rows, progressLine(player, max(0, width-2)))
+		rows = append(rows, m.progressLine(player, max(0, width-2)))
 	}
 	var buttons []string
 	for i := 0; i < 3; i++ {
@@ -112,7 +125,8 @@ func (m Model) playerPane(width, height int) string {
 	}
 	return m.box(m.Icon(stateIcon(status), "Player"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
-func progressLine(player Player, width int) string {
+
+func (m Model) progressLine(player Player, width int) string {
 	position, duration := player.Position, player.Duration
 	if position == "" {
 		position = "0:00"
@@ -124,8 +138,8 @@ func progressLine(player Player, width int) string {
 	if player.Remaining != "" {
 		stamp += " · -" + clean(player.Remaining, false)
 	}
-	cells := min(40, width-ansi.StringWidth(stamp)-3)
-	if cells < 3 {
+	cells := min(40, width-ansi.StringWidth(stamp)-5)
+	if cells < 4 {
 		return ansi.Truncate(stamp, max(0, width), "…")
 	}
 	progress := player.Progress
@@ -145,7 +159,15 @@ func progressLine(player Player, width int) string {
 	if partial != "" {
 		empty--
 	}
-	return fmt.Sprintf("%s [%s%s%s]", stamp, strings.Repeat("█", filled), partial, strings.Repeat("░", empty))
+
+	pal := m.Theme()
+	barText := strings.Repeat("█", filled) + partial + strings.Repeat("░", empty)
+	cyanBar := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(barText)
+	return fmt.Sprintf("%s [[%s]]", stamp, cyanBar)
+}
+
+func progressLine(player Player, width int) string {
+	return Model{}.progressLine(player, width)
 }
 
 // compactHeights reserves a persistent player; at the minimum terminal size,

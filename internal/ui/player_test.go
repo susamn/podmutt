@@ -193,3 +193,27 @@ func TestPlayerFormattingBoundsAndErrorPriority(t *testing.T) {
 		t.Fatal("short player hid controls")
 	}
 }
+
+func TestMPDTUIPlayerStyleAndGlyphs(t *testing.T) {
+	for _, tc := range []struct {
+		status    string
+		wantGlyph string
+	}{
+		{"playing", "▶"},
+		{"paused", "⏸"},
+		{"stopped", "■"},
+		{"failed", "■"},
+	} {
+		m := New(Data{Player: Player{Status: tc.status, HasCurrent: true, Title: "Test Song", Channel: "Podcast Channel", Position: "01:23", Duration: "04:56", Progress: 0.5}})
+		pane := ansi.Strip(m.playerPane(80, 8))
+		if !strings.Contains(pane, tc.wantGlyph) {
+			t.Fatalf("expected glyph %q in status %q, got: %s", tc.wantGlyph, tc.status, pane)
+		}
+		if !strings.Contains(pane, "Test Song · Podcast Channel") {
+			t.Fatalf("expected track and channel in: %s", pane)
+		}
+		if !strings.Contains(pane, "[[") || !strings.Contains(pane, "]]") {
+			t.Fatalf("expected bracketed progress bar in: %s", pane)
+		}
+	}
+}
