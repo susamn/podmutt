@@ -198,7 +198,7 @@ func (m Model) View() tea.View {
 					"Queue: Enter play/promote · j/k select",
 					"Pending: J/K move · d remove · D clear (confirm)",
 					"b My subscriptions / Apple Discover",
-					"f Search podcasts · Tab library/Apple scope",
+					"f Search · Tab library/Apple/Podcast Index",
 					"U RSS/website preview · t Apple US top 25",
 					"N add/subscribe · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
