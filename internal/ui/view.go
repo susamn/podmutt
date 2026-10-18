@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-var titles = [4]string{"1 Podcasts", "2 Episodes", "3 Queue", "4 Details"}
+var titles = [4]string{"Podcasts", "Episodes", "Queue", "Details"}
 
 // clean removes terminal escapes and control characters from untrusted metadata.
 func clean(text string, multiline bool) string {
@@ -101,25 +101,139 @@ func (m Model) pane(panel Panel, width, height int) string {
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
 	}
-	return m.box(title, rows, width, height, panel == m.focus)
+	tag := fmt.Sprintf("[%d]", panel+1)
+	extraTag := ""
+	if panel == Queue {
+		extraTag = m.Version()
+	}
+	return m.box(title, rows, width, height, panel == m.focus, tag, extraTag)
 }
 
-func (m Model) box(title string, rows []string, width, height int, focused bool) string {
-	innerWidth, innerHeight := max(0, width-2), max(0, height-2)
-	content := []string{lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, innerWidth, "…"))}
-	for _, row := range rows {
-		if len(content) >= innerHeight {
-			break
-		}
-		content = append(content, ansi.Truncate(row, innerWidth, "…"))
+func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {
+	if width <= 0 || height <= 0 {
+		return ""
 	}
 	pal := m.Theme()
-	color := string(pal.Muted)
+	borderColor := string(pal.Muted)
 	if focused {
-		color = string(pal.Accent)
+		borderColor = string(pal.Accent)
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color)).
-		Width(width).Height(height).MaxWidth(width).MaxHeight(height).Render(strings.Join(content, "\n"))
+	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(borderColor))
+
+	topLine := m.boxTop(title, tag, extraTag, width, focused)
+	if height == 1 {
+		return topLine
+	}
+
+	innerWidth := max(0, width-2)
+	innerHeight := max(0, height-2)
+
+	var lines []string
+	lines = append(lines, topLine)
+
+	leftBorder := borderStyle.Render("│")
+	rightBorder := borderStyle.Render("│")
+
+	for i := 0; i < innerHeight; i++ {
+		if width == 1 {
+			lines = append(lines, leftBorder)
+			continue
+		}
+		rowText := ""
+		if i < len(rows) {
+			rowText = ansi.Truncate(rows[i], innerWidth, "…")
+		}
+		pad := max(0, innerWidth-ansi.StringWidth(rowText))
+		lines = append(lines, leftBorder+rowText+strings.Repeat(" ", pad)+rightBorder)
+	}
+
+	bottomLine := borderStyle.Render("╰" + strings.Repeat("─", innerWidth) + "╯")
+	if width == 1 {
+		bottomLine = borderStyle.Render("╰")
+	}
+	lines = append(lines, bottomLine)
+
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) boxTop(title, tag, extraTag string, width int, focused bool) string {
+	if width <= 0 {
+		return ""
+	}
+	pal := m.Theme()
+	borderColor := string(pal.Muted)
+	if focused {
+		borderColor = string(pal.Accent)
+	}
+	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(borderColor))
+
+	if width < 8 {
+		if width == 1 {
+			return borderStyle.Render("╭")
+		}
+		if width == 2 {
+			return borderStyle.Render("╭╮")
+		}
+		return borderStyle.Render("╭" + strings.Repeat("─", width-2) + "╮")
+	}
+
+	leftCorner := "╭"
+	rightCorner := "╮"
+	prefix := "──"
+
+	rightFurniture := ""
+	if tag != "" {
+		rightFurniture = tag + "─"
+	}
+	if extraTag != "" && width >= 30 {
+		if rightFurniture != "" {
+			rightFurniture = tag + "──" + extraTag + "─"
+		} else {
+			rightFurniture = extraTag + "─"
+		}
+	}
+
+	innerWidth := width - 2
+	fixedRightLen := ansi.StringWidth(rightFurniture)
+	availForTitle := max(0, innerWidth-fixedRightLen-ansi.StringWidth(prefix))
+
+	truncatedTitle := ansi.Truncate(title, availForTitle, "…")
+	leftSideLen := ansi.StringWidth(prefix) + ansi.StringWidth(truncatedTitle)
+	fillLen := max(0, innerWidth-leftSideLen-fixedRightLen)
+
+	titleStyle := lipgloss.NewStyle().Bold(true)
+	if focused {
+		titleStyle = titleStyle.Foreground(lipgloss.Color(string(pal.Accent)))
+	}
+
+	tagStyle := lipgloss.NewStyle()
+	if focused {
+		tagStyle = tagStyle.Foreground(lipgloss.Color(string(pal.Accent)))
+	} else {
+		tagStyle = tagStyle.Foreground(lipgloss.Color(string(pal.Muted)))
+	}
+
+	var sb strings.Builder
+	sb.WriteString(borderStyle.Render(leftCorner))
+	sb.WriteString(borderStyle.Render(prefix))
+	sb.WriteString(titleStyle.Render(truncatedTitle))
+	if fillLen > 0 {
+		sb.WriteString(borderStyle.Render(strings.Repeat("─", fillLen)))
+	}
+	if rightFurniture != "" {
+		if tag != "" {
+			sb.WriteString(tagStyle.Render(tag))
+			if extraTag != "" && width >= 30 {
+				sb.WriteString(borderStyle.Render("──"))
+				sb.WriteString(borderStyle.Render(extraTag))
+			}
+			sb.WriteString(borderStyle.Render("─"))
+		} else {
+			sb.WriteString(borderStyle.Render(rightFurniture))
+		}
+	}
+	sb.WriteString(borderStyle.Render(rightCorner))
+	return sb.String()
 }
 
 func (m Model) View() tea.View {
@@ -195,10 +309,10 @@ func (m Model) View() tea.View {
 				dialog := m.data.Dialog
 				rows := strings.Split(ansi.Wrap(clean(dialog.Body, true), max(1, width-2), ""), "\n")
 				rows = append(rows, clean(dialog.Hint, false))
-				modal = m.box(clean(dialog.Title, false), rows, width, height, true)
+				modal = m.box(clean(dialog.Title, false), rows, width, height, true, "", "")
 			} else if m.data.Prompt != "" {
 				height = min(7, m.height-2)
-				modal = m.box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
+				modal = m.box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true, "", "")
 			} else if m.settings {
 				height = min(20, m.height-2)
 				width = min(64, m.width-4)
@@ -232,7 +346,7 @@ func (m Model) View() tea.View {
 				if m.settingsData.MPVPath != "" {
 					rows = append(rows, "  MPV:         "+clean(m.settingsData.MPVPath, false))
 				}
-				modal = m.box("Settings · e / Esc to close", rows, width, height, true)
+				modal = m.box("Settings · e / Esc to close", rows, width, height, true, "", "")
 			} else if m.help {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
@@ -251,7 +365,7 @@ func (m Model) View() tea.View {
 					"N add/subscribe · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
-				}, width, height, true)
+				}, width, height, true, "", "")
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
 				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((m.height-height)/2).Z(1)).Render()

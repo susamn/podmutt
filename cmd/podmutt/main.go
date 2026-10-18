@@ -15,6 +15,7 @@ import (
 var version = "dev"
 
 func main() {
+	app.SetVersion(version)
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, func() error {
 		return macmedia.Run(func() error { return app.Run(os.Stdin, os.Stdout) })
 	}, app.Command))

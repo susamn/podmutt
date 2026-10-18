@@ -45,6 +45,7 @@ type SettingsData struct {
 }
 
 type Model struct {
+	version       string
 	theme         theme.Palette
 	settings      bool
 	settingsData  SettingsData
@@ -70,6 +71,13 @@ type Model struct {
 func New(data Data) Model     { return Model{data: data} }
 func (m Model) Init() tea.Cmd { return nil }
 
+func (m Model) WithVersion(v string) Model { m.version = v; return m }
+func (m Model) Version() string {
+	if m.version == "" {
+		return "dev"
+	}
+	return m.version
+}
 func (m Model) WithTheme(p theme.Palette) Model { m.theme = p; return m }
 func (m Model) Theme() theme.Palette {
 	if m.theme.Accent == "" {

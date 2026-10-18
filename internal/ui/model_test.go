@@ -141,7 +141,7 @@ func TestCompactOverlaysAndHelp(t *testing.T) {
 		t.Fatal("help did not dismiss")
 	}
 	m = resize(m, 120, 32)
-	if !strings.Contains(ansi.Strip(m.View().Content), "3 Queue") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "Queue") {
 		t.Fatal("expanding did not restore full layout")
 	}
 }
@@ -266,5 +266,29 @@ func TestSettingsOverlay(t *testing.T) {
 	m = m.CloseSettings()
 	if m.SettingsOpen() {
 		t.Fatal("expected CloseSettings to close")
+	}
+}
+
+func TestUnicodeBoxHeadersAndVersion(t *testing.T) {
+	m := New(fixture()).WithIcons("plain").WithVersion("v1.5.0")
+	podcastsPane := ansi.Strip(m.pane(Podcasts, 40, 8))
+	if !strings.Contains(podcastsPane, "╭──Podcasts") || !strings.Contains(podcastsPane, "[1]─╮") {
+		t.Fatalf("unexpected podcasts header: %s", podcastsPane)
+	}
+	queuePane := ansi.Strip(m.pane(Queue, 50, 8))
+	if !strings.Contains(queuePane, "╭──Queue") || !strings.Contains(queuePane, "[3]──v1.5.0─╮") {
+		t.Fatalf("unexpected queue header with version: %s", queuePane)
+	}
+	playerPane := ansi.Strip(m.pane(PlayerPanel, 40, 8))
+	if !strings.Contains(playerPane, "╭──Player") || !strings.Contains(playerPane, "[5]─╮") {
+		t.Fatalf("unexpected player header: %s", playerPane)
+	}
+	for _, w := range []int{1, 2, 5, 10, 20} {
+		p := m.pane(Queue, w, 5)
+		for _, line := range strings.Split(p, "\n") {
+			if ansi.StringWidth(line) > w {
+				t.Fatalf("line width %d exceeds max width %d: %q", ansi.StringWidth(line), w, line)
+			}
+		}
 	}
 }
