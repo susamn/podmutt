@@ -62,6 +62,15 @@ func (r *faultRepository) ReplaceQueue(ctx context.Context, ids []int64) error {
 	return r.Repository.ReplaceQueue(ctx, ids)
 }
 
+func (r *faultRepository) Activate(ctx context.Context, id int64, position float64, ids []int64) error {
+	for _, op := range []string{"checkpoint", "complete", "replace"} {
+		if err := r.check(op); err != nil {
+			return err
+		}
+	}
+	return r.Repository.Activate(ctx, id, position, ids)
+}
+
 func TestConstructorAndFactoryFailures(t *testing.T) {
 	db, p, items := setup(t)
 	if err := db.Checkpoint(background, items[0].ID, 1); err != nil {

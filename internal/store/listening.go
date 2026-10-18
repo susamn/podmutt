@@ -19,15 +19,17 @@ func (s *Store) Checkpoint(ctx context.Context, episodeID int64, seconds float64
 	if seconds < 0 || math.IsNaN(seconds) || math.IsInf(seconds, 0) {
 		return fmt.Errorf("store: position must be finite and nonnegative")
 	}
-	return transaction(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO playback(episode_id,position_seconds) VALUES(?,?)
+	return transaction(ctx, s.db, func(tx *sql.Tx) error { return checkpoint(ctx, tx, episodeID, seconds) })
+}
+
+func checkpoint(ctx context.Context, tx *sql.Tx, episodeID int64, seconds float64) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO playback(episode_id,position_seconds) VALUES(?,?)
 			ON CONFLICT(episode_id) DO UPDATE SET position_seconds=excluded.position_seconds`, episodeID, seconds); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO current_episode(singleton,episode_id) VALUES(1,?)
-			ON CONFLICT(singleton) DO UPDATE SET episode_id=excluded.episode_id`, episodeID)
 		return err
-	})
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO current_episode(singleton,episode_id) VALUES(1,?)
+			ON CONFLICT(singleton) DO UPDATE SET episode_id=excluded.episode_id`, episodeID)
+	return err
 }
 
 func (s *Store) SetCompleted(ctx context.Context, episodeID int64, completed bool) error {
@@ -58,21 +60,40 @@ func (s *Store) Current(ctx context.Context) (Playback, error) {
 // ReplaceQueue deduplicates in first-occurrence order. Unknown episode IDs cause
 // the whole replacement to roll back. A nil/empty slice clears the queue.
 func (s *Store) ReplaceQueue(ctx context.Context, episodeIDs []int64) error {
-	return transaction(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "DELETE FROM queue"); err != nil {
+	return transaction(ctx, s.db, func(tx *sql.Tx) error { return replaceQueue(ctx, tx, episodeIDs) })
+}
+
+func replaceQueue(ctx context.Context, tx *sql.Tx, episodeIDs []int64) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM queue"); err != nil {
+		return err
+	}
+	seen := make(map[int64]bool, len(episodeIDs))
+	for _, id := range episodeIDs {
+		if seen[id] {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, "INSERT INTO queue(episode_id,ordinal) VALUES(?,?)", id, len(seen)); err != nil {
 			return err
 		}
-		seen := make(map[int64]bool, len(episodeIDs))
-		for _, id := range episodeIDs {
-			if seen[id] {
-				continue
-			}
-			if _, err := tx.ExecContext(ctx, "INSERT INTO queue(episode_id,ordinal) VALUES(?,?)", id, len(seen)); err != nil {
-				return err
-			}
-			seen[id] = true
+		seen[id] = true
+	}
+	return nil
+}
+
+// Activate atomically promotes an episode and saves the remaining playback
+// stack. Failed queue validation rolls back history/current/completion together.
+func (s *Store) Activate(ctx context.Context, episodeID int64, seconds float64, pending []int64) error {
+	if seconds < 0 || math.IsNaN(seconds) || math.IsInf(seconds, 0) {
+		return fmt.Errorf("store: position must be finite and nonnegative")
+	}
+	return transaction(ctx, s.db, func(tx *sql.Tx) error {
+		if err := checkpoint(ctx, tx, episodeID, seconds); err != nil {
+			return err
 		}
-		return nil
+		if _, err := tx.ExecContext(ctx, `UPDATE playback SET completed=0 WHERE episode_id=?`, episodeID); err != nil {
+			return err
+		}
+		return replaceQueue(ctx, tx, pending)
 	})
 }
 

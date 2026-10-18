@@ -29,7 +29,7 @@ func TestMetadataPositionAndCapabilities(t *testing.T) {
 	if strings.Contains(metadata["xesam:title"].Value().(string), "\x00") || len(metadata) != 3 {
 		t.Fatal("unsafe/unnecessary metadata exposed")
 	}
-	if values["CanGoNext"].Value() != false || values["CanPlay"].Value() != true || values["CanSeek"].Value() != false {
+	if values["CanGoNext"].Value() != true || values["CanPlay"].Value() != true || values["CanSeek"].Value() != false {
 		t.Fatal("dishonest capabilities")
 	}
 	state.Status = playback.Playing

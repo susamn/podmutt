@@ -87,7 +87,7 @@ func TestPlaybackRenderingPreservesQueueProgressAndMediaWarnings(t *testing.T) {
 		t.Fatal("lost playback subscription")
 	}
 	queued, ok := m.Model.Selected(ui.Queue)
-	if !ok || queued.ID != "7" || queued.Title != "Queued episode" {
+	if !ok || queued.ID != "1" || len(m.Model.Visible(ui.Queue)) != 2 || !strings.Contains(m.Model.Visible(ui.Queue)[1].Title, "Queued episode") {
 		t.Fatalf("queue lost: %+v", queued)
 	}
 	for _, text := range []string{"0:42 / 2:00", "stream failed", "session bus unavailable"} {

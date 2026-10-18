@@ -21,7 +21,7 @@ func TestMediaActionsUseSharedDispatcher(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := strings.Join(f.calls, ","); got != "play,pause,play,next,stop,play,pause" {
+	if got := strings.Join(f.calls, ","); got != "play,pause,next,pause,stop,play,pause" {
 		t.Fatalf("actions: %s", got)
 	}
 	f.state.Current = nil

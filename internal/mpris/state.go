@@ -51,7 +51,7 @@ func playerValues(state playback.State) values {
 		"PlaybackStatus": status, "Metadata": metadata, "Position": position,
 		"Rate": 1.0, "MinimumRate": 1.0, "MaximumRate": 1.0, "Volume": 1.0, "LoopStatus": "None", "Shuffle": false,
 		"CanControl": true, "CanPlay": state.Current != nil, "CanPause": state.Current != nil,
-		"CanGoNext": state.Status == playback.Playing && len(state.Queue) > 0, "CanGoPrevious": false, "CanSeek": false,
+		"CanGoNext": len(state.Queue) > 0, "CanGoPrevious": false, "CanSeek": false,
 	})
 }
 func variants(source map[string]any) values {

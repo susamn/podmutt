@@ -119,7 +119,7 @@ func TestPlayerButtonsUseSharedActionsAndDisabledCapabilities(t *testing.T) {
 	if len(commands) != 0 {
 		t.Fatal("empty play dispatched")
 	}
-	m = m.WithPlayback(m.data.Queue, Player{Status: "playing", HasCurrent: true})
+	m = m.WithPlayback(m.data.Queue, Player{Status: "playing", HasCurrent: true, CanNext: true})
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	update(tea.KeyPressMsg{Code: tea.KeyRight})
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
@@ -136,11 +136,11 @@ func TestPlayerButtonsUseSharedActionsAndDisabledCapabilities(t *testing.T) {
 	if m.playerButton != 2 {
 		t.Fatal("left did not wrap")
 	}
-	m = m.WithPlayback(nil, Player{Status: "paused", HasCurrent: true})
+	m = m.WithPlayback([]Item{{ID: "current", Title: "Current episode"}}, Player{Status: "paused", HasCurrent: true})
 	before := len(commands)
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if len(commands) != before {
-		t.Fatal("empty next dispatched")
+		t.Fatal("current-only next dispatched")
 	}
 	m = press(m, "?")
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
