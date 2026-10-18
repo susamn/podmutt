@@ -38,7 +38,7 @@ type Service struct {
 }
 
 func info(s playback.State) metadata {
-	m := metadata{Playing: s.Status == playback.Playing, Paused: s.Status == playback.Paused, CanNext: s.Status == playback.Playing && len(s.Queue) > 0}
+	m := metadata{Playing: s.Status == playback.Playing, Paused: s.Status == playback.Paused, CanNext: len(s.Queue) > 0}
 	if s.Current != nil {
 		title := []rune(s.Current.Title)
 		m.Title = string(title[:min(256, len(title))])

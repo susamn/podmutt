@@ -86,6 +86,9 @@ func TestNativeMetadataCapabilitiesAndRepeatedRegistration(t *testing.T) {
 		title       string
 	}{
 		{metadata{Title: "Native check", HasCurrent: true, Playing: true, CanNext: true, Position: 42, Duration: 120}, 1, 2 | 4 | 8 | 16, "Native check"},
+		{metadata{Title: "Native check", HasCurrent: true, Playing: true, Position: 42, Duration: 120}, 1, 2 | 4 | 8, "Native check"},
+		{metadata{Title: "Native check", HasCurrent: true, Playing: true, CanNext: true, Position: 42, Duration: 120}, 1, 2 | 4 | 8 | 16, "Native check"},
+		{metadata{Title: "Paused", HasCurrent: true, Paused: true, CanNext: true}, 2, 1 | 4 | 8 | 16, "Paused"},
 		{metadata{Title: "Paused", HasCurrent: true, Paused: true}, 2, 1 | 4 | 8, "Paused"},
 		{metadata{Title: "Stopped", HasCurrent: true}, 0, 1 | 4 | 8, "Stopped"},
 		{metadata{}, 0, 0, ""},
