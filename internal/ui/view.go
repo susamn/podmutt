@@ -101,10 +101,10 @@ func (m Model) pane(panel Panel, width, height int) string {
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
 	}
-	return box(title, rows, width, height, panel == m.focus)
+	return m.box(title, rows, width, height, panel == m.focus)
 }
 
-func box(title string, rows []string, width, height int, focused bool) string {
+func (m Model) box(title string, rows []string, width, height int, focused bool) string {
 	innerWidth, innerHeight := max(0, width-2), max(0, height-2)
 	content := []string{lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, innerWidth, "…"))}
 	for _, row := range rows {
@@ -113,9 +113,10 @@ func box(title string, rows []string, width, height int, focused bool) string {
 		}
 		content = append(content, ansi.Truncate(row, innerWidth, "…"))
 	}
-	color := "8"
+	pal := m.Theme()
+	color := string(pal.Muted)
 	if focused {
-		color = "6"
+		color = string(pal.Accent)
 	}
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color)).
 		Width(width).Height(height).MaxWidth(width).MaxHeight(height).Render(strings.Join(content, "\n"))
@@ -194,12 +195,12 @@ func (m Model) View() tea.View {
 				dialog := m.data.Dialog
 				rows := strings.Split(ansi.Wrap(clean(dialog.Body, true), max(1, width-2), ""), "\n")
 				rows = append(rows, clean(dialog.Hint, false))
-				modal = box(clean(dialog.Title, false), rows, width, height, true)
+				modal = m.box(clean(dialog.Title, false), rows, width, height, true)
 			} else if m.data.Prompt != "" {
 				height = min(7, m.height-2)
-				modal = box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
+				modal = m.box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
 			} else if m.help {
-				modal = box("Keys · Esc closes", []string{
+				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
 					"h/l, Tab · 1-5 focus pane",
 					"Player (5): h/l seek ±15s · Left/Right select · Enter activate",

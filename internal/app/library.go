@@ -15,8 +15,13 @@ import (
 	"podmutt/internal/feed"
 	"podmutt/internal/library"
 	"podmutt/internal/store"
+	"podmutt/internal/theme"
 	"podmutt/internal/ui"
 )
+
+type themeReloadMsg struct {
+	palette theme.Palette
+}
 
 type libraryLoaded struct {
 	version  uint64
@@ -36,6 +41,7 @@ type libraryShell struct {
 	art    artState
 	browse browseState
 	shell
+	signals            chan os.Signal
 	service            *library.Service
 	refresher          *feed.Refresher
 	results            <-chan feed.Result
@@ -108,10 +114,27 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	// not from the synthetic initial snapshot.
 	model.Model = model.Model.WithProgress(s.ctx, nil, nil)
 	model.feedID = model.selectedFeed()
+	signals := make(chan os.Signal, 1)
+	theme.NotifyReload(signals)
+	model.signals = signals
 	return model, nil
 }
 func (m libraryShell) Init() tea.Cmd {
-	return tea.Batch(m.shell.Init(), m.waitRefresh(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return artProbe{} })
+	return tea.Batch(m.shell.Init(), m.waitRefresh(), m.waitSignal(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return artProbe{} })
+}
+func (m libraryShell) waitSignal() tea.Cmd {
+	if m.signals == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		select {
+		case <-m.s.ctx.Done():
+			return nil
+		case <-m.signals:
+			pal, _ := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
+			return themeReloadMsg{pal}
+		}
+	}
 }
 func (m libraryShell) waitRefresh() tea.Cmd {
 	return func() tea.Msg {
@@ -168,6 +191,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	var cmd tea.Cmd
 	rebuild := false
 	switch msg := msg.(type) {
+	case themeReloadMsg:
+		m.s.theme = msg.palette
+		m.Model = m.Model.WithTheme(msg.palette)
+		return m, m.waitSignal()
 	case artProbe:
 		cmd = m.probeArt()
 	case artProbeTimeout:

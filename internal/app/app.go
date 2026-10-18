@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"podmutt/internal/profile"
+	"podmutt/internal/theme"
 )
 
 func Run(input io.Reader, output io.Writer) error {
@@ -34,5 +35,6 @@ func withProfile(run func(profile.Config, profile.Paths) error) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, owner.Close()) }()
+	_ = theme.EnsureFiles(paths.ConfigDir())
 	return run(cfg, paths)
 }

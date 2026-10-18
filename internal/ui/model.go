@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/theme"
 )
 
 type Panel int
@@ -33,6 +34,7 @@ type Data struct {
 }
 
 type Model struct {
+	theme         theme.Palette
 	icons         string
 	animation     animation
 	progress      progressClock
@@ -55,6 +57,13 @@ type Model struct {
 func New(data Data) Model     { return Model{data: data} }
 func (m Model) Init() tea.Cmd { return nil }
 
+func (m Model) WithTheme(p theme.Palette) Model { m.theme = p; return m }
+func (m Model) Theme() theme.Palette {
+	if m.theme.Accent == "" {
+		return theme.Default()
+	}
+	return m.theme
+}
 func (m Model) WithActions(actions func(string) tea.Cmd) Model { m.actions = actions; return m }
 func (m Model) WithPlayerError(text string) Model              { m.data.Player.Error = text; return m }
 func (m Model) Focus() Panel                                   { return m.focus }

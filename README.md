@@ -101,10 +101,13 @@ refresh_minutes = 30
 mpv_path = "mpv"
 icons = "unicode" # default; "nerd" (Nerd Font Mono) or "plain" (text labels)
 telemetry = false
+theme = "colors" # default on Linux; "solarized-dark", "catppuccin", or custom
 ```
 
 Refresh intervals must be positive whole minutes. `mpv_path` is a nonempty
 executable name or path. Telemetry is unsupported; enabling it is rejected.
+Themes use `colors.toml` or `themes/<name>.toml` in the config directory;
+sending `SIGUSR1` to the running podmutt reloads the active theme live.
 Icons use standard Unicode by default; no patched font is required. Set
 `icons = "nerd"` only with a Nerd Font Mono terminal font, or `icons = "plain"`
 for readable text without icon prefixes. Labels always remain; plain icon mode
