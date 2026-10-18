@@ -72,6 +72,34 @@ func TestForegroundServicesAndKeyboardShareActions(t *testing.T) {
 	}
 }
 
+func TestPlaybackRenderingPreservesQueueProgressAndMediaWarnings(t *testing.T) {
+	m := newShell(&session{mediaError: errors.New("session bus unavailable")})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 32})
+	m = updated.(shell)
+	state := playback.State{
+		Status: playback.Failed, Error: "stream failed",
+		Current: &store.Episode{ID: 1, Title: "Current episode", PositionSeconds: 42, DurationSeconds: 120},
+		Queue:   []store.Episode{{ID: 7, Title: "<b>Queued episode</b>"}},
+	}
+	updated, cmd := m.Update(playbackUpdate{state: state, ok: true})
+	m = updated.(shell)
+	if cmd == nil {
+		t.Fatal("lost playback subscription")
+	}
+	queued, ok := m.Model.Selected(ui.Queue)
+	if !ok || queued.ID != "7" || queued.Title != "Queued episode" {
+		t.Fatalf("queue lost: %+v", queued)
+	}
+	for _, text := range []string{"0:42 / 2:00", "stream failed", "session bus unavailable"} {
+		if !strings.Contains(m.View().Content, text) {
+			t.Fatalf("rendering lost %q", text)
+		}
+	}
+	if m.state.Current.ID != 1 {
+		t.Fatal("selected playback state lost")
+	}
+}
+
 func TestClientsAreSideEffectFree(t *testing.T) {
 	paths := isolatedProfile(t)
 	if err := Command("status", new(bytes.Buffer)); !errors.Is(err, control.ErrNotRunning) {

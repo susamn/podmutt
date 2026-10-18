@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"podmutt/internal/control"
+	"podmutt/internal/mpris"
 	"podmutt/internal/playback"
 	"podmutt/internal/player"
 	"podmutt/internal/profile"
@@ -13,11 +14,13 @@ import (
 )
 
 type session struct {
-	ctx      context.Context
-	config   profile.Config
-	paths    profile.Paths
-	store    *store.Store
-	playback *playback.Engine
+	ctx        context.Context
+	config     profile.Config
+	paths      profile.Paths
+	store      *store.Store
+	playback   *playback.Engine
+	media      *mpris.Service
+	mediaError error
 }
 
 // withSession runs under withProfile ownership. All foreground services share
@@ -40,5 +43,9 @@ func withSession(cfg profile.Config, paths profile.Paths, run func(*session) err
 		return err
 	}
 	defer func() { err = errors.Join(err, server.Close()) }()
-	return run(&session{ctx, cfg, paths, db, engine})
+	media, mediaError := mpris.Start(ctx, engine)
+	if media != nil {
+		defer media.Close()
+	}
+	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, mediaError: mediaError})
 }

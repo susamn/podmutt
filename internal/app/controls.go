@@ -98,6 +98,13 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.state.Error != "" {
 			text += " · " + msg.state.Error
 		}
+		mediaError := m.s.mediaError
+		if m.s.media != nil {
+			mediaError = m.s.media.Err()
+		}
+		if mediaError != nil {
+			text += " · " + mediaError.Error()
+		}
 		m.Model = m.Model.WithPlayback(queue, text)
 		return m, m.wait()
 	case actionError:

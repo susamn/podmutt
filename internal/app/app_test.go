@@ -20,7 +20,7 @@ func isolatedProfile(t *testing.T) profile.Paths {
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
 	t.Setenv("HOME", home)
-	for _, name := range []string{"XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR"} {
+	for _, name := range []string{"XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"} {
 		t.Setenv(name, "")
 	}
 	paths, err := profile.Resolve(runtime.GOOS, home, os.Getenv)
