@@ -241,11 +241,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.focus == PlayerPanel {
 				return m, m.activatePlayer()
 			}
-		case "pgdown", "pgup":
+		case "pgdown", "pgup", "ctrl+d", "ctrl+u":
 			if m.focus == Details {
 				_, height := m.detailsSize()
 				delta := max(1, height-3)
-				if key == "pgup" {
+				if key == "ctrl+d" || key == "ctrl+u" {
+					delta = max(1, delta/2)
+				}
+				if key == "pgup" || key == "ctrl+u" {
 					delta = -delta
 				}
 				m.scrollDetails(delta)
@@ -274,7 +277,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.editing, m.previous = true, m.filters[m.focus]
 			}
 		case "j", "down", "k", "up", "g", "G", "home", "end":
-			if m.focus < Details {
+			if m.focus == Details {
+				switch key {
+				case "j", "down":
+					m.scrollDetails(1)
+				case "k", "up":
+					m.scrollDetails(-1)
+				case "g", "home":
+					m.detailScroll = 0
+				default:
+					width, _ := m.detailsSize()
+					m.scrollDetails(len(m.detailRows(width)))
+				}
+			} else if m.focus < Details {
 				switch key {
 				case "j", "down":
 					m.selected[m.focus]++

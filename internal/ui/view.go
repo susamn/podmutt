@@ -152,6 +152,9 @@ func (m Model) View() tea.View {
 		if m.focus == PlayerPanel {
 			hints = "Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
 		}
+		if m.focus == Details {
+			hints = "j/k scroll · Ctrl-d/u half page · g/G top/bottom · PgUp/PgDn page · Tab panes · q quit"
+		}
 		if m.data.Notice != "" {
 			hints = clean(m.data.Notice, false) + " · " + hints
 		}
@@ -187,7 +190,7 @@ func (m Model) View() tea.View {
 					"f search · Tab switches library/Apple scope",
 					"N feed/website · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
-					"c mark completion · R refresh", "PgUp/PgDn    Scroll details",
+					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
 				}, width, height, true)
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
