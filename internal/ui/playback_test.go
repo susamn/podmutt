@@ -9,7 +9,7 @@ import (
 
 func TestPlaybackIdentityAndDialogSurviveLibraryReload(t *testing.T) {
 	m := New(Data{Queue: []Item{{ID: "a", Title: "Alpha"}, {ID: "b", Title: "Beta"}}}).Select(Queue, "b")
-	m = m.WithPlayback([]Item{{ID: "b", Title: "Beta"}, {ID: "a", Title: "Alpha"}}, "playing")
+	m = m.WithPlayback([]Item{{ID: "b", Title: "Beta"}, {ID: "a", Title: "Alpha"}}, Player{Status: "playing"})
 	if item, _ := m.Selected(Queue); item.ID != "b" {
 		t.Fatal("identity lost")
 	}

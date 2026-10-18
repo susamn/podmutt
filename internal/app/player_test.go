@@ -245,6 +245,63 @@ func TestQueueSelectedSpaceAndQuitPersistence(t *testing.T) {
 	})
 }
 
+func TestFocusedPlayerControlsTransportNotSelectedLibraryEpisode(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, _ := playerLibrary(t, s)
+		first, _ := m.selectedEpisode()
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		syncPlayer(t, &m)
+		var other store.Episode
+		for _, episode := range m.rows {
+			if episode.ID != first.ID {
+				other = episode
+			}
+		}
+		if err := s.playback.Enqueue(s.ctx, other.ID); err != nil {
+			t.Fatal(err)
+		}
+		syncPlayer(t, &m)
+		libraryKey(&m, '5')
+		if m.Model.Focus() != ui.PlayerPanel {
+			t.Fatal("cannot focus player")
+		}
+		enter := func() {
+			t.Helper()
+			finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+			syncPlayer(t, &m)
+		}
+		enter()
+		if m.state.Status != playback.Paused {
+			t.Fatal("Play/Pause button didn't pause")
+		}
+		enter()
+		if m.state.Status != playback.Playing {
+			t.Fatal("Play/Pause button didn't resume")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyRight})
+		enter()
+		if m.state.Status != playback.Stopped {
+			t.Fatal("Stop button didn't stop")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyRight})
+		enter()
+		if m.state.Status != playback.Playing || m.state.Current.ID != other.ID || len(m.state.Queue) != 0 {
+			t.Fatal("Next button didn't advance", m.state)
+		}
+		enter()
+		if m.state.Status != playback.Playing {
+			t.Fatal("disabled Next changed playback")
+		}
+		// The selected library item is different, but Player Space controls current.
+		m.Model = m.Model.Select(ui.Episodes, fmt.Sprint(first.ID))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		syncPlayer(t, &m)
+		if m.state.Current.ID != other.ID || m.state.Status != playback.Paused {
+			t.Fatal("Player Space started selected library item")
+		}
+	})
+}
+
 func TestPlayerInputGuardsBatchFilterAndFailures(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)

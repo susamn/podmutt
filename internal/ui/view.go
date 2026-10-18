@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-var titles = [4]string{"1 Podcasts", "2 Episodes", "3 Queue", "4 Details / Player"}
+var titles = [4]string{"1 Podcasts", "2 Episodes", "3 Queue", "4 Details"}
 
 // clean removes terminal escapes and control characters from untrusted metadata.
 func clean(text string, multiline bool) string {
@@ -26,29 +26,26 @@ func clean(text string, multiline bool) string {
 }
 
 func (m Model) detailRows(width int) []string {
-	text, player := m.data.Details, m.data.Player
+	text := m.data.Details
 	if text == "" {
 		text = "Select an episode for details."
 	}
-	if player == "" {
-		player = "Player not connected"
-	}
-	return strings.Split(ansi.Wrap(clean(text+"\n\n"+player, true), max(1, width-2), ""), "\n")
+	return strings.Split(ansi.Wrap(clean(text, true), max(1, width-2), ""), "\n")
 }
 func (m *Model) scrollDetails(delta int) {
-	width, height := m.width-m.width*2/5, m.height-1-(m.height-1)/2
-	if m.compact() {
-		width, height = min(72, m.width-2), min(16, m.height-2)
-	}
+	width, height := m.detailsSize()
 	m.detailScroll = max(0, min(m.detailScroll+delta, len(m.detailRows(width))-max(1, height-3)))
 }
 
 func (m Model) pane(panel Panel, width, height int) string {
+	if panel == PlayerPanel {
+		return m.playerPane(width, height)
+	}
 	var rows []string
 	if panel == Details {
 		rows = m.detailRows(width)
 		start := min(m.detailScroll, max(0, len(rows)-max(1, height-3)))
-		rows = rows[start:]
+		rows = rows[start:min(len(rows), start+max(0, height-3))]
 	} else {
 		items := m.items(panel)
 		visible := max(0, height-3)
@@ -91,7 +88,7 @@ func box(title string, rows []string, width, height int, focused bool) string {
 		color = "6"
 	}
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(color)).
-		Width(innerWidth).Height(innerHeight).MaxWidth(width).MaxHeight(height).Render(strings.Join(content, "\n"))
+		Width(width).Height(height).MaxWidth(width).MaxHeight(height).Render(strings.Join(content, "\n"))
 }
 
 func (m Model) View() tea.View {
@@ -104,22 +101,31 @@ func (m Model) View() tea.View {
 	default:
 		available := m.height - 1
 		if m.compact() {
-			top := max(3, min(6, (available-4)/3))
-			middle := available - top - 4
-			player := clean(m.data.Player, false)
-			if player == "" {
-				player = "Player not connected"
+			top, middle, player := m.compactHeights()
+			panel := Episodes
+			if top == 0 {
+				panel = m.lastVisible
 			}
-			content = lipgloss.JoinVertical(lipgloss.Left,
-				m.pane(Podcasts, m.width, top), m.pane(Episodes, m.width, middle),
-				box("Player", []string{player}, m.width, 4, false))
+			if m.focus == Queue || m.focus == Details {
+				panel = m.focus
+			}
+			parts := []string{}
+			if top > 0 {
+				parts = append(parts, m.pane(Podcasts, m.width, top))
+			}
+			parts = append(parts, m.pane(panel, m.width, middle), m.playerPane(m.width, player))
+			content = lipgloss.JoinVertical(lipgloss.Left, parts...)
 		} else {
 			left, top := m.width*2/5, available/2
+			right, bottom := m.width-left, available-top
+			details := bottom / 2
+			rightCell := lipgloss.JoinVertical(lipgloss.Left,
+				m.pane(Details, right, details), m.playerPane(right, bottom-details))
 			content = lipgloss.JoinVertical(lipgloss.Left,
-				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, left, top), m.pane(Queue, m.width-left, top)),
-				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, available-top), m.pane(Details, m.width-left, available-top)))
+				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, left, top), m.pane(Queue, right, top)),
+				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, bottom), rightCell))
 		}
-		hints := "hjkl navigate · Tab/1-4 panes · / filter · ? help · q quit"
+		hints := "hjkl navigate · Tab/1-5 panes · / filter · ? help · q quit"
 		if m.compact() && m.focus >= Queue {
 			hints = "Esc return · j/k select · / filter · ? help · q quit"
 		}
@@ -129,6 +135,9 @@ func (m Model) View() tea.View {
 		if m.data.ContextHint != "" {
 			hints = clean(m.data.ContextHint, false)
 		}
+		if m.focus == PlayerPanel {
+			hints = "Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
+		}
 		if m.data.Notice != "" {
 			hints = clean(m.data.Notice, false) + " · " + hints
 		}
@@ -136,7 +145,7 @@ func (m Model) View() tea.View {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.help || m.data.Prompt != "" || m.data.Dialog != nil || (m.compact() && m.focus >= Queue) {
+		if m.help || m.data.Prompt != "" || m.data.Dialog != nil {
 			width, height := min(72, m.width-2), min(16, m.height-2)
 			if m.help {
 				height = min(20, m.height-2)
@@ -152,8 +161,9 @@ func (m Model) View() tea.View {
 				modal = box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
 			} else if m.help {
 				modal = box("Keys · Esc closes", []string{
-					"j/k, arrows   Move selection", "g/G           First/last item",
-					"h/l, Tab      Change pane", "1-4           Focus pane",
+					"j/k arrows · g/G first/last item",
+					"h/l, Tab · 1-5 focus pane",
+					"Player (5): Left/Right select · Enter activate",
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"Space selected play/toggle · s stop · n next",
@@ -165,8 +175,6 @@ func (m Model) View() tea.View {
 					"v New/Show · o newest/oldest/title",
 					"c mark completion · R refresh", "PgUp/PgDn    Scroll details",
 				}, width, height, true)
-			} else {
-				modal = m.pane(m.focus, width, height)
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
 				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((m.height-height)/2).Z(1)).Render()

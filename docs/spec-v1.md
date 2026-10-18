@@ -24,13 +24,17 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 +----------------------+---------------------------+
 | Podcasts/subscribed  | Queue                     |
 +----------------------+---------------------------+
-| Episodes             | Details / art / player    |
+| Episodes             | Details (upper 50%)       |
+|                      +---------------------------+
+|                      | Player (lower 50%)        |
 +----------------------+---------------------------+
 ```
 
-Compact layout stacks podcasts, episodes, and player controls. Queue/details
-remain accessible as overlays; hide artwork and visualization first as space
-shrinks. Exact breakpoints are an implementation detail.
+The bottom-right cell splits 50/50 between a clipped, scrollable description and
+an independent player. Descriptions never enlarge or displace the player.
+Compact layouts retain bottom player controls; Queue/Details replace the middle
+list while focused. Very short layouts show one library pane plus Player. Hide
+artwork/visualization first as space shrinks. See ADR 014.
 
 Vim-style navigation: j/k move selection, h/l change panes, J/K reorder queue,
 / filters locally, b switches My subscriptions / Apple Discover, f opens search
@@ -38,6 +42,8 @@ in the current scope (Tab switches Library/Apple in the dialog), ? shows help. S
 episode in Episodes/Queue, or toggles pause if it is already current. In other
 panes Space toggles current playback; in text input it types a space. Enter
 selects a podcast or expands episode details; a enqueues; s stops playback.
+1–5 focus Podcasts/Episodes/Queue/Details/Player. In Player, Left/Right selects
+Play/Pause, Stop or Next; Enter activates. The position bar is display-only.
 No configurable bindings or themes in v1. Keep contextual hints and help short.
 
 ## Playback and state

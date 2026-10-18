@@ -1,6 +1,6 @@
 # ADR 005: Responsive terminal shell
 
-Status: proposed in #8.
+Status: accepted in #8; fixed player layout extended by ADR 014.
 
 Use Bubble Tea v2 with Lip Gloss for layout/composition. Reuse Charm's ANSI
 utilities (already in the dependency graph) for display-width truncation and
@@ -11,8 +11,10 @@ Stable item IDs preserve selection across asynchronous updates. Rendering
 sanitizes feed-derived text. All keys are routed centrally; filter input claims
 printable keys before global actions, except Ctrl+C.
 
-At >=100 columns and >=24 rows show four panes. Otherwise stack podcasts,
-episodes, and player; queue/details become centered overlays with Esc return.
+At >=100 columns and >=24 rows keep the four-cell grid, with the bottom-right
+cell split into fixed Details/Player halves (ADR 014). Compact lists stack above
+a persistent player; focused Queue/Details replace the middle list. Esc returns
+to the previous library pane. Very short layouts show one list plus Player.
 Below 30×12 show resize guidance. Keep focus/selection during resize, remove
 artwork/animation before core lists, and test display bounds with wide text.
 

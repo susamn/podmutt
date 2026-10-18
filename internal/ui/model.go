@@ -14,6 +14,7 @@ const (
 	Episodes
 	Queue
 	Details
+	PlayerPanel
 )
 
 type Item struct{ ID, Title string }
@@ -23,7 +24,8 @@ type Dialog struct{ Title, Body, Hint string }
 type Data struct {
 	Dialog                       *Dialog
 	Podcasts, Episodes, Queue    []Item
-	Details, Player              string
+	Details                      string
+	Player                       Player
 	EpisodeLabel, Notice, Prompt string
 	PodcastLabel, ContextHint    string
 }
@@ -40,13 +42,14 @@ type Model struct {
 	help          bool
 	actions       func(string) tea.Cmd
 	detailScroll  int
+	playerButton  int
 }
 
 func New(data Data) Model     { return Model{data: data} }
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) WithActions(actions func(string) tea.Cmd) Model { m.actions = actions; return m }
-func (m Model) WithPlayer(text string) Model                   { m.data.Player = text; return m }
+func (m Model) WithPlayerError(text string) Model              { m.data.Player.Error = text; return m }
 func (m Model) Focus() Panel                                   { return m.focus }
 func (m Model) WithFocus(panel Panel) Model                    { m.setFocus(panel); return m }
 func (m Model) Select(panel Panel, id string) Model {
@@ -61,7 +64,7 @@ func (m Model) Select(panel Panel, id string) Model {
 func (m Model) Busy() bool                      { return m.editing || m.help || m.data.Dialog != nil }
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
-func (m Model) WithPlayback(queue []Item, player string) Model {
+func (m Model) WithPlayback(queue []Item, player Player) Model {
 	data := m.data
 	data.Queue, data.Player = queue, player
 	updated, _ := m.Update(data)
@@ -138,6 +141,9 @@ func (m *Model) clamp() {
 }
 
 func (m *Model) setFocus(panel Panel) {
+	if panel < Podcasts || panel > PlayerPanel {
+		return
+	}
 	m.focus = panel
 	if panel == Podcasts || panel == Episodes {
 		m.lastVisible = panel
@@ -148,6 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(0, msg.Width), max(0, msg.Height)
+		m.scrollDetails(0)
 	case Data:
 		// Keep the selected identity as asynchronous data replaces list contents.
 		for panel := Podcasts; panel <= Queue; panel++ {
@@ -205,12 +212,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.data.Dialog != nil {
+			return m, nil
+		}
 		switch key {
+		case "left", "right":
+			if m.focus == PlayerPanel {
+				step := 1
+				if key == "left" {
+					step = -1
+				}
+				m.playerButton = (m.playerButton + step + 3) % 3
+			}
+		case "enter":
+			if m.focus == PlayerPanel {
+				return m, m.activatePlayer()
+			}
 		case "pgdown", "pgup":
 			if m.focus == Details {
-				delta := 10
+				_, height := m.detailsSize()
+				delta := max(1, height-3)
 				if key == "pgup" {
-					delta = -10
+					delta = -delta
 				}
 				m.scrollDetails(delta)
 			}
@@ -222,10 +245,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.help = true
 		case "tab", "l":
-			m.setFocus((m.focus + 1) % 4)
+			m.setFocus((m.focus + 1) % (PlayerPanel + 1))
 		case "shift+tab", "h":
-			m.setFocus((m.focus + 3) % 4)
-		case "1", "2", "3", "4":
+			m.setFocus((m.focus + PlayerPanel) % (PlayerPanel + 1))
+		case "1", "2", "3", "4", "5":
 			m.setFocus(Panel(key[0] - '1'))
 		case "esc":
 			if m.compact() && m.focus >= Queue {

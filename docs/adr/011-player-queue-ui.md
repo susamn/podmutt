@@ -18,7 +18,8 @@ clear; removal affects only captured IDs. Queue edits execute atomically in the
 playback actor, not by submitting an old UI snapshot with SetQueue.
 
 Queue snapshots render through the same ID-preserving UI update path as library
-rows; compact terminals retain the Queue/Details overlays. The player shows
+rows. ADR 014 replaces the compact Queue/Details overlays with an inline focused
+pane and persistent player. The player shows
 status, position, optional feed duration, and persistent actor errors. Failed
 operations produce a notice; they do not erase the actor's persistent failure.
 
