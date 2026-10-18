@@ -7,9 +7,11 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 - Linux and macOS; Go + Bubble Tea; mpv streams public podcast audio.
 - Local-first: show cached subscriptions/episodes immediately. Refresh feeds at
   startup and periodically while the TUI runs; update lists incrementally.
-- Discover shows by name online, inspect episodes before subscribing, add RSS
-  and ordinary podcast website URLs. Global episode search covers subscribed
-  feeds only, using cached titles/descriptions; no remote episode index.
+- Discover Apple Podcasts shows online; an empty profile automatically shows
+  the non-personalized US top-25 chart. Inspect episodes before subscribing, or
+  add RSS/ordinary podcast website URLs. My subscriptions lists subscribed shows
+  only; library search covers their names and cached episode titles/descriptions
+  (including completed history), never a remote episode index.
 - Newest episodes first; aggregate new-episode tab; sort by newest, oldest, or
   title. Preserve selection by episode identity as feeds refresh.
 - Refresh at startup, every 30 minutes while running, and manually with R.
@@ -31,7 +33,8 @@ remain accessible as overlays; hide artwork and visualization first as space
 shrinks. Exact breakpoints are an implementation detail.
 
 Vim-style navigation: j/k move selection, h/l change panes, J/K reorder queue,
-/ filters locally, f opens global search, ? shows help. Space starts the selected
+/ filters locally, b switches My subscriptions / Apple Discover, f opens search
+in the current scope (Tab switches Library/Apple in the dialog), ? shows help. Space starts the selected
 episode in Episodes/Queue, or toggles pause if it is already current. In other
 panes Space toggles current playback; in text input it types a space. Enter
 selects a podcast or expands episode details; a enqueues; s stops playback.
@@ -60,7 +63,7 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 ## Deliberately excluded
 
 Downloads/offline audio, OPML, private/authenticated feeds, SSH support,
-accounts/cloud sync, recommendations, transcripts, video, chapters, bookmarks,
+accounts/cloud sync, personalized recommendations, transcripts, video, chapters, bookmarks,
 speed/seek controls, silence skipping, intro/outro skipping. Offline browsing
 of cached metadata is supported. Later answers about download policies are
 superseded by the explicit streaming-only scope.
@@ -86,7 +89,8 @@ superseded by the explicit streaming-only scope.
 
 ## Remaining engineering details
 
-- Show-discovery provider/access terms, geography, and rate limits.
+- Apple discovery defaults to the US chart; other-country configuration is deferred.
+  See ADR 012 for provider/access terms, limits, and website resolution.
 - Subscribe/mark-completed bindings. Full layout starts at 100×24; minimum
   terminal size is 30×12.
 - Native macOS media-key approach and its packaging/build requirements.
@@ -94,5 +98,6 @@ superseded by the explicit streaming-only scope.
 - Storage driver, paths, backup policy, and release support matrix.
 - Availability of native macOS GitLab runners.
 
-CLI, responsive TUI shell, profile ownership, Makefile, tests, and GitLab
-pipeline exist. Library and playback integration have not started.
+CLI, responsive TUI, profile ownership, cached library, playback/queue controls,
+Apple discovery and library search exist. Artwork UI, decorative visualization,
+native macOS media controls, release validation and packaging remain.

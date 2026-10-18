@@ -4,7 +4,8 @@ A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
 Bubble Tea, SQLite, and mpv. Licensed under [MIT](LICENSE).
 
 **Status:** cached podcast browsing, feed refresh, selected playback, queue editing,
-and running-instance controls are available.
+Apple discovery/subscription previews, library search, and running-instance
+controls are available.
 `--help` and `--version` work without creating profile files.
 
 ## Development
@@ -104,12 +105,13 @@ The four-pane layout switches to stacked podcasts/episodes/player below 100
 columns or 24 rows. Queue/details open as overlays; Esc returns to the last
 visible list. Below 30×12, resize guidance replaces the panes.
 
-`N` adds a public RSS/Atom feed URL. Enter on a show opens its episodes; `v`
+`N` adds a public RSS/Atom feed or podcast website URL. Enter on a show opens its episodes; `v`
 switches Show/New (uncompleted subscribed episodes), and `o` cycles newest,
 oldest, and title ordering. `u` toggles the selected show's subscription; `c`
 toggles completion in the episode pane. `R` refreshes manually. Cached content
-opens before background refresh; unsubscribed shows remain available as previews.
-`[+]`/`[-]` indicate subscription, `[x]` indicates completion. PgUp/PgDn scroll
+opens before background refresh. My subscriptions lists subscribed shows only;
+unsubscribing retains cached episodes/history for resubscription. `[+]` indicates
+subscription, `[x]` indicates completion. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
 Space plays the selected Episodes/Queue item, or toggles it if current; elsewhere
@@ -120,6 +122,28 @@ visible (filtered) Episodes in display order. In Queue, `J/K` move an item,
 Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do not
 change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
+
+## Discover and subscribe
+
+An empty profile opens **Discover**, automatically loading Apple's **US top-25**
+shows. With existing subscriptions, startup stays local-first in **My subscriptions**.
+
+1. Press `b` to switch My subscriptions / Apple Discover.
+2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
+   subscribed, played, or downloaded as audio at this stage.
+3. Press `u` to subscribe; its stored episodes open, ready for Space playback.
+
+`f` opens search in the current view. Tab in the dialog switches **Library / Apple**;
+Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names
+and cached episode titles/descriptions, including completed history. Apple searches
+shows only—not a global episode index. `/` still filters only the focused list.
+Esc clears library search or leaves a preview. An empty Apple query restores the
+chart; `R` retries/reloads directory results. Quota waits can take a few seconds.
+
+Apple access is public/no-key, not an import of Apple account subscriptions.
+Network failure leaves your library usable with `b`; errors never erase it.
+Artwork rendering is separate, not enabled by this discovery feature. See
+[discovery policy and bounds](docs/adr/012-show-discovery.md).
 
 ## Running-instance commands
 
