@@ -30,7 +30,7 @@ func (m Model) detailRows(width int) []string {
 	if text == "" {
 		text = "Select an episode for details."
 	}
-	return strings.Split(ansi.Wrap(clean(text, true), max(1, width-2), ""), "\n")
+	return strings.Split(ansi.Wrap(clean(text, true), max(1, m.descriptionWidth(width)-2), ""), "\n")
 }
 func (m *Model) scrollDetails(delta int) {
 	width, height := m.detailsSize()
@@ -46,6 +46,20 @@ func (m Model) pane(panel Panel, width, height int) string {
 		rows = m.detailRows(width)
 		start := min(m.detailScroll, max(0, len(rows)-max(1, height-3)))
 		rows = rows[start:min(len(rows), start+max(0, height-3))]
+		if columns, _ := m.ArtworkSize(); columns > 0 && m.artColumns > 0 {
+			merged := make([]string, max(len(rows), len(m.artRows)))
+			for i := range merged {
+				art, text := "", ""
+				if i < len(m.artRows) {
+					art = m.artRows[i]
+				}
+				if i < len(rows) {
+					text = rows[i]
+				}
+				merged[i] = art + strings.Repeat(" ", max(0, m.artColumns-ansi.StringWidth(art))) + " " + text
+			}
+			rows = merged
+		}
 	} else {
 		items := m.items(panel)
 		visible := max(0, height-3)
