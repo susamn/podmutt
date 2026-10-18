@@ -316,8 +316,18 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			cmd = m.switchBrowse()
 		case "f":
 			m.openSearch()
+		case "U":
+			m.openURL()
+		case "t":
+			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
+			cmd = m.searchDirectory("")
 		case "esc":
-			if m.browse.active && m.browse.preview != nil {
+			if m.browse.loading || m.browse.previewCancel != nil {
+				m.cancelDirectory()
+				m.cancelPreview()
+				m.notice = "Discovery request canceled"
+				m.renderLibrary()
+			} else if m.browse.active && m.browse.preview != nil {
 				m.cancelPreview()
 				m.Model = m.Model.WithFocus(ui.Podcasts)
 				m.renderLibrary()
@@ -533,7 +543,7 @@ func (m *libraryShell) renderLibrary() {
 	if m.browse.localResults {
 		label = "Library search: " + m.browse.localQuery
 	}
-	data := ui.Data{PodcastLabel: "My subscriptions", EpisodeLabel: label + " · " + m.order.String(), ContextHint: "b Discover · f library search · / filter · N feed/website · u subscribe · ? help · q quit"}
+	data := ui.Data{PodcastHint: discoveryActions, PodcastLabel: "My subscriptions · cached", EpisodeLabel: label + " · " + m.order.String(), ContextHint: "f Search · U RSS/website · b Discover · / filter · N add/subscribe · u subscribe · ? help · q quit"}
 	for _, source := range m.snapshot.Feeds {
 		if !source.Subscribed || !m.matchesShow(source) {
 			continue

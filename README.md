@@ -189,6 +189,10 @@ consistent backup before upgrading, not a forced downgrade.
 An empty profile opens **Discover**, automatically loading Apple's **US top-25**
 shows. With existing subscriptions, startup stays local-first in **My subscriptions**.
 
+The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview**
+and **t Apple US top 25**. The chart is not the whole catalog; search accepts
+arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
+
 1. Press `b` to switch My subscriptions / Apple Discover.
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
@@ -199,7 +203,12 @@ shows. With existing subscriptions, startup stays local-first in **My subscripti
 4. Press `u` only if you want to subscribe. The complete preview is then cached,
    preserving ad-hoc playback identity/history. Browsing/preview alone stays read-only.
 
-`f` opens search in the current view. Tab in the dialog switches **Library / Apple**;
+**U** accepts an HTTP(S) podcast feed or website URL and opens the same read-only
+preview, with explicit Space/a/A play/enqueue and u subscribe. **N** remains the
+separate add-and-subscribe shortcut. Esc cancels requests; stale replies are ignored.
+See [entry-point policy](docs/adr/023-discovery-entry-points.md).
+
+`f` opens source-labelled search in the current view. Tab switches **Library / Apple**;
 Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names
 and cached episode titles/descriptions, including completed history. Apple searches
 shows only—not a global episode index. `/` still filters only the focused list.

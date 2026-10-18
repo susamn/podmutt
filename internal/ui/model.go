@@ -28,6 +28,8 @@ type Data struct {
 	Player                       Player
 	EpisodeLabel, Notice, Prompt string
 	PodcastLabel, ContextHint    string
+	PodcastHint                  string
+	PodcastEmpty                 string
 }
 
 type Model struct {
