@@ -15,8 +15,9 @@ Official archived documentation:
   IP users can still hit provider limits; respect bounded Retry-After, expose
   throttling, and never silently retry.
 - [Overview/usage terms](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/index.html)
-  restrict promotional assets. We request only show names, feed URLs, and source
-  links; do not use Apple artwork, badges, preview audio, or downloaded media.
+  restrict promotional assets. Retain only show names, feed URLs, and source
+  links from the response; ignore promotional asset fields. Do not fetch/use
+  Apple artwork, badges, preview audio, or downloaded media.
   Retain the Apple Podcasts source link for attribution in the future preview.
   These technical docs are not a blanket license for promotional assets or RSS
   media. Access/terms can change; provider stays replaceable behind Search.
