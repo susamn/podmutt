@@ -19,7 +19,21 @@ func stackItem(episode store.Episode, status string) ui.Item {
 	if episode.DurationSeconds > 0 {
 		duration = clock(float64(episode.DurationSeconds))
 	}
-	return ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: fmt.Sprintf("[%s] %s · %s · %s/%s", status, library.PlainText(episode.Title), show, clock(episode.PositionSeconds), duration)}
+	plainTitle := library.PlainText(episode.Title)
+	if plainTitle == "" {
+		plainTitle = "Untitled episode"
+	}
+	pos := clock(episode.PositionSeconds)
+	return ui.Item{
+		ID:         strconv.FormatInt(episode.ID, 10),
+		Title:      fmt.Sprintf("[%s] %s · %s · %s/%s", status, plainTitle, show, pos, duration),
+		PlainTitle: plainTitle,
+		Channel:    show,
+		Position:   pos,
+		Duration:   duration,
+		State:      status,
+		Completed:  episode.Completed,
+	}
 }
 
 type playerEdited struct{ err error }

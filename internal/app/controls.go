@@ -94,11 +94,18 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = msg.state
 		var queue []ui.Item
+		idx := 1
 		if current := msg.state.Current; current != nil && !current.Completed {
-			queue = append(queue, stackItem(*current, string(msg.state.Status)))
+			item := stackItem(*current, string(msg.state.Status))
+			item.Index = idx
+			idx++
+			queue = append(queue, item)
 		}
 		for _, episode := range msg.state.Queue {
-			queue = append(queue, stackItem(episode, "queued"))
+			item := stackItem(episode, "queued")
+			item.Index = idx
+			idx++
+			queue = append(queue, item)
 		}
 		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0, CanSeek: msg.state.CanSeek}
 		if episode := msg.state.Current; episode != nil {
@@ -107,6 +114,7 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			player.DurationSeconds = float64(episode.DurationSeconds)
 			player.ClockAt = msg.state.ClockAt
 			player.Title = library.PlainText(episode.Title)
+			player.Channel = library.PlainText(episode.FeedTitle)
 			player.Position = clock(episode.PositionSeconds)
 			if episode.DurationSeconds > 0 {
 				player.Duration = clock(float64(episode.DurationSeconds))
