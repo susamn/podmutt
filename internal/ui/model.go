@@ -32,6 +32,7 @@ type Data struct {
 
 type Model struct {
 	animation     animation
+	progress      progressClock
 	data          Data
 	width, height int
 	focus         Panel
@@ -164,10 +165,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.animation.frame = (m.animation.frame + 1) % 1024
 		return m.scheduleAnimation()
+	case progressTick:
+		if msg.generation != m.progress.generation || !m.progress.running || m.progress.ctx == nil || m.progress.ctx.Err() != nil {
+			return m, nil
+		}
+		m.progress.running = false
+		return m.SyncProgress()
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(0, msg.Width), max(0, msg.Height)
 		m.scrollDetails(0)
-		return m.SyncAnimation()
+		var animation, progress tea.Cmd
+		m, animation = m.SyncAnimation()
+		m, progress = m.SyncProgress()
+		return m, tea.Batch(animation, progress)
 	case Data:
 		// Keep the selected identity as asynchronous data replaces list contents.
 		for panel := Podcasts; panel <= Queue; panel++ {

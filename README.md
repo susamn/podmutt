@@ -130,7 +130,12 @@ scroll with PgUp/PgDn inside their half; they never push the player/controls dow
 
 Press **5** for Player. Left/Right chooses **Play/Pause, Stop, Next**; Enter
 activates. Space/s/n still work as shortcuts. The player shows current title,
-status, elapsed/total and a read-only progress bar; unavailable buttons are dimmed.
+status, real-time elapsed/total/remaining and a fractional read-only progress bar;
+unavailable buttons are dimmed. The presentation clock updates at 4Hz without
+per-frame IPC/database work, freezes paused/stopped, and limits interpolation to
+two seconds if actual samples stall. Unknown duration stays unknown. Queue-only
+updates preserve the clock; real samples/seeks correct it. See
+[progress policy](docs/adr/022-realtime-player-progress.md).
 Playback errors remain visible independently of the selected description.
 When a tall wide Player pane has spare room, a labelled **Decorative** pattern
 scrolls during playback, freezes on pause and clears on stop. It is not an audio
