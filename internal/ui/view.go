@@ -62,7 +62,11 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	} else {
 		items := m.items(panel)
-		visible := max(0, height-3)
+		if panel == Podcasts && m.data.PodcastHint != "" {
+			hints := strings.Split(clean(m.data.PodcastHint, true), "\n")
+			rows = append(rows, hints[:min(len(hints), max(0, height-4))]...)
+		}
+		visible := max(0, height-3-len(rows))
 		start := max(0, m.selected[panel]-visible+1)
 		for i := start; i < min(len(items), start+visible); i++ {
 			prefix := "  "
@@ -72,7 +76,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 			rows = append(rows, prefix+clean(items[i].Title, false))
 		}
 		if len(items) == 0 {
-			rows = []string{"No items"}
+			rows = append(rows, "No items")
 		}
 	}
 	title := titles[panel]
@@ -161,6 +165,9 @@ func (m Model) View() tea.View {
 		if m.data.Notice != "" {
 			hints = clean(m.data.Notice, false) + " · " + hints
 		}
+		if m.data.PodcastHint != "" && m.compact() && m.focus <= Episodes {
+			hints = "f Search · U RSS/website · " + hints
+		}
 		if m.editing {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
@@ -191,8 +198,9 @@ func (m Model) View() tea.View {
 					"Queue: Enter play/promote · j/k select",
 					"Pending: J/K move · d remove · D clear (confirm)",
 					"b My subscriptions / Apple Discover",
-					"f search · Tab switches library/Apple scope",
-					"N feed/website · u subscribe/unsubscribe",
+					"f Search podcasts · Tab library/Apple scope",
+					"U RSS/website preview · t Apple US top 25",
+					"N add/subscribe · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
 				}, width, height, true)

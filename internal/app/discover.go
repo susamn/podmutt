@@ -8,29 +8,32 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
+	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/store"
 	"podmutt/internal/ui"
 )
+
+const discoveryActions = "f Search podcasts\nU RSS/website preview\nt Apple US top 25"
 
 type showDirectory interface {
 	Top(context.Context) ([]discovery.Show, error)
 	Search(context.Context, string) ([]discovery.Show, error)
 }
 type browseState struct {
-	directory                             showDirectory
-	active, loaded, loading, localResults bool
-	shows                                 []discovery.Show
-	hits                                  []store.Episode
-	query, localQuery                     string
-	generation                            uint64
-	cancel                                context.CancelFunc
-	preview                               *feed.Resolved
-	previewKey, source                    string
-	previewGeneration                     uint64
-	previewCancel                         context.CancelFunc
-	searching, searchApple                bool
-	input                                 string
+	directory                                   showDirectory
+	active, loaded, loading, localResults       bool
+	shows                                       []discovery.Show
+	hits                                        []store.Episode
+	query, localQuery                           string
+	generation                                  uint64
+	cancel                                      context.CancelFunc
+	preview                                     *feed.Resolved
+	previewKey, source                          string
+	previewGeneration                           uint64
+	previewCancel                               context.CancelFunc
+	searching, searchApple, urlInput, directURL bool
+	input, errorText                            string
 }
 type discoverStartup struct{}
 type directoryLoaded struct {
@@ -87,9 +90,9 @@ func (m *libraryShell) switchBrowse() tea.Cmd {
 func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	m.cancelDirectory()
 	m.cancelPreview()
-	if query != m.browse.query {
-		m.browse.shows = nil
-	}
+	m.browse.shows = nil
+	m.browse.directURL = false
+	m.browse.errorText = ""
 	m.browse.active = true
 	m.browse.localResults = false
 	m.browse.query = query
@@ -144,6 +147,7 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 	m.browse.loading = false
 	if msg.err != nil {
 		m.notice = msg.err.Error()
+		m.browse.errorText = m.notice
 	} else if msg.local {
 		m.browse.hits = msg.episodes
 		m.notice = fmt.Sprintf("Library search · %d cached episodes (max 100)", len(msg.episodes))
@@ -160,16 +164,31 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 }
 func (m *libraryShell) openSearch() {
 	m.browse.searching = true
+	m.browse.urlInput = false
 	m.browse.searchApple = m.browse.active
 	m.browse.input = ""
 	m.renderSearch()
 }
+func (m *libraryShell) openURL() {
+	m.browse.searching = true
+	m.browse.urlInput = true
+	m.browse.input = ""
+	m.renderSearch()
+}
 func (m *libraryShell) renderSearch() {
-	scope := "My subscriptions: show names + cached episode titles/descriptions"
+	if m.browse.urlInput {
+		input := m.browse.input
+		if runes := []rune(input); len(runes) > 96 {
+			input = "…" + string(runes[len(runes)-96:])
+		}
+		m.Model = m.Model.WithDialog(&ui.Dialog{Title: "RSS/feed or website preview", Body: "HTTP(S) podcast feed or website URL:\n" + input + "\n\nRead-only preview. Space plays; u explicitly subscribes.\nN is the separate add-and-subscribe shortcut.", Hint: "Enter preview · Esc cancel · Ctrl+U clear"})
+		return
+	}
+	scope := "My subscriptions (offline): show names + cached episode titles/descriptions"
 	if m.browse.searchApple {
 		scope = "Apple Podcasts: online shows (no remote episode search)"
 	}
-	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Search", Body: scope + "\n\nQuery: " + m.browse.input, Hint: "Enter search · Tab switch scope · Esc cancel · Ctrl+U clear"})
+	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Search podcasts · beyond the top 25", Body: scope + "\n\nQuery: " + m.browse.input, Hint: "Enter search · Tab switch scope · Esc cancel · Ctrl+U clear"})
 }
 func (m *libraryShell) appendSearch(text string) {
 	// Treat pasted control characters as whitespace, not commands or escapes.
@@ -180,8 +199,14 @@ func (m *libraryShell) appendSearch(text string) {
 		return r
 	}, text)
 	runes := []rune(m.browse.input + text)
-	m.browse.input = string(runes[:min(len(runes), 128)])
+	m.browse.input = string(runes[:min(len(runes), m.searchLimit())])
 	m.renderSearch()
+}
+func (m libraryShell) searchLimit() int {
+	if m.browse.urlInput {
+		return 4096
+	}
+	return 128
 }
 func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 	switch key.String() {
@@ -191,8 +216,10 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		m.browse.searching = false
 		m.Model = m.Model.WithDialog(nil)
 	case "tab":
-		m.browse.searchApple = !m.browse.searchApple
-		m.renderSearch()
+		if !m.browse.urlInput {
+			m.browse.searchApple = !m.browse.searchApple
+			m.renderSearch()
+		}
 	case "ctrl+u":
 		m.browse.input = ""
 		m.renderSearch()
@@ -201,6 +228,28 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		m.browse.input = string(runes[:max(0, len(runes)-1)])
 		m.renderSearch()
 	case "enter":
+		if m.browse.urlInput {
+			address, err := httpurl.Parse(strings.TrimSpace(m.browse.input))
+			if err != nil {
+				m.notice = err.Error()
+				return nil
+			}
+			m.browse.searching = false
+			m.Model = m.Model.WithDialog(nil)
+			m.cancelDirectory()
+			m.cancelPreview()
+			m.browse.active = true
+			m.browse.localResults = false
+			m.browse.directURL = true
+			m.browse.errorText = ""
+			m.browse.query = ""
+			m.browse.shows = []discovery.Show{{Title: "RSS/website preview", FeedURL: address.String()}}
+			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
+			m.renderLibrary()
+			cmd := m.previewShow()
+			m.renderLibrary()
+			return cmd
+		}
 		query := strings.Join(strings.Fields(m.browse.input), " ")
 		m.browse.searching = false
 		m.Model = m.Model.WithDialog(nil)
@@ -253,7 +302,9 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 	}
 	if msg.err != nil {
 		m.notice = msg.err.Error()
+		m.browse.errorText = m.notice
 	} else {
+		m.browse.errorText = ""
 		m.browse.preview = &msg.preview
 		m.browse.previewKey = msg.key
 		m.browse.source = msg.source
@@ -298,7 +349,10 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.query != "" {
 		label = "Discover · Apple search: " + m.browse.query
 	}
-	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing", ContextHint: "Space play · a/A enqueue · u subscribe · f search · b My subscriptions · q quit"}
+	if m.browse.directURL {
+		label = "RSS/website · read-only preview"
+	}
+	data := ui.Data{PodcastHint: discoveryActions, PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing", ContextHint: "Space play · a/A enqueue · u subscribe · f Search podcasts · U RSS/website · t chart · b My subscriptions · q quit"}
 	for _, show := range m.browse.shows {
 		marker := "    "
 		for _, source := range m.snapshot.Feeds {
@@ -320,13 +374,28 @@ func (m *libraryShell) renderDiscovery() {
 }
 func (m *libraryShell) renderPreviewDetails() {
 	details := "Apple Podcasts · US top 25\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to My subscriptions.\nSource: https://podcasts.apple.com/us/charts"
+	if m.browse.query != "" {
+		details = "Apple Podcasts search: " + m.browse.query + "\nSearches online shows beyond the US top 25, not remote episode text."
+	}
+	if m.browse.directURL {
+		details = "RSS/website · Enter preview · u explicitly subscribes"
+	}
 	if m.browse.loading {
-		details = "Loading Apple Podcasts…\nYour cached subscriptions remain available with b."
+		details = "Loading Apple Podcasts…\nQuery: " + m.browse.query + "\nEsc cancel · b cached subscriptions (offline)"
+	} else if m.browse.errorText != "" {
+		details = "Discovery failed: " + m.browse.errorText + "\nf search again · t top 25 · b cached subscriptions"
+	} else if len(m.browse.shows) == 0 && !m.browse.directURL {
+		details += "\nNo matching shows. f Search podcasts · U RSS/website · t chart"
+	}
+	if m.browse.previewCancel != nil {
+		details = "Loading RSS/feed preview…\nEsc cancels; no subscription or autoplay."
 	}
 	if m.browse.preview != nil {
 		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nSpace play · a enqueue · u subscribe"
 		if m.browse.source != "" {
 			details += "\nApple Podcasts source: " + m.browse.source
+		} else if m.browse.directURL {
+			details += "\nFeed: " + m.browse.preview.URL
 		}
 		episode, ok := m.previewEpisode()
 		if m.Model.Focus() == ui.Details && m.detailTarget != nil {
