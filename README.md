@@ -109,6 +109,9 @@ Press **5** for Player. Left/Right chooses **Play/Pause, Stop, Next**; Enter
 activates. Space/s/n still work as shortcuts. The player shows current title,
 status, elapsed/total and a read-only progress bar; unavailable buttons are dimmed.
 Playback errors remain visible independently of the selected description.
+When a tall wide Player pane has spare room, a labelled **Decorative** pattern
+scrolls during playback, freezes on pause and clears on stop. It is not an audio
+spectrum; compact/crowded layouts hide it and stop its timer.
 
 Below 100 columns or 24 rows, lists stack above a persistent player. Queue/Details
 replace the middle list when focused; Esc returns to the last visible list.
