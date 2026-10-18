@@ -25,18 +25,30 @@ func clean(text string, multiline bool) string {
 	}, ansi.Strip(text))
 }
 
+func (m Model) detailRows(width int) []string {
+	text, player := m.data.Details, m.data.Player
+	if text == "" {
+		text = "Select an episode for details."
+	}
+	if player == "" {
+		player = "Player not connected"
+	}
+	return strings.Split(ansi.Wrap(clean(text+"\n\n"+player, true), max(1, width-2), ""), "\n")
+}
+func (m *Model) scrollDetails(delta int) {
+	width, height := m.width-m.width*2/5, m.height-1-(m.height-1)/2
+	if m.compact() {
+		width, height = min(72, m.width-2), min(16, m.height-2)
+	}
+	m.detailScroll = max(0, min(m.detailScroll+delta, len(m.detailRows(width))-max(1, height-3)))
+}
+
 func (m Model) pane(panel Panel, width, height int) string {
 	var rows []string
 	if panel == Details {
-		text := m.data.Details
-		if text == "" {
-			text = "Select an episode for details."
-		}
-		player := m.data.Player
-		if player == "" {
-			player = "Player not connected"
-		}
-		rows = strings.Split(clean(text+"\n\n"+player, true), "\n")
+		rows = m.detailRows(width)
+		start := min(m.detailScroll, max(0, len(rows)-max(1, height-3)))
+		rows = rows[start:]
 	} else {
 		items := m.items(panel)
 		visible := max(0, height-3)
@@ -53,6 +65,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	}
 	title := titles[panel]
+	if panel == Episodes && m.data.EpisodeLabel != "" {
+		title += " · " + clean(m.data.EpisodeLabel, false)
+	}
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
 	}
@@ -105,20 +120,32 @@ func (m Model) View() tea.View {
 		if m.compact() && m.focus >= Queue {
 			hints = "Esc return · j/k select · / filter · ? help · q quit"
 		}
+		if m.data.EpisodeLabel != "" {
+			hints = "N add · u subscribe · v New/Show · o sort · c complete · R refresh · ? help · q quit"
+		}
+		if m.data.Notice != "" {
+			hints = clean(m.data.Notice, false) + " · " + hints
+		}
 		if m.editing {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.help || (m.compact() && m.focus >= Queue) {
+		if m.help || m.data.Prompt != "" || (m.compact() && m.focus >= Queue) {
 			width, height := min(72, m.width-2), min(16, m.height-2)
 			var modal string
-			if m.help {
+			if m.data.Prompt != "" {
+				height = min(7, m.height-2)
+				modal = box("Add public RSS/Atom feed", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
+			} else if m.help {
 				modal = box("Keys · Esc closes", []string{
 					"j/k, arrows   Move selection", "g/G           First/last item",
 					"h/l, Tab      Change pane", "1-4           Focus pane",
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"Space toggle · s stop · n next (current episode)",
+					"N RSS · u subscribe/unsubscribe",
+					"v New/Show · o newest/oldest/title",
+					"c mark completion · R refresh", "PgUp/PgDn    Scroll details",
 				}, width, height, true)
 			} else {
 				modal = m.pane(m.focus, width, height)
