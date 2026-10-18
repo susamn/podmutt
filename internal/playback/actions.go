@@ -312,6 +312,13 @@ func (e *Engine) event(ctx context.Context, event player.Event) {
 	if event.Name == "file-loaded" {
 		e.ready = true
 	}
+	if event.Name == "property-change" && event.Property == "duration" {
+		var duration float64
+		if json.Unmarshal(event.Data, &duration) == nil && duration > 0 && !math.IsNaN(duration) && !math.IsInf(duration, 0) && duration < float64(math.MaxInt64)/2 {
+			e.state.Current.DurationSeconds = int64(math.Ceil(duration))
+		}
+		return
+	}
 	if event.Name == "property-change" && event.Property == "time-pos" && string(event.Data) != "null" {
 		var position float64
 		if json.Unmarshal(event.Data, &position) == nil && position >= 0 && !math.IsNaN(position) && !math.IsInf(position, 0) {

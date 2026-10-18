@@ -1,6 +1,10 @@
 package playback
 
-import "testing"
+import (
+	"encoding/json"
+	"podmutt/internal/player"
+	"testing"
+)
 
 func TestPositionAnchorSurvivesQueueOnlyUpdates(t *testing.T) {
 	db, p, items := setup(t)
@@ -13,6 +17,13 @@ func TestPositionAnchorSurvivesQueueOnlyUpdates(t *testing.T) {
 	}
 	ready(t, e, p, 42)
 	anchor := state(t, e).ClockAt
+	for _, value := range []string{"6.25", "null", "-1", "0", "1e100", "\"invalid\""} {
+		p.events <- player.Event{Name: "property-change", Property: "duration", Data: json.RawMessage(value)}
+	}
+	eventually(t, func() bool { return state(t, e).Current.DurationSeconds == 7 })
+	if state(t, e).ClockAt != anchor {
+		t.Fatal("duration update reset position anchor")
+	}
 	if anchor.IsZero() {
 		t.Fatal("moving position has no anchor")
 	}

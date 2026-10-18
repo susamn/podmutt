@@ -11,6 +11,8 @@ The UI derives elapsed/total/remaining time and a fractional Unicode progress ba
 from numeric playback state. It interpolates at four frames/second for at most
 two seconds beyond the last moving sample, then freezes until a fresh correction.
 Unknown duration shows elapsed/--:-- without inventing a percentage/remaining time.
+A valid observed mpv duration can fill runtime metadata missing from the feed;
+invalid/null/nonfinite observations are ignored without per-frame persistence.
 Known duration clamps the bar and countdown; only real EOF completes an episode.
 Accepted seeks re-anchor via their published position change; actual observations
 still correct the clock. This is not seeking, a waveform or audio analysis.
