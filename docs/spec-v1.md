@@ -97,13 +97,19 @@ superseded by the explicit streaming-only scope.
 
 - Apple discovery defaults to the US chart; other-country configuration is deferred.
   See ADR 012 for provider/access terms, limits, and website resolution.
-- Subscribe/mark-completed bindings. Full layout starts at 100×24; minimum
-  terminal size is 30×12.
-- Native macOS media-key approach and its packaging/build requirements.
+- Current bindings are documented in README (u subscribe, c completion, 1–5
+  panes). Full layout starts at 100×24; minimum terminal size is 30×12.
+- Native macOS public MediaPlayer bridge is a prototype (ADR 016); its SDK/CGO,
+  bundle/signing and physical-key requirements still need native verification.
 - Desktop notifications and browser/file actions are not yet committed.
-- Storage driver, paths, backup policy, and release support matrix.
-- Availability of native macOS GitLab runners.
+- modernc SQLite/private profile paths are accepted in ADRs 002/003. Consistent
+  backup/restore is documented in docs/recovery.md; release support is not approved.
+- Native macOS runner recipes are opt-in; host availability and both architecture
+  runtime results remain unresolved.
 
 CLI, responsive TUI, profile ownership, cached library, playback/queue controls,
-Apple discovery and library search exist. Artwork UI, decorative visualization,
-native macOS media controls, release validation and packaging remain.
+Apple discovery and library search exist. Separate MRs implement artwork UI and
+decorative animation; real Kitty verification remains pending. Native macOS controls
+are a prototype, not a verified runtime claim. Local/CI workflow and recovery gates
+exist, including ordered final checkpoint/reap (ADR 017), but the physical/native
+rows in docs/validation-v1.md and release packaging still gate v1 completion.

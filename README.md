@@ -177,7 +177,8 @@ See [private controls](docs/adr/008-running-instance-control.md).
 The foreground session opens `podcasts.db` for subscriptions, episodes, history,
 current episode, and queue. It restores playback without autoplay.
 Do not copy only an open database file for backup; SQLite WAL sidecars may contain
-recent writes. Backup tooling is tracked in #17.
+recent writes. Follow the [consistent backup/restore instructions](docs/recovery.md);
+backup does not mean copying a live DB file or automatically downgrading schemas.
 
 ## Player adapter
 
