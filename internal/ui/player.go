@@ -14,15 +14,15 @@ import (
 // Player contains presentation-only transport data, independent of the selected
 // episode's description. Progress is display-only; h/l dispatch explicit seeks.
 type Player struct {
-	Status, Title, Position, Duration string
-	Error, Warning                    string
-	PositionSeconds, DurationSeconds  float64
-	ClockAt                           time.Time
-	Remaining                         string
-	Progress                          float64
-	HasCurrent                        bool
-	CanNext                           bool
-	CanSeek                           bool
+	Status, Title, Channel, Position, Duration string
+	Error, Warning                             string
+	PositionSeconds, DurationSeconds           float64
+	ClockAt                                    time.Time
+	Remaining                                  string
+	Progress                                   float64
+	HasCurrent                                 bool
+	CanNext                                    bool
+	CanSeek                                    bool
 }
 
 func (m Model) playerControl(index int) (label, command string, enabled bool) {
@@ -55,6 +55,9 @@ func (m Model) playerPane(width, height int) string {
 	title := clean(player.Title, false)
 	if title == "" {
 		title = "No episode selected"
+	} else if player.Channel != "" {
+		chanColor := lipgloss.Color(string(m.Theme().ChannelColor(player.Channel)))
+		title += " · " + lipgloss.NewStyle().Foreground(chanColor).Render(player.Channel)
 	}
 	summary := m.Icon(stateIcon(status), status) + " · " + title
 	if player.Error != "" {

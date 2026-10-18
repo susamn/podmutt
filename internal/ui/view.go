@@ -69,11 +69,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 		visible := max(0, height-3-len(rows))
 		start := max(0, m.selected[panel]-visible+1)
 		for i := start; i < min(len(items), start+visible); i++ {
-			prefix := "  "
-			if i == m.selected[panel] {
-				prefix = "> "
-			}
-			rows = append(rows, prefix+m.Icon(panelIcon(panel), clean(items[i].Title, false)))
+			rows = append(rows, m.renderRow(panel, items[i], width, i == m.selected[panel]))
 		}
 		if len(items) == 0 {
 			empty := "No items"
@@ -107,6 +103,161 @@ func (m Model) pane(panel Panel, width, height int) string {
 		extraTag = m.Version()
 	}
 	return m.box(title, rows, width, height, panel == m.focus, tag, extraTag)
+}
+
+func (m Model) renderRow(panel Panel, item Item, width int, selected bool) string {
+	prefix := "  "
+	if selected {
+		prefix = "> "
+	}
+	switch panel {
+	case Podcasts:
+		channel := item.Channel
+		if channel == "" {
+			channel = item.Title
+		}
+		chanColor := lipgloss.Color(string(m.Theme().ChannelColor(channel)))
+		title := clean(item.Title, false)
+		return prefix + m.Icon(ShowIcon, lipgloss.NewStyle().Foreground(chanColor).Render(title))
+	case Episodes:
+		return m.renderEpisodeRow(item, width, selected)
+	case Queue:
+		return m.renderQueueRow(item, width, selected)
+	default:
+		return prefix + m.Icon(panelIcon(panel), clean(item.Title, false))
+	}
+}
+
+func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
+	prefix := "  "
+	if selected {
+		prefix = "> "
+	}
+	pal := m.Theme()
+	gutter := "[ ] "
+	if item.Queued {
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Accent))).Render("[+] ")
+	} else if item.Completed {
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Green))).Render("[✓] ")
+	}
+
+	titleText := item.PlainTitle
+	if titleText == "" {
+		titleText = clean(item.Title, false)
+	}
+
+	if item.Channel == "" && item.Date == "" && item.Duration == "" {
+		return prefix + m.Icon(EpisodeIcon, clean(item.Title, false))
+	}
+
+	dateWidth := 10
+	durWidth := 7
+	gutterWidth := 4
+	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
+	avail := max(0, innerWidth-gutterWidth)
+
+	dateStr := item.Date
+	durStr := item.Duration
+	if durStr == "" {
+		durStr = "--:--"
+	}
+
+	if width < 70 {
+		availText := max(8, avail-durWidth-1)
+		titleCol := ansi.Truncate(titleText, availText, "…")
+		pad := max(0, availText-ansi.StringWidth(titleCol))
+		return prefix + gutter + titleCol + strings.Repeat(" ", pad) + " " + durStr
+	}
+
+	fixedWidths := dateWidth + durWidth + 4
+	slack := max(16, avail-fixedWidths)
+
+	titleBudget := max(8, (slack*60)/100)
+	chanBudget := max(6, slack-titleBudget)
+
+	titleCol := ansi.Truncate(titleText, titleBudget, "…")
+	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
+
+	chanColor := lipgloss.Color(string(pal.ChannelColor(item.Channel)))
+	chanTrunc := ansi.Truncate(item.Channel, chanBudget, "…")
+	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
+	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
+
+	datePad := max(0, dateWidth-ansi.StringWidth(dateStr))
+	dateCol := dateStr + strings.Repeat(" ", datePad)
+
+	durPad := max(0, durWidth-ansi.StringWidth(durStr))
+	durCol := strings.Repeat(" ", durPad) + durStr
+
+	return prefix + gutter + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + dateCol + " " + durCol
+}
+
+func (m Model) renderQueueRow(item Item, width int, selected bool) string {
+	prefix := "  "
+	if selected {
+		prefix = "> "
+	}
+	pal := m.Theme()
+	gutter := "  "
+	switch item.State {
+	case "playing":
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightGreen))).Render("▶ ")
+	case "paused":
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))).Render("⏸ ")
+	case "stopped":
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightRed))).Render("■ ")
+	}
+
+	idxStr := ""
+	if item.Index > 0 {
+		idxStr = fmt.Sprintf("#%-2d ", item.Index)
+	}
+
+	titleText := item.PlainTitle
+	if titleText == "" {
+		titleText = clean(item.Title, false)
+	}
+
+	if item.Channel == "" && item.Position == "" && item.Duration == "" {
+		return prefix + m.Icon(QueueIcon, clean(item.Title, false))
+	}
+
+	timeStr := item.Position + "/" + item.Duration
+	if item.Position == "" {
+		timeStr = item.Duration
+	}
+	if timeStr == "" || timeStr == "/" {
+		timeStr = "--:--"
+	}
+
+	timeWidth := 13
+	gutterWidth := 2 + ansi.StringWidth(idxStr)
+	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
+	avail := max(0, innerWidth-gutterWidth)
+
+	if width < 70 {
+		availText := max(8, avail-timeWidth-1)
+		titleCol := ansi.Truncate(titleText, availText, "…")
+		pad := max(0, availText-ansi.StringWidth(titleCol))
+		return prefix + gutter + idxStr + titleCol + strings.Repeat(" ", pad) + " " + timeStr
+	}
+
+	slack := max(16, avail-timeWidth-3)
+	titleBudget := max(8, (slack*60)/100)
+	chanBudget := max(6, slack-titleBudget)
+
+	titleCol := ansi.Truncate(titleText, titleBudget, "…")
+	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
+
+	chanColor := lipgloss.Color(string(pal.ChannelColor(item.Channel)))
+	chanTrunc := ansi.Truncate(item.Channel, chanBudget, "…")
+	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
+	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
+
+	timePad := max(0, timeWidth-ansi.StringWidth(timeStr))
+	timeCol := strings.Repeat(" ", timePad) + timeStr
+
+	return prefix + gutter + idxStr + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {

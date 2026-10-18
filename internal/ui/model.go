@@ -18,7 +18,19 @@ const (
 	PlayerPanel
 )
 
-type Item struct{ ID, Title string }
+type Item struct {
+	ID         string
+	Title      string
+	PlainTitle string
+	Channel    string
+	Date       string
+	Duration   string
+	Position   string
+	Queued     bool
+	Completed  bool
+	State      string
+	Index      int
+}
 
 type Dialog struct{ Title, Body, Hint string }
 
