@@ -18,6 +18,11 @@ import (
 //go:embed schema.sql
 var schema string
 
+//go:embed autoqueue.sql
+var autoqueueSchema string
+
+var migrations = []string{schema, autoqueueSchema}
+
 // Store serializes database access through one connection. The profile directory
 // must already exist and be private; profile.Paths.Prepare establishes that.
 type Store struct{ db *sql.DB }
@@ -49,7 +54,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if err := migrate(ctx, db, []string{schema}); err != nil {
+	if err := migrate(ctx, db, migrations); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: migrate: %w", err)
 	}

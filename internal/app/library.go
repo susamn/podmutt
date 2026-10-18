@@ -60,6 +60,9 @@ func runLibrary(s *session, input io.Reader, output io.Writer) error {
 	local := *s
 	local.ctx = lifetime
 	refresher := feed.New(s.store, nil, time.Duration(s.config.RefreshMinutes)*time.Minute)
+	if err := s.playback.QueueLatest(lifetime, 0); err != nil {
+		return err
+	}
 	model, err := newLibrary(&local, refresher)
 	if err != nil {
 		return err
@@ -216,6 +219,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 			rebuild = true
 		}
+	case latestQueued:
+		if msg.err != nil {
+			m.notice = msg.err.Error()
+		}
 	case playerEdited:
 		if msg.err != nil {
 			m.notice = msg.err.Error()
@@ -252,6 +259,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		m.notice = "Refresh update"
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
+		if msg.result.Error == nil {
+			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
+		}
 	case playbackUpdate:
 		if msg.ok {
 			id, completed := int64(0), false
@@ -461,9 +471,12 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 		m.adding = false
 		m.mutating = true
 		m.notice = "Adding feed…"
-		address, service, ctx := m.input, m.service, m.s.ctx
+		address, service, ctx, engine := m.input, m.service, m.s.ctx, m.s.playback
 		m.input = ""
-		return func() tea.Msg { id, err := service.Add(ctx, address); return libraryEdited{id, true, err} }
+		return func() tea.Msg {
+			id, err := service.Add(ctx, address)
+			return subscriptionEdited(ctx, engine, id, true, err)
+		}
 	default:
 		m.appendInput(key.Text)
 	}
@@ -476,8 +489,10 @@ func (m *libraryShell) subscribe() tea.Cmd {
 	for _, source := range m.snapshot.Feeds {
 		if source.ID == m.selectedFeed() {
 			m.mutating = true
-			service, ctx := m.service, m.s.ctx
-			return func() tea.Msg { return libraryEdited{err: service.Subscribe(ctx, source.ID, !source.Subscribed)} }
+			service, ctx, engine := m.service, m.s.ctx, m.s.playback
+			return func() tea.Msg {
+				return subscriptionEdited(ctx, engine, source.ID, false, service.Subscribe(ctx, source.ID, !source.Subscribed))
+			}
 		}
 	}
 	m.notice = "Select a show first"

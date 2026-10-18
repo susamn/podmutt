@@ -25,7 +25,7 @@ func openStore(t *testing.T) (*Store, string) {
 func TestOpenAndReopen(t *testing.T) {
 	s, path := openStore(t)
 	var version, foreignKeys int
-	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 1 {
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != len(migrations) {
 		t.Fatalf("version = %d, err = %v", version, err)
 	}
 	if err := s.db.QueryRow("PRAGMA foreign_keys").Scan(&foreignKeys); err != nil || foreignKeys != 1 {

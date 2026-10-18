@@ -42,6 +42,7 @@ type Repository interface {
 	SetCompleted(context.Context, int64, bool) error
 	ReplaceQueue(context.Context, []int64) error
 	Activate(context.Context, int64, float64, []int64) error
+	EnqueueLatest(context.Context, int64, int64) ([]store.Episode, error)
 }
 
 type Player interface {
