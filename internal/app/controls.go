@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -77,38 +76,32 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !msg.ok {
 			return m, nil
 		}
-		title := ""
-		if msg.state.Current != nil {
-			title = " · " + msg.state.Current.Title
-		}
 		m.state = msg.state
 		var queue []ui.Item
 		for _, episode := range msg.state.Queue {
 			queue = append(queue, ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: library.PlainText(episode.Title)})
 		}
-		duration := "--:--"
-		position := float64(0)
+		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error}
 		if episode := msg.state.Current; episode != nil {
-			position = episode.PositionSeconds
+			player.HasCurrent = true
+			player.Title = library.PlainText(episode.Title)
+			player.Position = clock(episode.PositionSeconds)
 			if episode.DurationSeconds > 0 {
-				duration = clock(float64(episode.DurationSeconds))
+				player.Duration = clock(float64(episode.DurationSeconds))
+				player.Progress = episode.PositionSeconds / float64(episode.DurationSeconds)
 			}
-		}
-		text := fmt.Sprintf("%s%s · %s / %s", msg.state.Status, title, clock(position), duration)
-		if msg.state.Error != "" {
-			text += " · " + msg.state.Error
 		}
 		mediaError := m.s.mediaError
 		if m.s.media != nil {
 			mediaError = m.s.media.Err()
 		}
 		if mediaError != nil {
-			text += " · " + mediaError.Error()
+			player.Warning = mediaError.Error()
 		}
-		m.Model = m.Model.WithPlayback(queue, text)
+		m.Model = m.Model.WithPlayback(queue, player)
 		return m, m.wait()
 	case actionError:
-		m.Model = m.Model.WithPlayer(msg.Error())
+		m.Model = m.Model.WithPlayerError(msg.Error())
 		return m, nil
 	}
 	updated, cmd := m.Model.Update(msg)

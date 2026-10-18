@@ -13,7 +13,7 @@ func fixture() Data {
 	return Data{
 		Podcasts: []Item{{"a", "Alpha"}, {"b", "Beta"}, {"c", "Gamma"}},
 		Episodes: []Item{{"1", "First episode"}, {"2", "Second episode"}},
-		Queue:    []Item{{"2", "Queued episode"}}, Details: "Episode details", Player: "Stopped",
+		Queue:    []Item{{"2", "Queued episode"}}, Details: "Episode details", Player: Player{Status: "stopped"},
 	}
 }
 
@@ -58,14 +58,14 @@ func TestNavigationAndBounds(t *testing.T) {
 		t.Fatal("first/last navigation failed")
 	}
 	m = press(m, "l", "tab", "shift+tab", "h", "h")
-	if m.focus != Details {
+	if m.focus != PlayerPanel {
 		t.Fatalf("focus = %v", m.focus)
 	}
 	m = press(m, "j", "G", "/", "4", "1", "2", "3")
 	if m.focus != Queue {
 		t.Fatal("numbered pane navigation failed")
 	}
-	m = press(m, "l", "l")
+	m = press(m, "l", "l", "l")
 	if m.focus != Podcasts {
 		t.Fatal("focus did not wrap")
 	}
@@ -189,11 +189,11 @@ func TestViewsFitTerminal(t *testing.T) {
 		}
 	}
 	m := resize(New(Data{}), 120, 32)
-	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No items") || !strings.Contains(text, "Player not connected") {
+	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No items") || !strings.Contains(text, "No episode selected") {
 		t.Fatal("empty-state placeholders missing")
 	}
 	m = resize(New(Data{}), 50, 15)
-	if !strings.Contains(ansi.Strip(m.View().Content), "Player not connected") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "No episode selected") {
 		t.Fatal("compact empty player missing")
 	}
 }

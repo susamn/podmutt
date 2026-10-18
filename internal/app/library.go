@@ -308,6 +308,9 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			cmd = m.complete()
 		case "enter":
+			if m.Model.Focus() == ui.PlayerPanel {
+				return m.delegate(msg)
+			}
 			if m.Model.Focus() == ui.Podcasts {
 				if m.browse.active {
 					cmd = m.previewShow()
