@@ -52,7 +52,20 @@ func Start(ctx context.Context, path string) (*Player, error) {
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	return launch(ctx, exec.CommandContext(ctx, binary, platformArguments(runtime.GOOS)...), shutdownTimeout)
+	cmd := exec.CommandContext(ctx, binary, platformArguments(runtime.GOOS)...)
+	cmd.Env = mediaEnvironment(os.Environ())
+	return launch(ctx, cmd, shutdownTimeout)
+}
+
+// The owned external decoder has no reason to receive directory credentials.
+func mediaEnvironment(environment []string) []string {
+	result := make([]string, 0, len(environment))
+	for _, entry := range environment {
+		if !strings.HasPrefix(entry, "PODMUTT_PODCAST_INDEX_") {
+			result = append(result, entry)
+		}
+	}
+	return result
 }
 
 func launch(ctx context.Context, cmd *exec.Cmd, timeout time.Duration) (*Player, error) {

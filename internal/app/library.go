@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"time"
 
@@ -94,6 +95,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.browse.directory = discovery.NewApple(nil)
+	model.browse.indexDirectory = discovery.NewIndex(os.Getenv(discovery.IndexKeyEnv), os.Getenv(discovery.IndexSecretEnv), nil)
 	model.browse.active = model.subscribedCount() == 0
 	model.renderLibrary()
 	state, err := s.playback.Snapshot(s.ctx)
@@ -242,6 +244,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		m.notice = "Library updated"
 		if msg.added {
+			m.discardIndexResults()
 			m.cancelDirectory()
 			m.cancelPreview()
 			m.browse.active, m.browse.localResults = false, false

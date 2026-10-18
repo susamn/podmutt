@@ -199,7 +199,7 @@ The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview*
 and **t Apple US top 25**. The chart is not the whole catalog; search accepts
 arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
 
-1. Press `b` to switch My subscriptions / Apple Discover.
+1. Press `b` to switch My subscriptions / Discover (Apple initially).
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
 3. Press **Space to play without subscribing**, or `a`/`A` to enqueue the selected/
@@ -214,7 +214,7 @@ preview, with explicit Space/a/A play/enqueue and u subscribe. **N** remains the
 separate add-and-subscribe shortcut. Esc cancels requests; stale replies are ignored.
 See [entry-point policy](docs/adr/023-discovery-entry-points.md).
 
-`f` opens source-labelled search in the current view. Tab switches **Library / Apple**;
+`f` opens source-labelled search in the current view. Tab cycles **Library / Apple / Podcast Index**;
 Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names
 and cached episode titles/descriptions, including completed history. Apple searches
 shows only—not a global episode index. `/` still filters only the focused list.
@@ -223,6 +223,17 @@ chart; `R` retries/reloads directory results. Quota waits can take a few seconds
 
 Apple access is public/no-key, not an import of Apple account subscriptions.
 Network failure leaves your library usable with `b`; errors never erase it.
+### Optional Podcast Index provider
+
+Select Podcast Index explicitly with **f → Tab** in the source-labelled search
+dialog. Supply your own `PODMUTT_PODCAST_INDEX_KEY` and
+`PODMUTT_PODCAST_INDEX_SECRET` via a local secret manager/environment; no shared
+key is included. Missing access never silently falls back. Apple/RSS still need
+no key. Read [credential setup, current terms and limits](docs/podcast-index.md)
+before use; fixture CI does not imply a successful live authorized search.
+
+### Artwork
+
 Artwork renders asynchronously beside Details, using episode art then show-art
 fallback. Kitty requires a positive graphics probe outside tmux/screen; other
 terminals use image-derived ASCII. Compact/modal layouts hide art, and failure
