@@ -113,7 +113,17 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 			t.Fatal("search source/query/empty state hidden")
 		}
 		d.err = errors.New("directory offline")
-		finishLibrary(&m, m.searchDirectory("retry"))
+		pending := m.searchDirectory("retry")
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 30, Height: 12})
+		m.Model = m.Model.WithFocus(ui.Podcasts)
+		if !strings.Contains(m.View().Content, "Loading Apple") {
+			t.Fatal("compact loading state hidden")
+		}
+		finishLibrary(&m, pending)
+		if !strings.Contains(m.View().Content, "Search failed") {
+			t.Fatal("compact error state hidden")
+		}
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 160, Height: 36})
 		if !strings.Contains(m.View().Content, "Discovery failed") {
 			t.Fatal("failed search looks like empty chart")
 		}
