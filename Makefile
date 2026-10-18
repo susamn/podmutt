@@ -4,6 +4,16 @@ COVERAGE_MIN ?= 90
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X main.version=$(VERSION)
 
+# Apply the deployment target to ALL CGO packages (including runtime/cgo), not
+# just macmedia's #cgo directives. Explicit flags also invalidate cached objects
+# compiled for the host SDK's default minimum. Filter old flags on recursive make.
+ifeq ($(shell uname -s),Darwin)
+export MACOSX_DEPLOYMENT_TARGET := 13.0
+export CGO_CFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_CFLAGS)) -mmacosx-version-min=13.0
+export CGO_CXXFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_CXXFLAGS)) -mmacosx-version-min=13.0
+export CGO_LDFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_LDFLAGS)) -mmacosx-version-min=13.0
+endif
+
 .PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean
 
 help:
@@ -70,7 +80,9 @@ native-preflight:
 	@test "$$(sw_vers -productVersion | cut -d. -f1)" -ge 13 || { echo 'Go 1.27 requires macOS 13+'; exit 1; }
 	xcrun --find clang
 	xcrun --show-sdk-path
+	$(GO) env CGO_CFLAGS CGO_CXXFLAGS CGO_LDFLAGS
 	$(GO) version
+	@printf 'Source: %s\n' '$(VERSION)'
 	@printf 'Native host: '; uname -m; sw_vers
 
 native-verify: native-preflight

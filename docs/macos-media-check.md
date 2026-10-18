@@ -1,8 +1,8 @@
 # Native macOS media verification — pending
 
 Run on macOS 13+ with Go matching go.mod, Xcode command-line tools, and mpv.
-No Linux cross-build can satisfy this check. No native macOS host was available
-during implementation: even Objective-C compilation remains unverified here.
+No Linux cross-build can satisfy this check. Implementation runs on Linux;
+a user-provided arm64 Mac is performing native acceptance checks.
 
 ```sh
 make native-verify # preflight + check/race + app/native block tests + real-mpv/null audio
@@ -19,8 +19,8 @@ through CGO for Play/Pause/Toggle/Stop/Next, inspects public metadata/control fl
 checks repeated registration and a retained handler delivered after teardown.
 The test-only C hooks are excluded from normal builds. This is not a Go callback
 shortcut, but it still does **not** press physical keys or prove system dispatch
-or another player's arbitration. Native compilation/execution remains unverified
-until this command runs on a real Mac.
+or another player's arbitration. Full native-handler execution remains unverified
+until this command succeeds on a real Mac.
 
 `native-preflight` records OS/architecture, Go and Apple SDK/compiler availability.
 `native-verify` requires mpv and also runs the real null-audio session/actor/process
@@ -55,3 +55,20 @@ project runners were checked and are Linux amd64, without the `macos` tag. Confi
 a native shell runner with that tag and set `PODMUTT_NATIVE_MACOS=1` only once it is
 available. The job records its output as `coverage/native-macos.log` and retains the
 development app artifact; neither is evidence until the native job actually runs.
+
+## First user-provided arm64 run
+
+Reported host: macOS 27.0.1 (26A434), Go 1.27.2 darwin/arm64, Xcode SDK/compiler
+available. Ordinary native CGO packages compiled/linked and vet passed, but the
+common app tests stopped before dedicated native-handler/race/real-mpv checks:
+
+- macOS's long `/var/folders/.../T` TMPDIR plus the standard profile suffix exceeded
+  the 104-byte Unix socket path limit. Isolated test homes now use atomically
+  created private `/tmp/pma-*` directories; a long-TMPDIR regression covers this.
+- Bridge-local deployment flags did not cover runtime/cgo and other CGO objects,
+  producing host-SDK-27 versus linker-13 warnings. Darwin Make recipes now export
+  deployment target 13.0 and explicit C/C++/link flags for all CGO packages; changed
+  flags invalidate cached objects without deleting the user's entire build cache.
+
+Rerun `make native-verify` after pulling the fix. These observations are partial
+compile/link evidence, not a successful native acceptance run or physical-key test.
