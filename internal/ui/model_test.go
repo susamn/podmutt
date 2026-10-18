@@ -65,7 +65,7 @@ func TestNavigationAndBounds(t *testing.T) {
 	if m.focus != Queue {
 		t.Fatal("numbered pane navigation failed")
 	}
-	m = press(m, "l", "l", "l")
+	m = press(m, "l", "l", "tab")
 	if m.focus != Podcasts {
 		t.Fatal("focus did not wrap")
 	}

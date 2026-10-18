@@ -228,6 +228,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.data.Dialog != nil {
 			return m, nil
 		}
+		if m.focus == PlayerPanel && (key == "h" || key == "l") {
+			if !m.data.Player.CanSeek || m.actions == nil {
+				return m, nil
+			}
+			command := "seek-forward"
+			if key == "h" {
+				command = "seek-backward"
+			}
+			return m, m.actions(command)
+		}
 		switch key {
 		case "left", "right":
 			if m.focus == PlayerPanel {

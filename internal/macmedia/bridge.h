@@ -3,7 +3,7 @@ int pm_prepare(void);
 void pm_run(void);
 void pm_stop(void);
 void *pm_install(uintptr_t handle);
-int pm_update(void *controller, const char *title, double position, double duration, int playing, int current, int next);
+int pm_update(void *controller, const char *title, double position, double duration, int playing, int current, int next, int seekable);
 void pm_close(void *controller);
 #ifdef PODMUTT_NATIVE_CHECK
 // Diagnostic symbols exist only with the nativecheck build tag. No private

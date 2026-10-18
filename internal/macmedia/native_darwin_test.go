@@ -36,7 +36,7 @@ func nativeFixture(t *testing.T) (*Service, *fakeBackend, *nativeDriver) {
 }
 func TestNativeRegisteredObjectiveCCommandsAndLateDelivery(t *testing.T) {
 	s, b, d := nativeFixture(t)
-	for index, command := range []string{"play", "pause", "toggle", "stop", "next"} {
+	for index, command := range []string{"play", "pause", "toggle", "stop", "next", "seek-forward", "seek-backward"} {
 		handler := d.capture(index)
 		if handler.pointer == nil {
 			t.Fatal("no registered block", command)
@@ -89,6 +89,7 @@ func TestNativeMetadataCapabilitiesAndRepeatedRegistration(t *testing.T) {
 		{metadata{Title: "Native check", HasCurrent: true, Playing: true, Position: 42, Duration: 120}, 1, 2 | 4 | 8, "Native check"},
 		{metadata{Title: "Native check", HasCurrent: true, Playing: true, CanNext: true, Position: 42, Duration: 120}, 1, 2 | 4 | 8 | 16, "Native check"},
 		{metadata{Title: "Paused", HasCurrent: true, Paused: true, CanNext: true}, 2, 1 | 4 | 8 | 16, "Paused"},
+		{metadata{Title: "Paused", HasCurrent: true, Paused: true, CanSeek: true}, 2, 1 | 4 | 8 | 512 | 1024, "Paused"},
 		{metadata{Title: "Paused", HasCurrent: true, Paused: true}, 2, 1 | 4 | 8, "Paused"},
 		{metadata{Title: "Stopped", HasCurrent: true}, 0, 1 | 4 | 8, "Stopped"},
 		{metadata{}, 0, 0, ""},

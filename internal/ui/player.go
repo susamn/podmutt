@@ -11,13 +11,14 @@ import (
 )
 
 // Player contains presentation-only transport data, independent of the selected
-// episode's description. Progress is display-only; seeking is not supported.
+// episode's description. Progress is display-only; h/l dispatch explicit seeks.
 type Player struct {
 	Status, Title, Position, Duration string
 	Error, Warning                    string
 	Progress                          float64
 	HasCurrent                        bool
 	CanNext                           bool
+	CanSeek                           bool
 }
 
 func (m Model) playerControl(index int) (label, command string, enabled bool) {
@@ -69,6 +70,10 @@ func (m Model) playerPane(width, height int) string {
 			rows[0] = status
 		}
 		rows = append(rows, title)
+		extra--
+	}
+	if extra > 0 {
+		rows = append(rows, lipgloss.NewStyle().Faint(!player.CanSeek).Render("h -15s · l +15s"))
 		extra--
 	}
 	if extra > 0 {

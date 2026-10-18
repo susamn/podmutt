@@ -15,7 +15,7 @@ is local development only. Existing `make build/dist` use CGO=0 and deliberately
 omit the native bridge; the TUI displays an unavailable warning on those builds.
 `native-media-test` builds a bundled `-tags=nativecheck` test executable with a
 separate bundle identity. It invokes the exact registered Objective-C blocks
-through CGO for Play/Pause/Toggle/Stop/Next, inspects public metadata/control flags,
+through CGO for Play/Pause/Toggle/Stop/Next and ±15-second skip commands, inspects public metadata/control flags,
 checks repeated registration and a retained handler delivered after teardown.
 The test-only C hooks are excluded from normal builds. This is not a Go callback
 shortcut, but it still does **not** press physical keys or prove system dispatch
@@ -35,7 +35,10 @@ Record OS/architecture, Go/Xcode/mpv versions, terminal and commit SHA, then che
 - [ ] Help/version/CLI do not register handlers or start a GUI event loop.
 - [ ] Subscribe/play from the TUI; physical Play/Pause and Next reach the actor.
 - [ ] Paused/playing/stopped state and current title/time are correct in system UI.
-- [ ] Disabled Next (no queue) and unsupported previous/seek do not alter history.
+- [ ] Loaded playing/paused episodes expose ±15-second Control Center skip controls;
+      both change actual position and saved resume without changing pause state.
+- [ ] Disabled Next (no queue), unready skip, unsupported previous/absolute system
+      scrubbing/continuous seeking do not alter history.
 - [ ] Controls still work when another app/terminal has keyboard focus.
 - [ ] No Accessibility/Input Monitoring request occurs; record any other prompt.
 - [ ] Quit/signal/failed startup remove handlers and Now Playing metadata; no

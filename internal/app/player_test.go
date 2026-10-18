@@ -23,6 +23,8 @@ type tuiPlayer struct {
 	events        chan player.Event
 	entry         int64
 	loads, closed int
+	seekPosition  float64
+	hasSeek       bool
 }
 
 func (p *tuiPlayer) Load(context.Context, string, float64) error {
@@ -30,6 +32,7 @@ func (p *tuiPlayer) Load(context.Context, string, float64) error {
 	defer p.mu.Unlock()
 	p.entry++
 	p.loads++
+	p.hasSeek = false
 	return nil
 }
 func (p *tuiPlayer) EntryID(context.Context) (int64, error) {
@@ -37,13 +40,26 @@ func (p *tuiPlayer) EntryID(context.Context) (int64, error) {
 	defer p.mu.Unlock()
 	return p.entry, nil
 }
-func (p *tuiPlayer) Play(context.Context) error                { return nil }
-func (p *tuiPlayer) Pause(context.Context) error               { return nil }
-func (p *tuiPlayer) Stop(context.Context) error                { return nil }
-func (p *tuiPlayer) Position(context.Context) (float64, error) { return 42, nil }
-func (p *tuiPlayer) Events() <-chan player.Event               { return p.events }
-func (p *tuiPlayer) Err() error                                { return errors.New("disconnected") }
-func (p *tuiPlayer) Close() error                              { p.mu.Lock(); defer p.mu.Unlock(); p.closed++; return nil }
+func (p *tuiPlayer) Play(context.Context) error  { return nil }
+func (p *tuiPlayer) Pause(context.Context) error { return nil }
+func (p *tuiPlayer) Stop(context.Context) error  { return nil }
+func (p *tuiPlayer) SeekTo(_ context.Context, position float64) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.seekPosition, p.hasSeek = position, true
+	return nil
+}
+func (p *tuiPlayer) Position(context.Context) (float64, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.hasSeek {
+		return p.seekPosition, nil
+	}
+	return 42, nil
+}
+func (p *tuiPlayer) Events() <-chan player.Event { return p.events }
+func (p *tuiPlayer) Err() error                  { return errors.New("disconnected") }
+func (p *tuiPlayer) Close() error                { p.mu.Lock(); defer p.mu.Unlock(); p.closed++; return nil }
 func playerLibrary(t *testing.T, s *session) (libraryShell, *tuiPlayer) {
 	t.Helper()
 	seededLibrary(t, s)
