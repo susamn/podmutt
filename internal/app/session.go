@@ -12,6 +12,7 @@ import (
 	"podmutt/internal/player"
 	"podmutt/internal/profile"
 	"podmutt/internal/store"
+	"podmutt/internal/theme"
 )
 
 type session struct {
@@ -23,6 +24,7 @@ type session struct {
 	nativeMedia *macmedia.Service
 	media       *mpris.Service
 	mediaError  error
+	theme       theme.Palette
 }
 
 // withSession runs under withProfile ownership. All foreground services share
@@ -53,5 +55,6 @@ func withSession(cfg profile.Config, paths profile.Paths, run func(*session) err
 	if native != nil {
 		defer native.Close()
 	}
-	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, nativeMedia: native, mediaError: errors.Join(mediaError, nativeError)})
+	pal, _ := theme.Load(paths.ConfigDir(), cfg.Theme)
+	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, nativeMedia: native, mediaError: errors.Join(mediaError, nativeError), theme: pal})
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/store"
+	"podmutt/internal/theme"
 	"podmutt/internal/ui"
 )
 
@@ -281,6 +283,30 @@ func TestLibraryGuardsAndPlainDetails(t *testing.T) {
 		libraryKey(&m, 'j')
 		if m.feedID != b {
 			t.Fatal("pending add selection was overwritten")
+		}
+	})
+}
+
+func TestThemeReloadAndSignal(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, err := newLibrary(s, feed.New(s.store, nil, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		newPal := theme.Catppuccin()
+		updateLibrary(&m, themeReloadMsg{palette: newPal})
+		if m.Model.Theme().Accent != newPal.Accent {
+			t.Fatalf("theme not updated: got %v, want %v", m.Model.Theme().Accent, newPal.Accent)
+		}
+		if m.signals != nil {
+			m.signals <- os.Interrupt
+			cmd := m.waitSignal()
+			if cmd != nil {
+				msg := cmd()
+				if _, ok := msg.(themeReloadMsg); !ok {
+					t.Fatalf("expected themeReloadMsg from signal, got %T", msg)
+				}
+			}
 		}
 	})
 }
