@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/BurntSushi/toml"
@@ -56,6 +57,41 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("configuration: telemetry is not supported")
 	}
 	return cfg, nil
+}
+
+// SetTheme updates or appends the theme setting in config.toml.
+func SetTheme(path, themeName string) error {
+	if filepath.Base(themeName) != themeName {
+		return fmt.Errorf("configuration: theme must be a simple name")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		content := fmt.Sprintf("theme = %q\n", themeName)
+		return os.WriteFile(path, []byte(content), 0600)
+	}
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "theme") {
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 && strings.TrimSpace(parts[0]) == "theme" {
+				lines[i] = fmt.Sprintf("theme = %q", themeName)
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		lines = append(lines, fmt.Sprintf("theme = %q", themeName))
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0600)
 }
 
 type Paths struct{ Config, State, Runtime string }
