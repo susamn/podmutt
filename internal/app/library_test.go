@@ -310,3 +310,25 @@ func TestThemeReloadAndSignal(t *testing.T) {
 		}
 	})
 }
+
+func TestSettingsInteractiveThemeSwitch(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, err := newLibrary(s, feed.New(s.store, nil, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'e', Text: "e"})
+		if !m.Model.SettingsOpen() {
+			t.Fatal("settings not open")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'j', Text: "j"})
+		cmd := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter})
+		if cmd != nil {
+			msg := cmd()
+			updateLibrary(&m, msg)
+		}
+		if s.config.Theme == "" {
+			t.Fatal("theme not updated in session")
+		}
+	})
+}

@@ -20,7 +20,9 @@ import (
 )
 
 type themeReloadMsg struct {
-	palette theme.Palette
+	palette   theme.Palette
+	themeName string
+	themePath string
 }
 
 type libraryLoaded struct {
@@ -131,8 +133,8 @@ func (m libraryShell) waitSignal() tea.Cmd {
 		case <-m.s.ctx.Done():
 			return nil
 		case <-m.signals:
-			pal, _ := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
-			return themeReloadMsg{pal}
+			pal, themePath := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
+			return themeReloadMsg{palette: pal, themeName: m.s.config.Theme, themePath: themePath}
 		}
 	}
 }
@@ -193,7 +195,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	switch msg := msg.(type) {
 	case themeReloadMsg:
 		m.s.theme = msg.palette
-		m.Model = m.Model.WithTheme(msg.palette)
+		if msg.themeName != "" {
+			m.s.config.Theme = msg.themeName
+		}
+		m.Model = m.Model.WithTheme(msg.palette).WithSettings(m.s.settingsData())
 		return m, m.waitSignal()
 	case artProbe:
 		cmd = m.probeArt()
