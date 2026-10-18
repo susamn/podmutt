@@ -84,7 +84,10 @@ void *pm_install(uintptr_t handle) {
 #endif
         MPRemoteCommandCenter *center = [MPRemoteCommandCenter sharedCommandCenter];
         NSArray *commands = @[center.playCommand, center.pauseCommand,
-            center.togglePlayPauseCommand, center.stopCommand, center.nextTrackCommand];
+            center.togglePlayPauseCommand, center.stopCommand, center.nextTrackCommand,
+            center.skipForwardCommand, center.skipBackwardCommand];
+        center.skipForwardCommand.preferredIntervals = @[@15];
+        center.skipBackwardCommand.preferredIntervals = @[@15];
         for (NSUInteger i = 0; i < [commands count]; i++) {
             MPRemoteCommand *command = commands[i];
             PMMedia *owner = controller; // copied handler retains a late delivery's owner
@@ -113,7 +116,7 @@ void *pm_install(uintptr_t handle) {
     } }});
     return controller;
 }
-int pm_update(void *pointer, const char *title, double position, double duration, int state, int current, int next) {
+int pm_update(void *pointer, const char *title, double position, double duration, int state, int current, int next, int seekable) {
     if (!pointer) return 0;
     __block int success = 0;
     onMain(^{ @autoreleasepool { @try {
@@ -127,6 +130,8 @@ int pm_update(void *pointer, const char *title, double position, double duration
         center.togglePlayPauseCommand.enabled = current;
         center.stopCommand.enabled = current;
         center.nextTrackCommand.enabled = next;
+        center.skipForwardCommand.enabled = seekable;
+        center.skipBackwardCommand.enabled = seekable;
         MPNowPlayingInfoCenter *info = [MPNowPlayingInfoCenter defaultCenter];
         if (current) {
             NSMutableDictionary *metadata = [NSMutableDictionary dictionaryWithDictionary:@{

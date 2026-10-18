@@ -72,7 +72,7 @@ func (d *nativeDriver) Update(m metadata) error {
 	} else if m.Paused {
 		state = 2
 	}
-	if C.pm_update(d.pointer, title, C.double(m.Position), C.double(m.Duration), state, flag(m.HasCurrent), flag(m.CanNext)) == 0 {
+	if C.pm_update(d.pointer, title, C.double(m.Position), C.double(m.Duration), state, flag(m.HasCurrent), flag(m.CanNext), flag(m.CanSeek)) == 0 {
 		return ErrUnavailable
 	}
 	return nil
@@ -94,7 +94,7 @@ func (d *nativeDriver) Close() {
 
 //export podmuttMediaEvent
 func podmuttMediaEvent(handle C.uintptr_t, action C.int) C.int {
-	commands := []string{"play", "pause", "toggle", "stop", "next"}
+	commands := []string{"play", "pause", "toggle", "stop", "next", "seek-forward", "seek-backward"}
 	if action < 0 || int(action) >= len(commands) {
 		return 0
 	}

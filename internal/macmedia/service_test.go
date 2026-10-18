@@ -14,6 +14,7 @@ import (
 type fakeBackend struct {
 	updates     chan playback.State
 	calls       chan string
+	seeks       chan float64
 	err         error
 	watchErr    error
 	watchCancel context.CancelFunc
@@ -39,6 +40,14 @@ func (b *fakeBackend) Play(ctx context.Context) error  { return b.act(ctx, "play
 func (b *fakeBackend) Pause(ctx context.Context) error { return b.act(ctx, "pause") }
 func (b *fakeBackend) Stop(ctx context.Context) error  { return b.act(ctx, "stop") }
 func (b *fakeBackend) Next(ctx context.Context) error  { return b.act(ctx, "next") }
+func (b *fakeBackend) SeekBy(ctx context.Context, delta float64) error {
+	b.seeks <- delta
+	action := "seek-forward"
+	if delta < 0 {
+		action = "seek-backward"
+	}
+	return b.act(ctx, action)
+}
 func (b *fakeBackend) Toggle(ctx context.Context, id int64) error {
 	if id != 0 {
 		panic("selected rather than current episode")
@@ -58,7 +67,7 @@ func (d *fakeDriver) Install(callback func(string) bool) error { d.callback = ca
 func (d *fakeDriver) Update(m metadata) error                  { d.updates <- m; return d.updateErr }
 func (d *fakeDriver) Close()                                   { d.closed.Add(1) }
 func fixtures() (*fakeBackend, *fakeDriver) {
-	return &fakeBackend{updates: make(chan playback.State, 16), calls: make(chan string, 32)}, &fakeDriver{updates: make(chan metadata, 32)}
+	return &fakeBackend{updates: make(chan playback.State, 16), calls: make(chan string, 32), seeks: make(chan float64, 32)}, &fakeDriver{updates: make(chan metadata, 32)}
 }
 func TestSharedRemoteMappingMetadataAndCleanup(t *testing.T) {
 	b, d := fixtures()
@@ -67,16 +76,16 @@ func TestSharedRemoteMappingMetadataAndCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	b.updates <- playback.State{Status: playback.Playing, Current: &store.Episode{Title: "Current", PositionSeconds: 42, DurationSeconds: 90}, Queue: []store.Episode{{ID: 2}}}
+	b.updates <- playback.State{Status: playback.Playing, Current: &store.Episode{Title: "Current", PositionSeconds: 42, DurationSeconds: 90}, Queue: []store.Episode{{ID: 2}}, CanSeek: true}
 	select {
 	case m := <-d.updates:
-		if !m.Playing || !m.HasCurrent || !m.CanNext || m.Title != "Current" || m.Position != 42 || m.Duration != 90 {
+		if !m.Playing || !m.HasCurrent || !m.CanNext || !m.CanSeek || m.Title != "Current" || m.Position != 42 || m.Duration != 90 {
 			t.Fatal(m)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("metadata stalled")
 	}
-	for _, action := range []string{"play", "pause", "toggle", "stop", "next"} {
+	for _, action := range []string{"play", "pause", "toggle", "stop", "next", "seek-forward", "seek-backward"} {
 		if !d.callback(action) {
 			t.Fatal("not accepted", action)
 		}
@@ -87,6 +96,11 @@ func TestSharedRemoteMappingMetadataAndCleanup(t *testing.T) {
 			}
 		case <-time.After(time.Second):
 			t.Fatal("action stalled")
+		}
+	}
+	for _, want := range []float64{15, -15} {
+		if got := <-b.seeks; got != want {
+			t.Fatal("seek interval", got, want)
 		}
 	}
 	if d.callback("seek") {

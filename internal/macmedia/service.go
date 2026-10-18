@@ -17,11 +17,13 @@ type backend interface {
 	control.Actions
 	Toggle(context.Context, int64) error
 	Watch(context.Context) (<-chan playback.State, error)
+	SeekBy(context.Context, float64) error
 }
 type metadata struct {
 	Title                                string
 	Position, Duration                   float64
 	Playing, Paused, HasCurrent, CanNext bool
+	CanSeek                              bool
 }
 type driver interface {
 	Install(func(string) bool) error
@@ -38,7 +40,7 @@ type Service struct {
 }
 
 func info(s playback.State) metadata {
-	m := metadata{Playing: s.Status == playback.Playing, Paused: s.Status == playback.Paused, CanNext: len(s.Queue) > 0}
+	m := metadata{Playing: s.Status == playback.Playing, Paused: s.Status == playback.Paused, CanNext: len(s.Queue) > 0, CanSeek: s.CanSeek}
 	if s.Current != nil {
 		title := []rune(s.Current.Title)
 		m.Title = string(title[:min(256, len(title))])
@@ -65,7 +67,7 @@ func start(ctx context.Context, b backend, d driver) (*Service, error) {
 	actions := make(chan string, 8)
 	accepted := func(action string) bool {
 		switch action {
-		case "play", "pause", "stop", "next", "toggle":
+		case "play", "pause", "stop", "next", "toggle", "seek-forward", "seek-backward":
 		default:
 			return false
 		}
@@ -106,7 +108,13 @@ func start(ctx context.Context, b backend, d driver) (*Service, error) {
 			case action := <-actions:
 				actionCtx, stop := context.WithTimeout(ctx, 3*time.Second)
 				var err error
-				if action == "toggle" {
+				if action == "seek-forward" || action == "seek-backward" {
+					delta := 15.0
+					if action == "seek-backward" {
+						delta = -15
+					}
+					err = b.SeekBy(actionCtx, delta)
+				} else if action == "toggle" {
 					err = b.Toggle(actionCtx, 0)
 				} else {
 					_, err = control.Execute(actionCtx, b, action)

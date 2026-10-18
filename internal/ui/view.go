@@ -153,7 +153,7 @@ func (m Model) View() tea.View {
 			hints = "j/k select · Enter play/promote · J/K move pending · d/D remove/clear pending · ? help · q quit"
 		}
 		if m.focus == PlayerPanel {
-			hints = "Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
+			hints = "h/l seek ±15s · Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
 		}
 		if m.focus == Details {
 			hints = "j/k scroll · Ctrl-d/u half page · g/G top/bottom · PgUp/PgDn page · Tab panes · q quit"
@@ -183,7 +183,7 @@ func (m Model) View() tea.View {
 				modal = box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
 					"h/l, Tab · 1-5 focus pane",
-					"Player (5): Left/Right select · Enter activate",
+					"Player (5): h/l seek ±15s · Left/Right select · Enter activate",
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"Space selected play/toggle · s stop · n next",

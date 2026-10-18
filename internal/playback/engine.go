@@ -33,6 +33,7 @@ type State struct {
 	Queue   []store.Episode
 	Status  Status
 	Error   string
+	CanSeek bool
 }
 
 type Repository interface {
@@ -90,6 +91,8 @@ type Engine struct {
 	done         chan struct{}
 	watchers     subscriptions
 	closeErr     error // published by closing done
+	seekUntil    time.Time
+	seekTarget   float64
 }
 
 // New restores state without starting mpv or autoplaying. Consume Updates for
@@ -215,6 +218,8 @@ func (e *Engine) closePlayer() error {
 
 func (e *Engine) snapshot() State {
 	state := e.state
+	_, seeking := e.player.(seeker)
+	state.CanSeek = e.active && e.ready && seeking && state.Current != nil
 	if state.Current != nil {
 		current := *state.Current
 		state.Current = &current

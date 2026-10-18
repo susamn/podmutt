@@ -48,6 +48,7 @@ func (m Model) animationVisible() bool {
 		extra--
 	}
 	extra-- // title
+	extra-- // seek hints
 	return extra > 0
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"podmutt/internal/player"
 	"podmutt/internal/store"
@@ -50,6 +51,7 @@ func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) er
 		}
 	}
 	e.active, e.ready = false, false
+	e.seekUntil = time.Time{}
 	position := episode.PositionSeconds
 	if episode.Completed {
 		position = 0
@@ -237,7 +239,7 @@ func (e *Engine) save(ctx context.Context, poll bool) error {
 	if !e.active || e.state.Current == nil {
 		return nil
 	}
-	if poll && e.ready {
+	if poll && e.ready && !time.Now().Before(e.seekUntil) {
 		position, err := e.player.Position(ctx)
 		if err != nil {
 			return err
@@ -322,6 +324,10 @@ func (e *Engine) event(ctx context.Context, event player.Event) {
 	if event.Name == "property-change" && event.Property == "time-pos" && string(event.Data) != "null" {
 		var position float64
 		if json.Unmarshal(event.Data, &position) == nil && position >= 0 && !math.IsNaN(position) && !math.IsInf(position, 0) {
+			if time.Now().Before(e.seekUntil) && math.Abs(position-e.seekTarget) > 0.5 {
+				return
+			}
+			e.seekUntil = time.Time{}
 			e.ready = true
 			e.state.Current.PositionSeconds = position
 		}

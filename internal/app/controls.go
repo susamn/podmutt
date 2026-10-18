@@ -54,7 +54,13 @@ func newShell(s *session) shell {
 	return shell{Model: ui.New(ui.Data{}).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
-			if command == "toggle" {
+			if command == "seek-forward" || command == "seek-backward" {
+				delta := 15.0
+				if command == "seek-backward" {
+					delta = -15
+				}
+				err = s.playback.SeekBy(s.ctx, delta)
+			} else if command == "toggle" {
 				err = s.playback.Toggle(s.ctx, 0)
 			} else {
 				_, err = control.Execute(s.ctx, s.playback, command)
@@ -84,7 +90,7 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, episode := range msg.state.Queue {
 			queue = append(queue, stackItem(episode, "queued"))
 		}
-		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0}
+		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0, CanSeek: msg.state.CanSeek}
 		if episode := msg.state.Current; episode != nil {
 			player.HasCurrent = true
 			player.PositionSeconds = episode.PositionSeconds
