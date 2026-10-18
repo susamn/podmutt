@@ -31,6 +31,7 @@ type Data struct {
 }
 
 type Model struct {
+	animation     animation
 	data          Data
 	width, height int
 	focus         Panel
@@ -152,9 +153,19 @@ func (m *Model) setFocus(panel Panel) {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case animationTick:
+		if msg.generation != m.animation.generation || !m.animation.running {
+			return m, nil
+		}
+		if m.animation.ctx.Err() != nil {
+			return m.SyncAnimation()
+		}
+		m.animation.frame = (m.animation.frame + 1) % 1024
+		return m.scheduleAnimation()
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(0, msg.Width), max(0, msg.Height)
 		m.scrollDetails(0)
+		return m.SyncAnimation()
 	case Data:
 		// Keep the selected identity as asynchronous data replaces list contents.
 		for panel := Podcasts; panel <= Queue; panel++ {
