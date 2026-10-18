@@ -62,6 +62,10 @@ roll back data, DDL and user_version atomically; unknown/newer versions fail
 without attempting a downgrade. Existing tests also reject unsafe file modes,
 symlinks and duplicate foreground ownership.
 
+Orderly quit keeps mpv alive through the final position/checkpoint and IPC
+close/reap, then releases its process context (ADR 017). The real-mpv CI gate
+checks this full session boundary, not just direct Player.Close.
+
 Only committed checkpoints survive a crash. Playback normally checkpoints every
 five seconds and on pause/stop/replacement/EOF/quit, so the last few seconds may
 be lost. Abrupt termination is not completion. Hardware/filesystem failure,

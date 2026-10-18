@@ -15,7 +15,9 @@ and feature dependencies are verified. Features #13/#14/#16 are separate MRs.
   cached completed search and explicit resume; no external feeds/audio.
   Also SIGKILL/WAL reopen, consistent snapshot/restore and failed migration rollback.
 - `make mpv-test`: real mpv/null-audio lifecycle, load/pause/resume/stop/EOF/error,
-  bounded shutdown and abrupt owner-death/IPC loss. Required Linux CI job.
+  bounded shutdown and abrupt owner-death/IPC loss. It also crosses real
+  session/actor/process quit to catch premature context kills and final checkpoint
+  loss (ADR 017). Required Linux CI job.
 - `make mpris-test`: private dbus-daemon protocol/actions/metadata/shutdown.
   Required Linux CI job. This does not press desktop media keys.
 - `make dist`: all-package Linux/Darwin amd64/arm64 cross-compilation. Cross-builds
