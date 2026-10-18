@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
@@ -79,10 +78,13 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = msg.state
 		var queue []ui.Item
-		for _, episode := range msg.state.Queue {
-			queue = append(queue, ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: library.PlainText(episode.Title)})
+		if current := msg.state.Current; current != nil && !current.Completed {
+			queue = append(queue, stackItem(*current, string(msg.state.Status)))
 		}
-		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error}
+		for _, episode := range msg.state.Queue {
+			queue = append(queue, stackItem(episode, "queued"))
+		}
+		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0}
 		if episode := msg.state.Current; episode != nil {
 			player.HasCurrent = true
 			player.Title = library.PlainText(episode.Title)

@@ -89,8 +89,8 @@ func TestPrivateBusExportControlsAndRelease(t *testing.T) {
 	if !owns(t, conn) || property(t, object, "Position") != int64(12_000_000) {
 		t.Fatal("service not ready")
 	}
-	if property(t, object, "CanGoNext") != false || property(t, object, "CanSeek") != false {
-		t.Fatal("unsupported controls advertised")
+	if property(t, object, "CanGoNext") != true || property(t, object, "CanSeek") != false {
+		t.Fatal("queue/seek capabilities incorrect")
 	}
 	var xml string
 	if err := object.Call("org.freedesktop.DBus.Introspectable.Introspect", 0).Store(&xml); err != nil || !strings.Contains(xml, "PlayPause") || !strings.Contains(xml, "PropertiesChanged") {
@@ -102,10 +102,10 @@ func TestPrivateBusExportControlsAndRelease(t *testing.T) {
 	eventually(t, func() bool { return property(t, object, "PlaybackStatus") == "Paused" })
 	call(t, object, "Next")
 	state, _ := f.Snapshot(background)
-	if state.Current.ID != 1 || state.Status != playback.Paused {
-		t.Fatal("Next resumed paused playback")
+	if state.Current.ID != 2 || state.Status != playback.Playing {
+		t.Fatal("Next failed to play the queued episode from paused state")
 	}
-	call(t, object, "PlayPause")
+	// Empty Next is harmless; it cannot stop/replay current playback.
 	call(t, object, "Next")
 	eventually(t, func() bool {
 		metadata := property(t, object, "Metadata").(map[string]dbus.Variant)

@@ -156,6 +156,8 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		}
 		finishLibrary(&m, libraryKey(&m, 'K'))
 		syncPlayer(t, &m)
+		// Episodes still open details; Queue Enter now promotes playback.
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		if m.Model.Focus() != ui.Details || m.detailTarget == nil || !strings.Contains(m.View().Content, m.detailTarget.Title) {
 			t.Fatal("details not opened")

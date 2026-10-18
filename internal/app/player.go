@@ -5,9 +5,22 @@ import (
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/library"
 	"podmutt/internal/store"
 	"podmutt/internal/ui"
 )
+
+func stackItem(episode store.Episode, status string) ui.Item {
+	show := library.PlainText(episode.FeedTitle)
+	if show == "" {
+		show = "Unknown show"
+	}
+	duration := "--:--"
+	if episode.DurationSeconds > 0 {
+		duration = clock(float64(episode.DurationSeconds))
+	}
+	return ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: fmt.Sprintf("[%s] %s · %s · %s/%s", status, library.PlainText(episode.Title), show, clock(episode.PositionSeconds), duration)}
+}
 
 type playerEdited struct{ err error }
 type queueConfirmation struct {
@@ -27,6 +40,9 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 		item, ok := m.Model.Selected(ui.Queue)
 		if !ok {
 			return store.Episode{}, false
+		}
+		if current := m.state.Current; current != nil && strconv.FormatInt(current.ID, 10) == item.ID {
+			return *current, true
 		}
 		for _, episode := range m.state.Queue {
 			if item.ID == strconv.FormatInt(episode.ID, 10) {
@@ -82,6 +98,10 @@ func (m *libraryShell) moveQueue(step int) tea.Cmd {
 	if !ok {
 		return nil
 	}
+	if m.state.Current != nil && m.state.Current.ID == episode.ID {
+		m.notice = "Current episode stays at the front; play another row to promote it"
+		return nil
+	}
 	engine, ctx := m.s.playback, m.s.ctx
 	return func() tea.Msg { return playerEdited{engine.MoveQueued(ctx, episode.ID, step)} }
 }
@@ -90,7 +110,7 @@ func (m *libraryShell) confirmQueue(clear bool) {
 		return
 	}
 	confirmation := &queueConfirmation{clear: clear}
-	body := "Clear all queued episodes? Playback and history are unchanged."
+	body := "Clear pending episodes? Current playback and history are unchanged."
 	if clear {
 		for _, episode := range m.state.Queue {
 			confirmation.ids = append(confirmation.ids, episode.ID)
@@ -98,6 +118,10 @@ func (m *libraryShell) confirmQueue(clear bool) {
 	} else {
 		episode, ok := m.contextEpisode()
 		if !ok {
+			return
+		}
+		if m.state.Current != nil && m.state.Current.ID == episode.ID {
+			m.notice = "Current episode stays at the front; d removes pending episodes only"
 			return
 		}
 		confirmation.ids = []int64{episode.ID}

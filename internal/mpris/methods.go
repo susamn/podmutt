@@ -68,7 +68,7 @@ func (s *Service) act(command string) *dbus.Error {
 	case "next":
 		// The core Next starts a queued episode. Do not silently resume a paused
 		// podcast: advertise/allow this capability only while already playing.
-		if state.Status != playback.Playing || len(state.Queue) == 0 {
+		if len(state.Queue) == 0 {
 			return nil
 		}
 	}

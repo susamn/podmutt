@@ -149,6 +149,9 @@ func (m Model) View() tea.View {
 		if m.data.ContextHint != "" {
 			hints = clean(m.data.ContextHint, false)
 		}
+		if m.focus == Queue {
+			hints = "j/k select · Enter play/promote · J/K move pending · d/D remove/clear pending · ? help · q quit"
+		}
 		if m.focus == PlayerPanel {
 			hints = "Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
 		}
@@ -181,8 +184,9 @@ func (m Model) View() tea.View {
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"Space selected play/toggle · s stop · n next",
-					"Enter details · a enqueue · A enqueue visible",
-					"Queue: J/K move · d remove · D clear (confirm)",
+					"Episodes Enter details · a enqueue · A enqueue visible",
+					"Queue: Enter play/promote · j/k select",
+					"Pending: J/K move · d remove · D clear (confirm)",
 					"b My subscriptions / Apple Discover",
 					"f search · Tab switches library/Apple scope",
 					"N feed/website · u subscribe/unsubscribe",

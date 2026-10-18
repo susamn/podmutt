@@ -17,6 +17,7 @@ type Player struct {
 	Error, Warning                    string
 	Progress                          float64
 	HasCurrent                        bool
+	CanNext                           bool
 }
 
 func (m Model) playerControl(index int) (label, command string, enabled bool) {
@@ -30,7 +31,7 @@ func (m Model) playerControl(index int) (label, command string, enabled bool) {
 	case 1:
 		return "Stop", "stop", m.data.Player.HasCurrent || m.data.Player.Status == "failed"
 	default:
-		return "Next", "next", len(m.data.Queue) > 0
+		return "Next", "next", m.data.Player.CanNext
 	}
 }
 func (m Model) activatePlayer() tea.Cmd {

@@ -64,7 +64,7 @@ without changing source or weakening the normal 90% threshold.
 
 The foreground app exposes MPRIS on an existing Linux session D-Bus. Desktop
 Play/Pause, Stop, and Next use the same playback actor as keyboard/CLI controls.
-Next is enabled only while playing with a queued episode; Stop preserves resume
+Next is enabled whenever a pending episode exists; Stop preserves resume
 progress. Seeking, Previous, URI opening, and volume/rate/repeat/shuffle changes
 are unsupported. A missing/broken bus is nonfatal and never launches a daemon.
 macOS has a public MediaPlayer/AppKit CGO bridge prototype in #16, not yet
@@ -147,10 +147,14 @@ subscription, `[x]` indicates completion. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
 Space plays the selected Episodes/Queue item, or toggles it if current; elsewhere
-it toggles current playback. Enter opens details, never audio. `s` stops and `n`
-skips to the explicit queue's next episode. `a` enqueues one item; `A` enqueues
-visible (filtered) Episodes in display order. In Queue, `J/K` move an item,
-`d` removes it, and `D` clears the full queue. Removal/clear require explicit `y`;
+it toggles current playback. Enter opens Details in Episodes; **Queue Enter plays
+and promotes the selected row**. `s` stops and `n` advances to the first pending
+episode. The Queue shows current playback plus pending episodes with show/title,
+state and resume position. Playing a different episode pushes interrupted playback
+behind it; completion removes the row but keeps history. Restart restores stopped.
+`a` enqueues one item; `A` enqueues visible Episodes in display order. In Queue,
+`j/k` select, `J/K` move pending items, `d` removes a pending item, and `D` clears
+pending items while keeping current playback. Removal/clear require explicit `y`;
 Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do not
 change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).

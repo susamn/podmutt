@@ -377,7 +377,12 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
 				cmd = m.reload()
-			} else if m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue {
+			} else if m.Model.Focus() == ui.Queue {
+				if episode, ok := m.contextEpisode(); ok {
+					engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
+					cmd = func() tea.Msg { return playerEdited{engine.PlayEpisode(ctx, id)} }
+				}
+			} else if m.Model.Focus() == ui.Episodes {
 				if episode, ok := m.contextEpisode(); ok {
 					m.detailTarget = &episode
 					m.Model = m.Model.WithFocus(ui.Details)
