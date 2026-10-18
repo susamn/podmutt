@@ -43,6 +43,8 @@ type Model struct {
 	actions       func(string) tea.Cmd
 	detailScroll  int
 	playerButton  int
+	artColumns    int
+	artRows       []string
 }
 
 func New(data Data) Model     { return Model{data: data} }
