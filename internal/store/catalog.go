@@ -19,6 +19,7 @@ type Feed struct {
 type Episode struct {
 	ID, FeedID               int64
 	GUID, Title, Description string
+	FeedTitle                string
 	AudioURL, ArtworkURL     string
 	PublishedAt              time.Time
 	DurationSeconds          int64
@@ -105,7 +106,8 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 }
 
 const episodeColumns = `e.id,e.feed_id,e.guid,e.title,e.description,e.audio_url,e.artwork_url,
-	e.published_at,e.duration_seconds,COALESCE(p.position_seconds,0),COALESCE(p.completed,0)`
+	e.published_at,e.duration_seconds,COALESCE(p.position_seconds,0),COALESCE(p.completed,0),
+ (SELECT title FROM feeds WHERE id=e.feed_id)`
 
 const episodeTables = `episodes e LEFT JOIN playback p ON p.episode_id=e.id`
 
@@ -145,7 +147,7 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		var published int64
 		if err := rows.Scan(&episode.ID, &episode.FeedID, &episode.GUID, &episode.Title,
 			&episode.Description, &episode.AudioURL, &episode.ArtworkURL, &published,
-			&episode.DurationSeconds, &episode.PositionSeconds, &episode.Completed); err != nil {
+			&episode.DurationSeconds, &episode.PositionSeconds, &episode.Completed, &episode.FeedTitle); err != nil {
 			return nil, err
 		}
 		if published != 0 {

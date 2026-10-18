@@ -12,11 +12,18 @@ import (
 )
 
 func (e *Engine) PlayEpisode(ctx context.Context, id int64) error {
-	_, err := e.submit(ctx, func(ctx context.Context) error { return e.load(ctx, id) })
+	_, err := e.submit(ctx, func(ctx context.Context) error { return e.loadSelected(ctx, id) })
 	return err
 }
 
-func (e *Engine) load(ctx context.Context, id int64) error {
+func (e *Engine) loadSelected(ctx context.Context, id int64) error {
+	if e.active && e.state.Current != nil && e.state.Current.ID == id && !e.state.Current.Completed {
+		return e.play(ctx)
+	}
+	return e.loadStack(ctx, id, true)
+}
+func (e *Engine) load(ctx context.Context, id int64) error { return e.loadStack(ctx, id, false) }
+func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) error {
 	episode, err := e.repo.Episode(ctx, id)
 	if err != nil {
 		return err
@@ -54,26 +61,26 @@ func (e *Engine) load(ctx context.Context, id int64) error {
 	if err != nil {
 		return e.fail(ctx, err)
 	}
-	if episode.Completed {
-		if err := e.repo.SetCompleted(ctx, id, false); err != nil {
-			return e.fail(ctx, err)
-		}
+	remaining := make([]int64, 0, len(e.state.Queue)+1)
+	if retainCurrent && e.state.Current != nil && e.state.Current.ID != id && !e.state.Current.Completed {
+		remaining = append(remaining, e.state.Current.ID)
 	}
-	if err := e.repo.Checkpoint(ctx, id, position); err != nil {
-		return e.fail(ctx, err)
-	}
-	episode.PositionSeconds, episode.Completed = position, false
-	e.state.Current, e.state.Status, e.state.Error = &episode, Playing, ""
-	e.entryID, e.active = entryID, true
-	remaining := make([]int64, 0, len(e.state.Queue))
 	for _, item := range e.state.Queue {
 		if item.ID != id {
 			remaining = append(remaining, item.ID)
 		}
 	}
-	if err := e.setQueue(ctx, remaining); err != nil {
+	pending, ids, err := e.resolveQueue(ctx, remaining, id)
+	if err != nil {
 		return e.fail(ctx, err)
 	}
+	if err := e.repo.Activate(ctx, id, position, ids); err != nil {
+		return e.fail(ctx, err)
+	}
+	episode.PositionSeconds, episode.Completed = position, false
+	e.state.Current, e.state.Status, e.state.Error = &episode, Playing, ""
+	e.state.Queue = pending
+	e.entryID, e.active = entryID, true
 	return nil
 }
 
@@ -81,7 +88,7 @@ func (e *Engine) load(ctx context.Context, id int64) error {
 func (e *Engine) Toggle(ctx context.Context, selectedID int64) error {
 	_, err := e.submit(ctx, func(ctx context.Context) error {
 		if selectedID != 0 && (e.state.Current == nil || e.state.Current.ID != selectedID) {
-			return e.load(ctx, selectedID)
+			return e.loadSelected(ctx, selectedID)
 		}
 		if e.state.Status == Playing {
 			return e.pause(ctx)
@@ -173,20 +180,32 @@ func (e *Engine) Enqueue(ctx context.Context, ids ...int64) error {
 	return err
 }
 
-func (e *Engine) setQueue(ctx context.Context, ids []int64) error {
+func (e *Engine) resolveQueue(ctx context.Context, ids []int64, currentID int64) ([]store.Episode, []int64, error) {
 	var queue []store.Episode
 	var unique []int64
 	seen := make(map[int64]bool)
 	for _, id := range ids {
-		if seen[id] {
+		if seen[id] || id == currentID {
 			continue
 		}
 		item, err := e.repo.Episode(ctx, id)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		seen[id] = true
 		unique, queue = append(unique, id), append(queue, item)
+	}
+	return queue, unique, nil
+}
+
+func (e *Engine) setQueue(ctx context.Context, ids []int64) error {
+	currentID := int64(0)
+	if e.state.Current != nil && !e.state.Current.Completed {
+		currentID = e.state.Current.ID
+	}
+	queue, unique, err := e.resolveQueue(ctx, ids, currentID)
+	if err != nil {
+		return err
 	}
 	if err := e.repo.ReplaceQueue(ctx, unique); err != nil {
 		return err

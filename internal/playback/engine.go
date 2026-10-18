@@ -41,6 +41,7 @@ type Repository interface {
 	Checkpoint(context.Context, int64, float64) error
 	SetCompleted(context.Context, int64, bool) error
 	ReplaceQueue(context.Context, []int64) error
+	Activate(context.Context, int64, float64, []int64) error
 }
 
 type Player interface {
@@ -117,6 +118,22 @@ func newEngine(ctx context.Context, repo Repository, factory Factory, ticks <-ch
 		state.Current = &episode
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
+	}
+	// Legacy queues could contain the current entry as well as the current
+	// pointer. Normalize that representation without a schema migration/autoplay.
+	if state.Current != nil && !state.Current.Completed {
+		pending := make([]store.Episode, 0, len(state.Queue))
+		for _, item := range state.Queue {
+			if item.ID != state.Current.ID {
+				pending = append(pending, item)
+			}
+		}
+		if len(pending) != len(state.Queue) {
+			if err := repo.ReplaceQueue(ctx, queueIDs(pending)); err != nil {
+				return nil, err
+			}
+			state.Queue = pending
+		}
 	}
 	lifetime, cancel := context.WithCancel(ctx)
 	e := &Engine{ctx: lifetime, cancel: cancel, repo: repo, factory: factory, state: state,
