@@ -36,7 +36,9 @@ func (s *Service) Preview(ctx context.Context, raw string) (feed.Resolved, error
 }
 
 // SubscribePreview commits validated preview metadata only after explicit user
-// confirmation. Existing URLs resubscribe without replacing cache/history.
+// confirmation. Unsubscribed ad-hoc caches receive the full preview before
+// subscription; existing episode IDs/history survive. Already subscribed URLs
+// retain their cache without an unnecessary rewrite.
 func (s *Service) SubscribePreview(ctx context.Context, preview feed.Resolved) (int64, error) {
 	address, err := httpurl.Parse(preview.URL)
 	if err != nil {
@@ -51,8 +53,8 @@ func (s *Service) SubscribePreview(ctx context.Context, preview feed.Resolved) (
 		return 0, err
 	}
 	for _, source := range sources {
-		if source.URL == address.String() {
-			return source.ID, s.Subscribe(ctx, source.ID, true)
+		if source.URL == address.String() && source.Subscribed {
+			return source.ID, nil
 		}
 	}
 	fetched := preview.Fetched
