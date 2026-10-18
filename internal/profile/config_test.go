@@ -37,6 +37,27 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestSetTheme(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sub", "config.toml")
+	if err := SetTheme(path, "solarized-dark"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.Theme != "solarized-dark" {
+		t.Fatalf("unexpected theme after creation: %+v %v", cfg, err)
+	}
+	if err := SetTheme(path, "catppuccin"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(path)
+	if err != nil || cfg.Theme != "catppuccin" {
+		t.Fatalf("unexpected theme after update: %+v %v", cfg, err)
+	}
+	if err := SetTheme(path, "nested/path"); err == nil {
+		t.Fatal("expected error for nested path theme")
+	}
+}
+
 func TestResolve(t *testing.T) {
 	env := map[string]string{}
 	get := func(key string) string { return env[key] }

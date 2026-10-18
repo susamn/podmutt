@@ -7,12 +7,14 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
+	"podmutt/internal/theme"
 	"podmutt/internal/ui"
 )
 
@@ -51,9 +53,17 @@ type shell struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithIcons(s.config.Icons).WithTheme(s.theme).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
+			if strings.HasPrefix(command, "theme:") {
+				chosen := strings.TrimPrefix(command, "theme:")
+				_ = profile.SetTheme(s.paths.Config, chosen)
+				s.config.Theme = chosen
+				pal, themePath := theme.Load(s.paths.ConfigDir(), chosen)
+				s.theme = pal
+				return themeReloadMsg{palette: pal, themeName: chosen, themePath: themePath}
+			}
 			if command == "seek-forward" || command == "seek-backward" {
 				delta := 15.0
 				if command == "seek-backward" {

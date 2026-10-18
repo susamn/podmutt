@@ -33,8 +33,21 @@ type Data struct {
 	PodcastEmpty                 string
 }
 
+type SettingsData struct {
+	ActiveTheme string
+	Themes      []string
+	Selected    int
+	ConfigPath  string
+	ThemePath   string
+	MPVPath     string
+	RefreshMin  int
+	Icons       string
+}
+
 type Model struct {
 	theme         theme.Palette
+	settings      bool
+	settingsData  SettingsData
 	icons         string
 	animation     animation
 	progress      progressClock
@@ -64,6 +77,19 @@ func (m Model) Theme() theme.Palette {
 	}
 	return m.theme
 }
+func (m Model) WithSettings(s SettingsData) Model {
+	m.settingsData = s
+	for i, t := range s.Themes {
+		if t == s.ActiveTheme {
+			m.settingsData.Selected = i
+			break
+		}
+	}
+	return m
+}
+func (m Model) SettingsOpen() bool                             { return m.settings }
+func (m Model) OpenSettings() Model                            { m.settings = true; return m }
+func (m Model) CloseSettings() Model                           { m.settings = false; return m }
 func (m Model) WithActions(actions func(string) tea.Cmd) Model { m.actions = actions; return m }
 func (m Model) WithPlayerError(text string) Model              { m.data.Player.Error = text; return m }
 func (m Model) Focus() Panel                                   { return m.focus }
@@ -77,7 +103,9 @@ func (m Model) Select(panel Panel, id string) Model {
 	}
 	return m
 }
-func (m Model) Busy() bool                      { return m.editing || m.help || m.data.Dialog != nil }
+func (m Model) Busy() bool {
+	return m.editing || m.help || m.settings || m.data.Dialog != nil
+}
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
 func (m Model) WithPlayback(queue []Item, player Player) Model {
@@ -241,6 +269,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key == "q" {
 			return m, tea.Quit
 		}
+		if m.settings {
+			switch key {
+			case "j", "down":
+				if m.settingsData.Selected < len(m.settingsData.Themes)-1 {
+					m.settingsData.Selected++
+				}
+			case "k", "up":
+				if m.settingsData.Selected > 0 {
+					m.settingsData.Selected--
+				}
+			case "enter":
+				if len(m.settingsData.Themes) > 0 && m.actions != nil {
+					chosen := m.settingsData.Themes[m.settingsData.Selected]
+					m.settingsData.ActiveTheme = chosen
+					return m, m.actions("theme:" + chosen)
+				}
+			case "esc", "e":
+				m.settings = false
+			}
+			return m, nil
+		}
 		if m.help {
 			if key == "esc" || key == "?" {
 				m.help = false
@@ -292,6 +341,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "?":
 			m.help = true
+		case "e":
+			m.settings = true
 		case "tab", "l":
 			m.setFocus((m.focus + 1) % (PlayerPanel + 1))
 		case "shift+tab", "h":

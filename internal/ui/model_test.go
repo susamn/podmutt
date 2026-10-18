@@ -206,3 +206,65 @@ func TestUntrustedTextCannotControlTerminal(t *testing.T) {
 		t.Fatal("details lost line breaks")
 	}
 }
+
+func TestSettingsOverlay(t *testing.T) {
+	var dispatched string
+	m := New(fixture()).WithSettings(SettingsData{
+		ActiveTheme: "colors",
+		Themes:      []string{"colors", "solarized-dark", "catppuccin"},
+		ConfigPath:  "/test/config.toml",
+		ThemePath:   "/test/colors.toml",
+		RefreshMin:  30,
+	}).WithActions(func(cmd string) tea.Cmd {
+		dispatched = cmd
+		return nil
+	})
+	m = resize(m, 100, 30)
+
+	m = press(m, "e")
+	if !m.SettingsOpen() || !m.Busy() {
+		t.Fatal("settings not open")
+	}
+	view := m.View().Content
+	if !strings.Contains(view, "Settings") || !strings.Contains(view, "solarized-dark") {
+		t.Fatalf("settings view missing content: %s", view)
+	}
+
+	m = press(m, "j")
+	if m.settingsData.Selected != 1 {
+		t.Fatalf("expected selected 1, got %d", m.settingsData.Selected)
+	}
+	m = press(m, "k")
+	if m.settingsData.Selected != 0 {
+		t.Fatalf("expected selected 0, got %d", m.settingsData.Selected)
+	}
+
+	m = press(m, "j")
+	m = press(m, "enter")
+	if dispatched != "theme:solarized-dark" {
+		t.Fatalf("expected action theme:solarized-dark, got %q", dispatched)
+	}
+
+	m = press(m, "esc")
+	if m.SettingsOpen() {
+		t.Fatal("settings did not close on esc")
+	}
+
+	m = press(m, "e")
+	if !m.SettingsOpen() {
+		t.Fatal("settings did not reopen on e")
+	}
+	m = press(m, "e")
+	if m.SettingsOpen() {
+		t.Fatal("settings did not close on e")
+	}
+
+	m = m.OpenSettings()
+	if !m.SettingsOpen() {
+		t.Fatal("expected OpenSettings to open")
+	}
+	m = m.CloseSettings()
+	if m.SettingsOpen() {
+		t.Fatal("expected CloseSettings to close")
+	}
+}

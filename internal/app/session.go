@@ -13,6 +13,7 @@ import (
 	"podmutt/internal/profile"
 	"podmutt/internal/store"
 	"podmutt/internal/theme"
+	"podmutt/internal/ui"
 )
 
 type session struct {
@@ -57,4 +58,17 @@ func withSession(cfg profile.Config, paths profile.Paths, run func(*session) err
 	}
 	pal, _ := theme.Load(paths.ConfigDir(), cfg.Theme)
 	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, nativeMedia: native, mediaError: errors.Join(mediaError, nativeError), theme: pal})
+}
+
+func (s *session) settingsData() ui.SettingsData {
+	_, activeThemePath := theme.Load(s.paths.ConfigDir(), s.config.Theme)
+	return ui.SettingsData{
+		ActiveTheme: s.config.Theme,
+		Themes:      theme.Available(s.paths.ConfigDir()),
+		ConfigPath:  s.paths.Config,
+		ThemePath:   activeThemePath,
+		MPVPath:     s.config.MPVPath,
+		RefreshMin:  s.config.RefreshMinutes,
+		Icons:       s.config.Icons,
+	}
 }
