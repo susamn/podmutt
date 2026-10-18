@@ -101,7 +101,7 @@ func TestSharedRemoteMappingMetadataAndCleanup(t *testing.T) {
 		t.Fatal(s.Err())
 	}
 	m := info(playback.State{Status: playback.Paused, Current: &store.Episode{ID: 1}, Queue: []store.Episode{{ID: 2}}})
-	if !m.Paused || m.Playing || m.CanNext {
+	if !m.Paused || m.Playing || !m.CanNext {
 		t.Fatal("paused capability", m)
 	}
 	if info(playback.State{}).HasCurrent {

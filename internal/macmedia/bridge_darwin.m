@@ -119,6 +119,14 @@ int pm_update(void *pointer, const char *title, double position, double duration
     onMain(^{ @autoreleasepool { @try {
         PMMedia *controller = (PMMedia *)pointer;
         if (!controller.active) return;
+        // Publish capabilities before metadata/state so the system observes the
+        // new queue availability with this update, not the previous command mask.
+        MPRemoteCommandCenter *center = [MPRemoteCommandCenter sharedCommandCenter];
+        center.playCommand.enabled = current && state != 1;
+        center.pauseCommand.enabled = state == 1;
+        center.togglePlayPauseCommand.enabled = current;
+        center.stopCommand.enabled = current;
+        center.nextTrackCommand.enabled = next;
         MPNowPlayingInfoCenter *info = [MPNowPlayingInfoCenter defaultCenter];
         if (current) {
             NSMutableDictionary *metadata = [NSMutableDictionary dictionaryWithDictionary:@{
@@ -130,12 +138,6 @@ int pm_update(void *pointer, const char *title, double position, double duration
         } else { info.nowPlayingInfo = nil; }
         info.playbackState = state == 1 ? MPNowPlayingPlaybackStatePlaying
             : state == 2 ? MPNowPlayingPlaybackStatePaused : MPNowPlayingPlaybackStateStopped;
-        MPRemoteCommandCenter *center = [MPRemoteCommandCenter sharedCommandCenter];
-        center.playCommand.enabled = current && state != 1;
-        center.pauseCommand.enabled = state == 1;
-        center.togglePlayPauseCommand.enabled = current;
-        center.stopCommand.enabled = current;
-        center.nextTrackCommand.enabled = next;
         success = 1;
     } @catch (NSException *exception) { (void)exception; } }});
     return success;
