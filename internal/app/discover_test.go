@@ -95,8 +95,8 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 			t.Fatal("subscription did not open stored episodes")
 		}
 		state, err := s.playback.Snapshot(s.ctx)
-		if err != nil || state.Status != "stopped" || len(state.Queue) != 0 {
-			t.Fatal("preview/subscription autoplayed", state, err)
+		if err != nil || state.Status != "stopped" || state.Current != nil || len(state.Queue) != 1 {
+			t.Fatal("subscription did not enqueue latest while remaining stopped", state, err)
 		}
 		finishLibrary(&m, libraryKey(&m, 'b'))
 		if !strings.Contains(m.View().Content, "[+] Science Hour") {

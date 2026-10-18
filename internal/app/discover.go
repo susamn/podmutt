@@ -272,10 +272,10 @@ func (m *libraryShell) subscribePreview() tea.Cmd {
 	}
 	m.mutating = true
 	m.notice = "Subscribing…"
-	preview, service, ctx := *m.browse.preview, m.service, m.s.ctx
+	preview, service, ctx, engine := *m.browse.preview, m.service, m.s.ctx, m.s.playback
 	return func() tea.Msg {
 		id, err := service.SubscribePreview(ctx, preview)
-		return libraryEdited{id: id, added: true, err: err}
+		return subscriptionEdited(ctx, engine, id, true, err)
 	}
 }
 func (m libraryShell) previewEpisode() (store.Episode, bool) {

@@ -163,6 +163,15 @@ Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do no
 change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
 
+Subscribed shows automatically add their latest cached episode at startup,
+on subscription and after successful refresh (including 304). Arrivals append
+behind current/pending playback without autoplay or historical backlog. Completed,
+current and already-seen heads are not re-added after removal/restart. Ad-hoc shows
+never auto-enqueue. Unsubscribe keeps queued work/history; resubscribe keeps these
+receipts. See [arrival policy](docs/adr/020-subscribed-latest-autoqueue.md).
+Schema migration 2 preserves listening state; older binaries cannot open it—use a
+consistent backup before upgrading, not a forced downgrade.
+
 ## Discover and subscribe
 
 An empty profile opens **Discover**, automatically loading Apple's **US top-25**
