@@ -72,38 +72,53 @@ func (e *Engine) load(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (e *Engine) Play(ctx context.Context) error {
+// Toggle atomically resolves selection and transport; zero means current only.
+func (e *Engine) Toggle(ctx context.Context, selectedID int64) error {
 	_, err := e.submit(ctx, func(ctx context.Context) error {
-		if e.state.Current == nil {
-			return ErrNoEpisode
+		if selectedID != 0 && (e.state.Current == nil || e.state.Current.ID != selectedID) {
+			return e.load(ctx, selectedID)
 		}
-		if !e.active {
-			return e.load(ctx, e.state.Current.ID)
+		if e.state.Status == Playing {
+			return e.pause(ctx)
 		}
-		if err := e.player.Play(ctx); err != nil {
-			return e.fail(ctx, err)
-		}
-		e.state.Status = Playing
-		return nil
+		return e.play(ctx)
 	})
 	return err
 }
+func (e *Engine) Play(ctx context.Context) error {
+	_, err := e.submit(ctx, e.play)
+	return err
+}
+func (e *Engine) play(ctx context.Context) error {
+	if e.state.Current == nil {
+		return ErrNoEpisode
+	}
+	if !e.active {
+		return e.load(ctx, e.state.Current.ID)
+	}
+	if err := e.player.Play(ctx); err != nil {
+		return e.fail(ctx, err)
+	}
+	e.state.Status = Playing
+	return nil
+}
 
 func (e *Engine) Pause(ctx context.Context) error {
-	_, err := e.submit(ctx, func(ctx context.Context) error {
-		if !e.active {
-			return nil
-		}
-		if err := e.player.Pause(ctx); err != nil {
-			return e.fail(ctx, err)
-		}
-		e.state.Status = Paused
-		if err := e.save(ctx, true); err != nil {
-			return e.fail(ctx, err)
-		}
-		return nil
-	})
+	_, err := e.submit(ctx, e.pause)
 	return err
+}
+func (e *Engine) pause(ctx context.Context) error {
+	if !e.active {
+		return nil
+	}
+	if err := e.player.Pause(ctx); err != nil {
+		return e.fail(ctx, err)
+	}
+	e.state.Status = Paused
+	if err := e.save(ctx, true); err != nil {
+		return e.fail(ctx, err)
+	}
+	return nil
 }
 
 func (e *Engine) stop(ctx context.Context) error {
