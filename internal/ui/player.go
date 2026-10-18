@@ -107,7 +107,7 @@ func (m Model) playerPane(width, height int) string {
 	if capacity < 2 {
 		rows = rows[len(rows)-min(capacity, len(rows)):]
 	}
-	return m.box(m.Icon(stateIcon(status), "5 Player"), rows, width, height, m.focus == PlayerPanel)
+	return m.box(m.Icon(stateIcon(status), "Player"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
 func progressLine(player Player, width int) string {
 	position, duration := player.Position, player.Duration
