@@ -103,6 +103,26 @@ func TestRealMPVControlsAndEndReasons(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	for _, target := range []float64{3, 1} {
+		if err := p.SeekTo(ctx, target); err != nil {
+			t.Fatal(err)
+		}
+		until := time.Now().Add(2 * time.Second)
+		for {
+			position, err := p.Position(ctx)
+			if err == nil && position >= target-.2 && position <= target+.2 {
+				break
+			}
+			if time.Now().After(until) {
+				t.Fatalf("seek target %v: position=%v err=%v", target, position, err)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		paused, err := p.command(ctx, []any{"get_property", "pause"})
+		if err != nil || string(paused) != "true" {
+			t.Fatal("seek resumed paused audio", string(paused), err)
+		}
+	}
 	if err := p.Play(ctx); err != nil {
 		t.Fatal(err)
 	}

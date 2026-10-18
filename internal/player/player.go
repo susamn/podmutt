@@ -144,6 +144,15 @@ func (p *Player) EntryID(ctx context.Context) (int64, error) {
 	return id, nil
 }
 
+// SeekTo uses an absolute exact seek without changing pause state.
+func (p *Player) SeekTo(ctx context.Context, seconds float64) error {
+	if seconds < 0 || math.IsNaN(seconds) || math.IsInf(seconds, 0) {
+		return fmt.Errorf("mpv: finite nonnegative seek position required")
+	}
+	_, err := p.command(ctx, []any{"seek", seconds, "absolute+exact"})
+	return err
+}
+
 // Position returns an error while no file is loaded, rather than inventing zero.
 func (p *Player) Position(ctx context.Context) (float64, error) {
 	data, err := p.command(ctx, []any{"get_property", "time-pos"})

@@ -24,6 +24,7 @@ type fakePlayer struct {
 	entry    int64
 	position float64
 	starts   []float64
+	seeks    []float64
 	loads    int
 	stops    int
 	closed   int
@@ -73,6 +74,16 @@ func (p *fakePlayer) Position(context.Context) (float64, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.position, p.op("position")
+}
+func (p *fakePlayer) SeekTo(_ context.Context, position float64) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.op("seek"); err != nil {
+		return err
+	}
+	p.position = position
+	p.seeks = append(p.seeks, position)
+	return nil
 }
 func (p *fakePlayer) Events() <-chan player.Event { return p.events }
 func (p *fakePlayer) Err() error                  { return player.ErrDisconnected }

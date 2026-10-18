@@ -55,6 +55,9 @@ func TestMPVHelper(t *testing.T) {
 					result["data"] = "unknown"
 				}
 			}
+			if args[0] == "seek" && (len(args) != 3 || args[1] != float64(15) || args[2] != "absolute+exact") {
+				result["error"] = "unexpected seek arguments"
+			}
 			if mode == "reject-observe" && args[0] == "observe_property" {
 				result["error"] = "test rejection"
 			}
@@ -86,6 +89,7 @@ func TestPlayerControlsAndClose(t *testing.T) {
 		func() error { return p.Pause(ctx) },
 		func() error { return p.Play(ctx) },
 		func() error { return p.Stop(ctx) },
+		func() error { return p.SeekTo(ctx, 15) },
 	} {
 		if err := action(); err != nil {
 			t.Fatal(err)
@@ -101,6 +105,9 @@ func TestPlayerControlsAndClose(t *testing.T) {
 		t.Fatalf("end reasons lost: %+v, %+v", ended, stopped)
 	}
 	for _, position := range []float64{-1, math.NaN(), math.Inf(1)} {
+		if err := p.SeekTo(ctx, position); err == nil {
+			t.Fatal("invalid seek position accepted")
+		}
 		if err := p.Load(ctx, "url", position); err == nil {
 			t.Fatal("invalid start position accepted")
 		}
