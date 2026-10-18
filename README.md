@@ -152,7 +152,11 @@ chart; `R` retries/reloads directory results. Quota waits can take a few seconds
 
 Apple access is public/no-key, not an import of Apple account subscriptions.
 Network failure leaves your library usable with `b`; errors never erase it.
-Artwork rendering is separate, not enabled by this discovery feature. See
+Artwork renders asynchronously beside Details, using episode art then show-art
+fallback. Kitty requires a positive graphics probe outside tmux/screen; other
+terminals use image-derived ASCII. Compact/modal layouts hide art, and failure
+shows a placeholder without affecting playback. Real Kitty verification remains
+[pending](docs/artwork-check.md). See
 [discovery policy and bounds](docs/adr/012-show-discovery.md).
 
 ## Running-instance commands
