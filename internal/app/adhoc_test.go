@@ -22,7 +22,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		fmt.Fprint(w, `<rss><channel><title>Adhoc show</title><item><guid>a</guid><title>First</title><enclosure url="/a.mp3"/></item><item><guid>b</guid><title>Second</title><enclosure url="/b.mp3"/></item></channel></rss>`)
+		fmt.Fprint(w, `<rss><channel><title>Adhoc show</title><item><guid>a</guid><title>First</title><enclosure url="/a.mp3"/></item><item><guid>b</guid><title>Second</title><enclosure url="/b.mp3"/></item><item><guid>c</guid><title>Not queued</title><enclosure url="/c.mp3"/></item></channel></rss>`)
 	}))
 	defer server.Close()
 	librarySession(t, func(s *session) {
@@ -65,7 +65,21 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("ad-hoc replay lost identity/resume", state)
 		}
 		finishLibrary(&m, libraryKey(&m, 'a'))
+		libraryKey(&m, '/')
+		updateLibrary(&m, tea.PasteMsg{Content: "Second"})
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		if len(m.Model.Visible(ui.Episodes)) != 1 {
+			t.Fatal("preview filter failed")
+		}
 		finishLibrary(&m, libraryKey(&m, 'A'))
+		allSources, err := s.store.Feeds(s.ctx, false)
+		if err != nil || len(allSources) != 1 {
+			t.Fatal(err)
+		}
+		cached, err := s.store.Episodes(s.ctx, allSources[0].ID)
+		if err != nil || len(cached) != 2 {
+			t.Fatal("filtered A cached unselected episodes", cached, err)
+		}
 		state = syncPlayer(t, &m)
 		if len(state.Queue) == 0 {
 			t.Fatal("explicit preview enqueue blocked")
@@ -80,7 +94,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("explicit subscription failed", sources, err)
 		}
 		episodes, err := s.store.Episodes(s.ctx, sources[0].ID)
-		if err != nil || len(episodes) != 2 {
+		if err != nil || len(episodes) != 3 {
 			t.Fatal("subscription missed cache", episodes, err)
 		}
 		history, err := s.store.Playback(s.ctx, id)

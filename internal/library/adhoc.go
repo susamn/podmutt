@@ -3,7 +3,6 @@ package library
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"podmutt/internal/feed"
 	"podmutt/internal/httpurl"
@@ -58,21 +57,15 @@ func (s *Service) CachePreviewEpisodes(ctx context.Context, preview feed.Resolve
 	}
 	identities := make(map[string]int64, len(cached))
 	for _, episode := range cached {
-		identities[episodeIdentity(episode)] = episode.ID
+		identities[store.EpisodeIdentity(episode)] = episode.ID
 	}
 	ids := make([]int64, 0, len(selected))
 	for _, episode := range selected {
-		localID, ok := identities[episodeIdentity(episode)]
+		localID, ok := identities[store.EpisodeIdentity(episode)]
 		if !ok {
 			return nil, fmt.Errorf("preview episode could not be cached")
 		}
 		ids = append(ids, localID)
 	}
 	return ids, nil
-}
-func episodeIdentity(episode store.Episode) string {
-	if guid := strings.TrimSpace(episode.GUID); guid != "" {
-		return "guid:" + guid
-	}
-	return "url:" + episode.AudioURL
 }

@@ -13,6 +13,7 @@ func TestAdhocCachePreservesSubscriptionValidatorsAndHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	preview.Fetched.Document.Episodes[0].GUID = " a "
 	preview.Fetched.Document.Episodes[1].GUID = ""
 	ids, err := s.CachePreviewEpisodes(ctx, preview, []int{1})
 	if err != nil {
