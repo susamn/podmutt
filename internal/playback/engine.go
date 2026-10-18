@@ -69,22 +69,23 @@ type result struct {
 }
 
 type Engine struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	repo     Repository
-	factory  Factory
-	player   Player
-	state    State
-	entryID  int64
-	seenID   int64
-	seen     bool
-	active   bool
-	ready    bool
-	requests chan request
-	updates  chan State
-	done     chan struct{}
-	watchers subscriptions
-	closeErr error // published by closing done
+	ctx          context.Context
+	cancel       context.CancelFunc
+	repo         Repository
+	factory      Factory
+	player       Player
+	playerCancel context.CancelFunc
+	state        State
+	entryID      int64
+	seenID       int64
+	seen         bool
+	active       bool
+	ready        bool
+	requests     chan request
+	updates      chan State
+	done         chan struct{}
+	watchers     subscriptions
+	closeErr     error // published by closing done
 }
 
 // New restores state without starting mpv or autoplaying. Consume Updates for
@@ -139,9 +140,7 @@ func (e *Engine) run(ticks <-chan time.Time, stop func()) {
 		case <-e.ctx.Done():
 			ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
 			e.closeErr = e.save(ctx, true)
-			if e.player != nil {
-				e.closeErr = errors.Join(e.closeErr, e.player.Close())
-			}
+			e.closeErr = errors.Join(e.closeErr, e.closePlayer())
 			cancel()
 			return
 		case req := <-e.requests:
@@ -177,6 +176,21 @@ func (e *Engine) run(ticks <-chan time.Time, stop func()) {
 			cancel()
 		}
 	}
+}
+
+// Only the actor calls closePlayer. Cancel the private process lifetime AFTER
+// orderly IPC shutdown/reap, including failed-start and nil-factory cleanup.
+func (e *Engine) closePlayer() error {
+	var err error
+	if e.player != nil {
+		err = e.player.Close()
+		e.player = nil
+	}
+	if e.playerCancel != nil {
+		e.playerCancel()
+		e.playerCancel = nil
+	}
+	return err
 }
 
 func (e *Engine) snapshot() State {
