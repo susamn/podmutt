@@ -11,9 +11,9 @@ import (
 
 func fixture() Data {
 	return Data{
-		Podcasts: []Item{{"a", "Alpha"}, {"b", "Beta"}, {"c", "Gamma"}},
-		Episodes: []Item{{"1", "First episode"}, {"2", "Second episode"}},
-		Queue:    []Item{{"2", "Queued episode"}}, Details: "Episode details", Player: Player{Status: "stopped"},
+		Podcasts: []Item{{ID: "a", Title: "Alpha"}, {ID: "b", Title: "Beta"}, {ID: "c", Title: "Gamma"}},
+		Episodes: []Item{{ID: "1", Title: "First episode"}, {ID: "2", Title: "Second episode"}},
+		Queue:    []Item{{ID: "2", Title: "Queued episode"}}, Details: "Episode details", Player: Player{Status: "stopped"},
 	}
 }
 
@@ -98,7 +98,7 @@ func TestFilterInputIsIsolatedAndCancelable(t *testing.T) {
 func TestAsynchronousDataPreservesIdentity(t *testing.T) {
 	m := press(New(fixture()), "j")
 	data := fixture()
-	data.Podcasts = []Item{{"new", "New"}, {"a", "Alpha"}, {"b", "Beta"}}
+	data.Podcasts = []Item{{ID: "new", Title: "New"}, {ID: "a", Title: "Alpha"}, {ID: "b", Title: "Beta"}}
 	next, _ := m.Update(data)
 	m = next.(Model)
 	if m.selected[Podcasts] != 2 {
@@ -165,7 +165,7 @@ func TestQuitInEveryMode(t *testing.T) {
 func TestViewsFitTerminal(t *testing.T) {
 	data := fixture()
 	for i := range 40 {
-		data.Podcasts = append(data.Podcasts, Item{fmt.Sprint(i), strings.Repeat("界", 100)})
+		data.Podcasts = append(data.Podcasts, Item{ID: fmt.Sprint(i), Title: strings.Repeat("界", 100)})
 	}
 	for _, size := range [][2]int{{0, 0}, {-1, 2}, {1, 1}, {29, 11}, {30, 12}, {80, 23}, {99, 40}, {100, 24}, {160, 50}} {
 		for _, keys := range [][]string{{"G"}, {"?"}, {"3"}, {"4"}, {"/", "a"}} {
@@ -290,5 +290,45 @@ func TestUnicodeBoxHeadersAndVersion(t *testing.T) {
 				t.Fatalf("line width %d exceeds max width %d: %q", ansi.StringWidth(line), w, line)
 			}
 		}
+	}
+}
+
+func TestColumnarLayoutAndGlyphs(t *testing.T) {
+	m := New(Data{}).WithIcons("plain")
+	epQueued := Item{ID: "1", PlainTitle: "Ep Queued", Channel: "Tech Daily", Date: "2026-04-10", Duration: "42:00", Queued: true}
+	epDone := Item{ID: "2", PlainTitle: "Ep Done", Channel: "Tech Daily", Date: "2026-04-09", Duration: "35:10", Completed: true}
+
+	wideEp := ansi.Strip(m.renderEpisodeRow(epQueued, 100, false))
+	if !strings.Contains(wideEp, "[+]") || !strings.Contains(wideEp, "Tech Daily") || !strings.Contains(wideEp, "2026-04-10") {
+		t.Fatalf("unexpected wide episode row: %s", wideEp)
+	}
+
+	doneEp := ansi.Strip(m.renderEpisodeRow(epDone, 100, true))
+	if !strings.Contains(doneEp, "> [✓]") || !strings.Contains(doneEp, "35:10") {
+		t.Fatalf("unexpected done episode row: %s", doneEp)
+	}
+
+	compactEp := ansi.Strip(m.renderEpisodeRow(epQueued, 50, false))
+	if !strings.Contains(compactEp, "[+]") || !strings.Contains(compactEp, "42:00") {
+		t.Fatalf("unexpected compact episode row: %s", compactEp)
+	}
+
+	qPlaying := Item{ID: "1", Index: 1, PlainTitle: "Track Playing", Channel: "Tech Daily", State: "playing", Position: "10:00", Duration: "40:00"}
+	qPaused := Item{ID: "2", Index: 2, PlainTitle: "Track Paused", Channel: "Tech Daily", State: "paused", Position: "05:00", Duration: "20:00"}
+	qStopped := Item{ID: "3", Index: 3, PlainTitle: "Track Stopped", Channel: "Other Show", State: "stopped", Position: "00:00", Duration: "15:00"}
+
+	qPlayRow := ansi.Strip(m.renderQueueRow(qPlaying, 100, true))
+	if !strings.Contains(qPlayRow, "> ▶") || !strings.Contains(qPlayRow, "#1") || !strings.Contains(qPlayRow, "10:00/40:00") {
+		t.Fatalf("unexpected queue play row: %s", qPlayRow)
+	}
+
+	qPauseRow := ansi.Strip(m.renderQueueRow(qPaused, 100, false))
+	if !strings.Contains(qPauseRow, "⏸") || !strings.Contains(qPauseRow, "#2") {
+		t.Fatalf("unexpected queue pause row: %s", qPauseRow)
+	}
+
+	qStopRow := ansi.Strip(m.renderQueueRow(qStopped, 50, false))
+	if !strings.Contains(qStopRow, "■") || !strings.Contains(qStopRow, "#3") {
+		t.Fatalf("unexpected queue stop row: %s", qStopRow)
 	}
 }

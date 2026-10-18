@@ -591,13 +591,20 @@ func (m *libraryShell) renderLibrary() {
 		if title == "" {
 			title = source.URL
 		}
-		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: marker + title})
+		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: marker + title, Channel: title})
 	}
 	episodes := m.snapshot
 	if m.browse.localResults {
 		episodes.Show = m.browse.hits
 	}
 	m.rows = library.Episodes(episodes, m.newOnly && !m.browse.localResults, m.order)
+	queuedSet := make(map[int64]bool)
+	if m.state.Current != nil {
+		queuedSet[m.state.Current.ID] = true
+	}
+	for _, qItem := range m.state.Queue {
+		queuedSet[qItem.ID] = true
+	}
 	for _, episode := range m.rows {
 		marker := "[ ] "
 		if episode.Completed {
@@ -607,7 +614,25 @@ func (m *libraryShell) renderLibrary() {
 		if title == "" {
 			title = "Untitled episode"
 		}
-		data.Episodes = append(data.Episodes, ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: marker + title})
+		channel := library.PlainText(episode.FeedTitle)
+		dateStr := ""
+		if episode.PublishedAt.Unix() > 0 {
+			dateStr = episode.PublishedAt.Format("2006-01-02")
+		}
+		durationStr := "--:--"
+		if episode.DurationSeconds > 0 {
+			durationStr = clock(float64(episode.DurationSeconds))
+		}
+		data.Episodes = append(data.Episodes, ui.Item{
+			ID:         strconv.FormatInt(episode.ID, 10),
+			Title:      marker + title,
+			PlainTitle: title,
+			Channel:    channel,
+			Date:       dateStr,
+			Duration:   durationStr,
+			Queued:     queuedSet[episode.ID],
+			Completed:  episode.Completed,
+		})
 	}
 	m.Model = m.Model.WithLibrary(data)
 	if m.wantFeedID != 0 {
