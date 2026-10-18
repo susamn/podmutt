@@ -4,7 +4,7 @@ COVERAGE_MIN ?= 90
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X main.version=$(VERSION)
 
-.PHONY: help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean
+.PHONY: native-macos native-media-test help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean
 
 help:
 	@printf '%s\n' 'make check    Format, modules, vet, tests, and coverage gate' \
@@ -58,6 +58,25 @@ build:
 	@mkdir -p bin
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags='$(LDFLAGS)' -o bin/podmutt ./cmd/podmutt
 
+# Public MediaPlayer integration requires Apple SDK + CGO + a bundle identity.
+# Run this executable from a terminal, not Finder; it is still a TUI.
+native-macos:
+	@test "$$(uname -s)" = Darwin || { echo 'native-macos requires macOS and Xcode command-line tools'; exit 1; }
+	@mkdir -p bin/podmutt.app/Contents/MacOS
+	cp packaging/macos/Info.plist bin/podmutt.app/Contents/Info.plist
+	CGO_ENABLED=1 $(GO) build -trimpath -ldflags='$(LDFLAGS)' -o bin/podmutt.app/Contents/MacOS/podmutt ./cmd/podmutt
+	codesign --force --sign - bin/podmutt.app
+
+native-media-test:
+	@test "$$(uname -s)" = Darwin || { echo 'native-media-test requires macOS'; exit 1; }
+	@mkdir -p bin/media-test.app/Contents/MacOS
+	cp packaging/macos/Info.plist bin/media-test.app/Contents/Info.plist
+	CGO_ENABLED=1 $(GO) test -c -o bin/media-test.app/Contents/MacOS/podmutt ./internal/macmedia
+	codesign --force --sign - bin/media-test.app
+	PODMUTT_TEST_NATIVE_MACOS=1 bin/media-test.app/Contents/MacOS/podmutt -test.run '^TestNative' -test.v -test.timeout=30s
+
+# Cross-built Darwin CLI archives intentionally lack native media keys. Native
+# release packaging must use native-macos and the verification matrix in docs.
 dist:
 	@set -eu; \
 	for os in linux darwin; do \

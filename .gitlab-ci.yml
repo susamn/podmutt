@@ -70,6 +70,17 @@ build:
     paths:
       - bin/podmutt
 
+# Opt-in native shell runner. Never count omitted native testing as verified.
+native-macos:
+  stage: verify
+  tags: [macos]
+  cache: []
+  rules:
+    - if: '$PODMUTT_NATIVE_MACOS == "1"'
+  script:
+    - CGO_ENABLED=1 make check race
+    - make native-macos native-media-test
+
 cross-build:
   stage: build
   rules:

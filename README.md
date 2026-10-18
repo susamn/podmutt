@@ -38,7 +38,8 @@ Cross-build checks compile all application packages, not just the CLI bootstrap.
 - CI retains coverage reports and Linux builds for 14 days; cross-build archives
   for 30 days. These are CI artifacts, not permanent published releases.
 - Cross-building does not prove native macOS runtime behavior. Native macOS
-  media-key testing, signing, and package publication will be added separately.
+  CGO/media-key verification is explicitly pending; see the native checklist.
+  Signing/notarization and package publication remain release work.
 
 `main` is protected: direct pushes and force pushes are disabled, and Maintainers
 merge reviewed MRs only after a successful pipeline. Skipped pipelines do not
@@ -66,7 +67,13 @@ Play/Pause, Stop, and Next use the same playback actor as keyboard/CLI controls.
 Next is enabled only while playing with a queued episode; Stop preserves resume
 progress. Seeking, Previous, URI opening, and volume/rate/repeat/shuffle changes
 are unsupported. A missing/broken bus is nonfatal and never launches a daemon.
-macOS is unchanged; its native media-key bridge is tracked in #16.
+macOS has a public MediaPlayer/AppKit CGO bridge prototype in #16, not yet
+verified on a native host. `make native-macos` creates an ad-hoc signed bundle;
+launch `bin/podmutt.app/Contents/MacOS/podmutt` from a terminal. `make build/dist`
+CGO=0 Darwin executables deliberately omit native keys and display a warning.
+See [native checks/build implications](docs/macos-media-check.md) and
+[ADR 016](docs/adr/016-native-macos-media.md). Native compilation, physical key
+behavior and release signing/notarization must not be inferred from Linux CI.
 
 See the [short ADR](docs/adr/010-linux-mpris.md) and
 [desktop smoke checklist](docs/linux-media-check.md). Physical desktop media-key
