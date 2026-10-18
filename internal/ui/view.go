@@ -185,9 +185,9 @@ func (m Model) View() tea.View {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.help || m.data.Prompt != "" || m.data.Dialog != nil {
+		if m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
 			width, height := min(72, m.width-2), min(16, m.height-2)
-			if m.help {
+			if m.help || m.settings {
 				height = min(20, m.height-2)
 			}
 			var modal string
@@ -199,6 +199,40 @@ func (m Model) View() tea.View {
 			} else if m.data.Prompt != "" {
 				height = min(7, m.height-2)
 				modal = m.box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
+			} else if m.settings {
+				height = min(20, m.height-2)
+				width = min(64, m.width-4)
+				var rows []string
+				rows = append(rows, "Themes (j/k select, Enter apply):")
+				for i, t := range m.settingsData.Themes {
+					prefix := "  "
+					if i == m.settingsData.Selected {
+						prefix = "> "
+					}
+					mark := " "
+					if t == m.settingsData.ActiveTheme {
+						mark = "●"
+					}
+					rows = append(rows, fmt.Sprintf("%s[%s] %s", prefix, mark, t))
+				}
+				rows = append(rows, "")
+				rows = append(rows, "Configuration:")
+				if m.settingsData.ThemePath != "" {
+					rows = append(rows, "  Active file: "+clean(m.settingsData.ThemePath, false))
+				}
+				if m.settingsData.ConfigPath != "" {
+					rows = append(rows, "  Config:      "+clean(m.settingsData.ConfigPath, false))
+				}
+				if m.settingsData.RefreshMin > 0 {
+					rows = append(rows, fmt.Sprintf("  Refresh:     %d min", m.settingsData.RefreshMin))
+				}
+				if m.settingsData.Icons != "" {
+					rows = append(rows, "  Icons:       "+clean(m.settingsData.Icons, false))
+				}
+				if m.settingsData.MPVPath != "" {
+					rows = append(rows, "  MPV:         "+clean(m.settingsData.MPVPath, false))
+				}
+				modal = m.box("Settings · e / Esc to close", rows, width, height, true)
 			} else if m.help {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
@@ -206,6 +240,7 @@ func (m Model) View() tea.View {
 					"Player (5): h/l seek ±15s · Left/Right select · Enter activate",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
+					"e             Settings · live theme switch",
 					"Space selected play/toggle · s stop · n next",
 					"Episodes Enter details · a enqueue · A enqueue visible",
 					"Queue: Enter play/promote · j/k select",
