@@ -16,9 +16,12 @@ type Config struct {
 	MPVPath        string `toml:"mpv_path"`
 	Telemetry      bool   `toml:"telemetry"`
 	Icons          string `toml:"icons"`
+	Theme          string `toml:"theme"`
 }
 
-func Defaults() Config { return Config{RefreshMinutes: 30, MPVPath: "mpv", Icons: "unicode"} }
+func Defaults() Config {
+	return Config{RefreshMinutes: 30, MPVPath: "mpv", Icons: "unicode", Theme: "colors"}
+}
 
 // Load applies a TOML file over defaults. An absent file uses defaults.
 func Load(path string) (Config, error) {
@@ -43,6 +46,12 @@ func Load(path string) (Config, error) {
 	if cfg.Icons != "unicode" && cfg.Icons != "nerd" && cfg.Icons != "plain" {
 		return Config{}, fmt.Errorf("configuration: icons must be unicode, nerd or plain")
 	}
+	if cfg.Theme == "" {
+		cfg.Theme = "colors"
+	}
+	if filepath.Base(cfg.Theme) != cfg.Theme {
+		return Config{}, fmt.Errorf("configuration: theme must be a simple name")
+	}
 	if cfg.Telemetry {
 		return Config{}, fmt.Errorf("configuration: telemetry is not supported")
 	}
@@ -50,6 +59,13 @@ func Load(path string) (Config, error) {
 }
 
 type Paths struct{ Config, State, Runtime string }
+
+func (p Paths) ConfigDir() string {
+	if p.Config == "" {
+		return ""
+	}
+	return filepath.Dir(p.Config)
+}
 
 // Resolve selects one default user profile. Relative XDG values are ignored.
 // Supplying the platform and environment explicitly also makes path policy testable.

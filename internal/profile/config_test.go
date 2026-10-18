@@ -16,7 +16,8 @@ func TestLoad(t *testing.T) {
 		data  string
 		valid bool
 	}{
-		{"refresh_minutes = 15\nmpv_path = '/usr/bin/mpv'\ntelemetry = false", true},
+		{"refresh_minutes = 15\nmpv_path = '/usr/bin/mpv'\ntelemetry = false\ntheme = 'solarized-dark'", true},
+		{"theme = 'nested/path'", false},
 		{"# full TOML string syntax\nmpv_path = '''my player'''", true},
 		{"[", false}, {"unknown = true", false}, {"refresh_minutes = 0", false}, {"mpv_path = ''", false}, {"telemetry = true", false}, {"refresh_minutes = 'bad'", false},
 	} {
@@ -64,5 +65,11 @@ func TestResolve(t *testing.T) {
 	}
 	if _, err := Resolve("linux", "relative", get); err == nil {
 		t.Fatal("relative home accepted")
+	}
+	if (Paths{Config: "/a/b/config.toml"}).ConfigDir() != "/a/b" {
+		t.Fatal("unexpected ConfigDir")
+	}
+	if (Paths{}).ConfigDir() != "" {
+		t.Fatal("unexpected empty ConfigDir")
 	}
 }
