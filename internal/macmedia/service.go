@@ -25,7 +25,7 @@ type metadata struct {
 }
 type driver interface {
 	Install(func(string) bool) error
-	Update(metadata)
+	Update(metadata) error
 	Close()
 }
 type Service struct {
@@ -49,9 +49,16 @@ func info(s playback.State) metadata {
 	return m
 }
 func start(ctx context.Context, b backend, d driver) (*Service, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	updates, err := b.Watch(ctx)
 	if err != nil {
+		cancel()
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		cancel()
 		return nil, err
 	}
@@ -80,6 +87,7 @@ func start(ctx context.Context, b backend, d driver) (*Service, error) {
 	s := &Service{cancel: cancel, done: make(chan struct{}), driver: d}
 	go func() {
 		defer close(s.done)
+		defer d.Close()
 		defer cancel()
 		for {
 			select {
@@ -89,7 +97,12 @@ func start(ctx context.Context, b backend, d driver) (*Service, error) {
 				if !ok {
 					return
 				}
-				d.Update(info(state))
+				if err := d.Update(info(state)); err != nil {
+					s.mu.Lock()
+					s.err = err
+					s.mu.Unlock()
+					return
+				}
 			case action := <-actions:
 				actionCtx, stop := context.WithTimeout(ctx, 3*time.Second)
 				var err error
@@ -119,6 +132,6 @@ func (s *Service) Err() error {
 }
 func (s *Service) Close() {
 	if s != nil {
-		s.once.Do(func() { s.cancel(); <-s.done; s.driver.Close() })
+		s.once.Do(func() { s.cancel(); <-s.done })
 	}
 }

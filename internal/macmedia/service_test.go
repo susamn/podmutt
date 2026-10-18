@@ -12,14 +12,18 @@ import (
 )
 
 type fakeBackend struct {
-	updates  chan playback.State
-	calls    chan string
-	err      error
-	watchErr error
-	block    bool
+	updates     chan playback.State
+	calls       chan string
+	err         error
+	watchErr    error
+	watchCancel context.CancelFunc
+	block       bool
 }
 
 func (b *fakeBackend) Watch(context.Context) (<-chan playback.State, error) {
+	if b.watchCancel != nil {
+		b.watchCancel()
+	}
 	return b.updates, b.watchErr
 }
 func (b *fakeBackend) Snapshot(context.Context) (playback.State, error) { return playback.State{}, nil }
@@ -43,14 +47,15 @@ func (b *fakeBackend) Toggle(ctx context.Context, id int64) error {
 }
 
 type fakeDriver struct {
-	callback func(string) bool
-	updates  chan metadata
-	closed   atomic.Int32
-	err      error
+	callback  func(string) bool
+	updates   chan metadata
+	closed    atomic.Int32
+	err       error
+	updateErr error
 }
 
 func (d *fakeDriver) Install(callback func(string) bool) error { d.callback = callback; return d.err }
-func (d *fakeDriver) Update(m metadata)                        { d.updates <- m }
+func (d *fakeDriver) Update(m metadata) error                  { d.updates <- m; return d.updateErr }
 func (d *fakeDriver) Close()                                   { d.closed.Add(1) }
 func fixtures() (*fakeBackend, *fakeDriver) {
 	return &fakeBackend{updates: make(chan playback.State, 16), calls: make(chan string, 32)}, &fakeDriver{updates: make(chan metadata, 32)}

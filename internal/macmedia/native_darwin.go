@@ -3,8 +3,8 @@
 package macmedia
 
 /*
-#cgo CFLAGS: -fblocks
-#cgo LDFLAGS: -framework AppKit -framework Foundation -framework MediaPlayer
+#cgo CFLAGS: -fblocks -mmacosx-version-min=13.0
+#cgo LDFLAGS: -mmacosx-version-min=13.0 -framework AppKit -framework Foundation -framework MediaPlayer
 #include <stdlib.h>
 #include "bridge.h"
 */
@@ -24,12 +24,17 @@ var running atomic.Bool
 // can migrate; only the foreground Run callback starts the native event loop.
 func init() { runtime.LockOSThread() }
 func Run(run func() error) error {
-	C.pm_prepare()
-	running.Store(true)
+	if !running.CompareAndSwap(false, true) {
+		return ErrUnavailable
+	}
+	defer running.Store(false)
+	if C.pm_prepare() == 0 {
+		running.Store(false)
+		return run()
+	}
 	done := make(chan error, 1)
 	go func() { err := run(); done <- err; C.pm_stop() }()
 	C.pm_run()
-	running.Store(false)
 	return <-done
 }
 
@@ -58,7 +63,7 @@ func (d *nativeDriver) Install(callback func(string) bool) error {
 	}
 	return nil
 }
-func (d *nativeDriver) Update(m metadata) {
+func (d *nativeDriver) Update(m metadata) error {
 	title := C.CString(m.Title)
 	defer C.free(unsafe.Pointer(title))
 	state := C.int(0)
@@ -67,7 +72,10 @@ func (d *nativeDriver) Update(m metadata) {
 	} else if m.Paused {
 		state = 2
 	}
-	C.pm_update(d.pointer, title, C.double(m.Position), C.double(m.Duration), state, flag(m.HasCurrent), flag(m.CanNext))
+	if C.pm_update(d.pointer, title, C.double(m.Position), C.double(m.Duration), state, flag(m.HasCurrent), flag(m.CanNext)) == 0 {
+		return ErrUnavailable
+	}
+	return nil
 }
 func flag(value bool) C.int {
 	if value {
@@ -80,6 +88,7 @@ func (d *nativeDriver) Close() {
 		callbacks.Delete(d.id)
 		C.pm_close(d.pointer)
 		d.installed = false
+		d.pointer = nil
 	}
 }
 
