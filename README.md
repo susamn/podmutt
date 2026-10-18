@@ -72,6 +72,16 @@ See the [short ADR](docs/adr/010-linux-mpris.md) and
 [desktop smoke checklist](docs/linux-media-check.md). Physical desktop media-key
 verification remains a separate manual check, not a claim made by cross-builds.
 
+## Recovery and validation
+
+See [backup/restore and migration safety](docs/recovery.md) before upgrading or
+repairing a profile. Never copy just a live WAL-mode database or delete its WAL
+to repair startup. `make recovery-test` runs bounded local workflow, abrupt-death,
+snapshot/restore and rollback fixtures; CI requires that gate. The
+[v1 validation ledger](docs/validation-v1.md) explicitly tracks outstanding native
+macOS, real Kitty and physical media-key checks. Green cross-builds are not a
+substitute for those checks.
+
 ## Configuration and profile
 
 The TUI loads configuration and holds exclusive profile ownership until exit.
