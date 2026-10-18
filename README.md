@@ -120,6 +120,10 @@ switch panes. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
 clears input. `?` opens help; `q` or Ctrl+C quits. Printable keys stay literal
 while typing a filter.
 
+With **Details (4)** focused, `j/k` or arrows scroll one line, Ctrl-d/Ctrl-u
+scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
+a full page. These keys do not change episode selection or playback.
+
 The wide grid keeps Podcasts/Episodes on the left and Queue above the bottom-right
 cell. That cell is split evenly: **Details above, Player below**. Long descriptions
 scroll with PgUp/PgDn inside their half; they never push the player/controls down.
