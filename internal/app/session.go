@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"podmutt/internal/control"
+	"podmutt/internal/macmedia"
 	"podmutt/internal/mpris"
 	"podmutt/internal/playback"
 	"podmutt/internal/player"
@@ -14,13 +15,14 @@ import (
 )
 
 type session struct {
-	ctx        context.Context
-	config     profile.Config
-	paths      profile.Paths
-	store      *store.Store
-	playback   *playback.Engine
-	media      *mpris.Service
-	mediaError error
+	ctx         context.Context
+	config      profile.Config
+	paths       profile.Paths
+	store       *store.Store
+	playback    *playback.Engine
+	nativeMedia *macmedia.Service
+	media       *mpris.Service
+	mediaError  error
 }
 
 // withSession runs under withProfile ownership. All foreground services share
@@ -47,5 +49,9 @@ func withSession(cfg profile.Config, paths profile.Paths, run func(*session) err
 	if media != nil {
 		defer media.Close()
 	}
-	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, mediaError: mediaError})
+	native, nativeError := macmedia.Start(ctx, engine)
+	if native != nil {
+		defer native.Close()
+	}
+	return run(&session{ctx: ctx, config: cfg, paths: paths, store: db, playback: engine, media: media, nativeMedia: native, mediaError: errors.Join(mediaError, nativeError)})
 }

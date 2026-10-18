@@ -9,13 +9,14 @@ import (
 
 	"podmutt/internal/app"
 	"podmutt/internal/control"
+	"podmutt/internal/macmedia"
 )
 
 var version = "dev"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, func() error {
-		return app.Run(os.Stdin, os.Stdout)
+		return macmedia.Run(func() error { return app.Run(os.Stdin, os.Stdout) })
 	}, app.Command))
 }
 
