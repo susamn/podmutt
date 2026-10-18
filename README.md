@@ -126,7 +126,7 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 `j/k` or arrows select; `g/G` go first/last. Outside Player, `h/l` switch panes;
 Tab/Shift+Tab or `1-5` switch panes everywhere. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
-clears input. `?` opens help; `q` or Ctrl+C quits. Printable keys stay literal
+clears input. `?` opens help; `e` opens settings; `q` or Ctrl+C quits. Printable keys stay literal
 while typing a filter.
 
 With **Details (4)** focused, `j/k` or arrows scroll one line, Ctrl-d/Ctrl-u
