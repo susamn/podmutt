@@ -404,7 +404,7 @@ func (m *libraryShell) renderDiscovery() {
 	data := ui.Data{PodcastHint: discoveryActions, PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing", ContextHint: "Space play · a/A enqueue · u subscribe · f Search podcasts · U RSS/website · t chart · b My subscriptions · q quit"}
 	data.PodcastEmpty = "No matching shows · f search"
 	if m.browse.loading {
-		data.PodcastEmpty = "Loading Apple Podcasts…"
+		data.PodcastEmpty = "Loading " + m.directoryName() + "…"
 	} else if m.browse.errorText != "" {
 		data.PodcastEmpty = "Search failed · 4 details"
 	}
