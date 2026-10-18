@@ -18,7 +18,10 @@ const (
 
 type Item struct{ ID, Title string }
 
+type Dialog struct{ Title, Body, Hint string }
+
 type Data struct {
+	Dialog                       *Dialog
 	Podcasts, Episodes, Queue    []Item
 	Details, Player              string
 	EpisodeLabel, Notice, Prompt string
@@ -54,7 +57,15 @@ func (m Model) Select(panel Panel, id string) Model {
 	}
 	return m
 }
-func (m Model) Busy() bool { return m.editing || m.help }
+func (m Model) Busy() bool                      { return m.editing || m.help || m.data.Dialog != nil }
+func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
+func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
+func (m Model) WithPlayback(queue []Item, player string) Model {
+	data := m.data
+	data.Queue, data.Player = queue, player
+	updated, _ := m.Update(data)
+	return updated.(Model)
+}
 func (m Model) Selected(panel Panel) (Item, bool) {
 	items := m.items(panel)
 	if len(items) == 0 {
@@ -72,6 +83,7 @@ func (m Model) Reset(panel Panel) Model {
 // WithLibrary replaces library fields while preserving playback-owned fields.
 func (m Model) WithLibrary(data Data) Model {
 	data.Player, data.Queue, data.Details = m.data.Player, m.data.Queue, m.data.Details
+	data.Dialog = m.data.Dialog
 	updated, _ := m.Update(data)
 	return updated.(Model)
 }
