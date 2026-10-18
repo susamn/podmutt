@@ -70,6 +70,12 @@ func (m Model) playerPane(width, height int) string {
 		rows = append(rows, title)
 		extra--
 	}
+	if extra > 0 {
+		if frame := m.animationFrame(max(0, width-15)); frame != "" {
+			rows = append(rows, frame)
+			extra--
+		}
+	}
 	for extra > 0 {
 		rows = append(rows, "")
 		extra--

@@ -47,10 +47,15 @@ race:
 	CGO_ENABLED=1 $(GO) test -race -count=1 ./...
 
 mpv-test:
-	PODMUTT_TEST_MPV='$(MPV)' $(GO) test -count=1 -run '^TestRealMPV' -timeout=60s ./internal/player
+	PODMUTT_TEST_MPV='$(MPV)' $(GO) test -count=1 -run '^TestRealMPV' -timeout=60s ./internal/player ./internal/app
 
 mpris-test:
 	PODMUTT_TEST_DBUS=1 CGO_ENABLED=1 $(GO) test -race -count=1 -run '^TestPrivateBus' -timeout=60s ./internal/mpris
+
+.PHONY: recovery-test
+recovery-test:
+	$(GO) test -count=1 -run '^TestOfflineWorkflow' -timeout=30s ./internal/app
+	$(GO) test -count=1 -run '^Test(AbruptDeathWAL|FailedUpgrade)' -timeout=30s ./internal/store
 
 check: fmt-check mod-check vet coverage
 

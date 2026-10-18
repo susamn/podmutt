@@ -8,6 +8,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
+	"podmutt/internal/artwork"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/library"
@@ -30,6 +32,7 @@ type refreshUpdate struct {
 	ok     bool
 }
 type libraryShell struct {
+	art    artState
 	browse browseState
 	shell
 	service            *library.Service
@@ -71,6 +74,11 @@ func runLibrary(s *session, input io.Reader, output io.Writer) error {
 		}
 	}()
 	model.results = results
+	defer func() {
+		if model.art.possible {
+			fmt.Fprint(output, artwork.KittyDelete(model.art.id))
+		}
+	}()
 	_, err = tea.NewProgram(model, tea.WithInput(input), tea.WithOutput(output)).Run()
 	return err
 }
@@ -80,7 +88,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	if err != nil {
 		return libraryShell{}, err
 	}
-	model := libraryShell{shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
+	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.browse.directory = discovery.NewApple(nil)
 	model.browse.active = model.subscribedCount() == 0
@@ -95,7 +103,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	return model, nil
 }
 func (m libraryShell) Init() tea.Cmd {
-	return tea.Batch(m.shell.Init(), m.waitRefresh(), func() tea.Msg { return discoverStartup{} })
+	return tea.Batch(m.shell.Init(), m.waitRefresh(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return artProbe{} })
 }
 func (m libraryShell) waitRefresh() tea.Cmd {
 	return func() tea.Msg {
@@ -138,10 +146,51 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 	return store.Episode{}, false
 }
 
-func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
+	defer func() {
+		if updated, ok := result.(libraryShell); ok {
+			var cmd tea.Cmd
+			updated, cmd = updated.syncArt()
+			result = updated
+			command = tea.Batch(command, cmd)
+		}
+	}()
 	var cmd tea.Cmd
 	rebuild := false
 	switch msg := msg.(type) {
+	case artProbe:
+		cmd = m.probeArt()
+	case artProbeTimeout:
+		if !m.art.kitty {
+			m.art.probeExpired = true
+			m.art.probed = true
+		}
+	case tea.TerminalVersionMsg:
+		if m.art.possible && !m.art.probeExpired {
+			m.art.versionOK = artwork.KittyVersion(msg.Name)
+			m.art.kitty = m.art.versionOK && m.art.graphicsOK
+		}
+	case uv.KittyGraphicsEvent:
+		if m.art.possible && !m.art.probed && uint32(msg.Options.ID) == m.art.id {
+			m.art.probed = true
+			m.art.graphicsOK = string(msg.Payload) == "OK"
+			m.art.kitty = m.art.graphicsOK && m.art.versionOK
+		}
+	case artAcknowledged:
+		m.art.inFlight = false
+	case artLoaded:
+		if msg.generation != m.art.generation {
+			return m, nil
+		}
+		if m.art.cancel != nil {
+			m.art.cancel()
+			m.art.cancel = nil
+		}
+		m.art.complete = true
+		m.art.image = msg.img
+		if msg.err != nil {
+			m.art.image = nil
+		}
 	case discoverStartup:
 		if m.browse.active && !m.browse.loaded && !m.browse.loading {
 			cmd = m.searchDirectory("")

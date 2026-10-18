@@ -79,6 +79,16 @@ See the [short ADR](docs/adr/010-linux-mpris.md) and
 [desktop smoke checklist](docs/linux-media-check.md). Physical desktop media-key
 verification remains a separate manual check, not a claim made by cross-builds.
 
+## Recovery and validation
+
+See [backup/restore and migration safety](docs/recovery.md) before upgrading or
+repairing a profile. Never copy just a live WAL-mode database or delete its WAL
+to repair startup. `make recovery-test` runs bounded local workflow, abrupt-death,
+snapshot/restore and rollback fixtures; CI requires that gate. The
+[v1 validation ledger](docs/validation-v1.md) explicitly tracks outstanding native
+macOS, real Kitty and physical media-key checks. Green cross-builds are not a
+substitute for those checks.
+
 ## Configuration and profile
 
 The TUI loads configuration and holds exclusive profile ownership until exit.
@@ -116,6 +126,9 @@ Press **5** for Player. Left/Right chooses **Play/Pause, Stop, Next**; Enter
 activates. Space/s/n still work as shortcuts. The player shows current title,
 status, elapsed/total and a read-only progress bar; unavailable buttons are dimmed.
 Playback errors remain visible independently of the selected description.
+When a tall wide Player pane has spare room, a labelled **Decorative** pattern
+scrolls during playback, freezes on pause and clears on stop. It is not an audio
+spectrum; compact/crowded layouts hide it and stop its timer.
 
 Below 100 columns or 24 rows, lists stack above a persistent player. Queue/Details
 replace the middle list when focused; Esc returns to the last visible list.
@@ -159,7 +172,11 @@ chart; `R` retries/reloads directory results. Quota waits can take a few seconds
 
 Apple access is public/no-key, not an import of Apple account subscriptions.
 Network failure leaves your library usable with `b`; errors never erase it.
-Artwork rendering is separate, not enabled by this discovery feature. See
+Artwork renders asynchronously beside Details, using episode art then show-art
+fallback. Kitty requires a positive graphics probe outside tmux/screen; other
+terminals use image-derived ASCII. Compact/modal layouts hide art, and failure
+shows a placeholder without affecting playback. Real Kitty verification remains
+[pending](docs/artwork-check.md). See
 [discovery policy and bounds](docs/adr/012-show-discovery.md).
 
 ## Running-instance commands
@@ -174,7 +191,8 @@ See [private controls](docs/adr/008-running-instance-control.md).
 The foreground session opens `podcasts.db` for subscriptions, episodes, history,
 current episode, and queue. It restores playback without autoplay.
 Do not copy only an open database file for backup; SQLite WAL sidecars may contain
-recent writes. Backup tooling is tracked in #17.
+recent writes. Follow the [consistent backup/restore instructions](docs/recovery.md);
+backup does not mean copying a live DB file or automatically downgrading schemas.
 
 ## Player adapter
 

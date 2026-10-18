@@ -53,6 +53,11 @@ mpv-integration:
     - apt-get install -y --no-install-recommends mpv
     - make mpv-test
 
+recovery-integration:
+  stage: verify
+  script:
+    - make recovery-test
+
 mpris-integration:
   stage: verify
   script:

@@ -52,7 +52,7 @@ type shell struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithAnimation(s.ctx, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
 			if command == "toggle" {
@@ -101,7 +101,9 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			player.Warning = mediaError.Error()
 		}
 		m.Model = m.Model.WithPlayback(queue, player)
-		return m, m.wait()
+		var animation tea.Cmd
+		m.Model, animation = m.Model.SyncAnimation()
+		return m, tea.Batch(m.wait(), animation)
 	case actionError:
 		m.Model = m.Model.WithPlayerError(msg.Error())
 		return m, nil
