@@ -71,6 +71,7 @@ native-media-test:
 	@test "$$(uname -s)" = Darwin || { echo 'native-media-test requires macOS'; exit 1; }
 	@mkdir -p bin/media-test.app/Contents/MacOS
 	cp packaging/macos/Info.plist bin/media-test.app/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier io.gitlab.susamn.podmutt.media-test' bin/media-test.app/Contents/Info.plist
 	CGO_ENABLED=1 $(GO) test -c -o bin/media-test.app/Contents/MacOS/podmutt ./internal/macmedia
 	codesign --force --sign - bin/media-test.app
 	PODMUTT_TEST_NATIVE_MACOS=1 bin/media-test.app/Contents/MacOS/podmutt -test.run '^TestNative' -test.v -test.timeout=30s
