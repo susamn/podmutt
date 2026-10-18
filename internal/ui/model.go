@@ -25,6 +25,7 @@ type Data struct {
 	Podcasts, Episodes, Queue    []Item
 	Details, Player              string
 	EpisodeLabel, Notice, Prompt string
+	PodcastLabel, ContextHint    string
 }
 
 type Model struct {
@@ -72,6 +73,13 @@ func (m Model) Selected(panel Panel) (Item, bool) {
 		return Item{}, false
 	}
 	return items[m.selected[panel]], true
+}
+func (m Model) ClearFilter(panel Panel) Model {
+	if panel >= Podcasts && panel <= Queue {
+		m.filters[panel] = ""
+		m.clamp()
+	}
+	return m
 }
 func (m Model) Reset(panel Panel) Model {
 	if panel >= Podcasts && panel <= Queue {

@@ -37,7 +37,11 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 	}
 	return m.selectedEpisode()
 }
-func (m libraryShell) playSelected() tea.Cmd {
+func (m *libraryShell) playSelected() tea.Cmd {
+	if m.browse.active && m.Model.Focus() == ui.Episodes {
+		m.notice = "Preview only · u subscribe before playback"
+		return nil
+	}
 	episode, selected := m.contextEpisode()
 	selected = selected && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue)
 	engine, ctx := m.s.playback, m.s.ctx
@@ -48,6 +52,10 @@ func (m libraryShell) playSelected() tea.Cmd {
 	return func() tea.Msg { return playerEdited{engine.Toggle(ctx, id)} }
 }
 func (m *libraryShell) enqueue(batch bool) tea.Cmd {
+	if m.browse.active && m.Model.Focus() == ui.Episodes {
+		m.notice = "Preview only · u subscribe before enqueue"
+		return nil
+	}
 	var ids []int64
 	if batch && m.Model.Focus() == ui.Episodes {
 		for _, item := range m.Model.Visible(ui.Episodes) {

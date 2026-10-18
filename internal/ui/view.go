@@ -65,6 +65,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	}
 	title := titles[panel]
+	if panel == Podcasts && m.data.PodcastLabel != "" {
+		title += " · " + clean(m.data.PodcastLabel, false)
+	}
 	if panel == Episodes && m.data.EpisodeLabel != "" {
 		title += " · " + clean(m.data.EpisodeLabel, false)
 	}
@@ -123,6 +126,9 @@ func (m Model) View() tea.View {
 		if m.data.EpisodeLabel != "" {
 			hints = "N add · u subscribe · v New/Show · o sort · c complete · R refresh · ? help · q quit"
 		}
+		if m.data.ContextHint != "" {
+			hints = clean(m.data.ContextHint, false)
+		}
 		if m.data.Notice != "" {
 			hints = clean(m.data.Notice, false) + " · " + hints
 		}
@@ -143,7 +149,7 @@ func (m Model) View() tea.View {
 				modal = box(clean(dialog.Title, false), rows, width, height, true)
 			} else if m.data.Prompt != "" {
 				height = min(7, m.height-2)
-				modal = box("Add public RSS/Atom feed", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
+				modal = box("Add feed or podcast website", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
 			} else if m.help {
 				modal = box("Keys · Esc closes", []string{
 					"j/k, arrows   Move selection", "g/G           First/last item",
@@ -153,7 +159,9 @@ func (m Model) View() tea.View {
 					"Space selected play/toggle · s stop · n next",
 					"Enter details · a enqueue · A enqueue visible",
 					"Queue: J/K move · d remove · D clear (confirm)",
-					"N RSS · u subscribe/unsubscribe",
+					"b My subscriptions / Apple Discover",
+					"f search · Tab switches library/Apple scope",
+					"N feed/website · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
 					"c mark completion · R refresh", "PgUp/PgDn    Scroll details",
 				}, width, height, true)

@@ -21,7 +21,7 @@ func TestLibraryCompositionAndPaste(t *testing.T) {
 		t.Fatal("details exposes list selection")
 	}
 	m = m.WithLibrary(Data{Podcasts: fixture().Podcasts, Episodes: fixture().Episodes, EpisodeLabel: "New · title", Notice: "Offline", Prompt: "URL: https://example.test/feed"})
-	if m.data.Player != "Stopped" || len(m.data.Queue) != 1 || !strings.Contains(m.View().Content, "Add public RSS") {
+	if m.data.Player != "Stopped" || len(m.data.Queue) != 1 || !strings.Contains(m.View().Content, "Add feed or podcast website") {
 		t.Fatal("library clobbered playback or prompt")
 	}
 	m = m.WithLibrary(Data{Podcasts: fixture().Podcasts, Episodes: fixture().Episodes})

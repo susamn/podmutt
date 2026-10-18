@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/library"
 	"podmutt/internal/store"
@@ -29,6 +30,7 @@ type refreshUpdate struct {
 	ok     bool
 }
 type libraryShell struct {
+	browse browseState
 	shell
 	service            *library.Service
 	refresher          *feed.Refresher
@@ -80,6 +82,8 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	}
 	model := libraryShell{shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
+	model.browse.directory = discovery.NewApple(nil)
+	model.browse.active = model.subscribedCount() == 0
 	model.renderLibrary()
 	state, err := s.playback.Snapshot(s.ctx)
 	if err != nil {
@@ -90,7 +94,9 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	model.feedID = model.selectedFeed()
 	return model, nil
 }
-func (m libraryShell) Init() tea.Cmd { return tea.Batch(m.shell.Init(), m.waitRefresh()) }
+func (m libraryShell) Init() tea.Cmd {
+	return tea.Batch(m.shell.Init(), m.waitRefresh(), func() tea.Msg { return discoverStartup{} })
+}
 func (m libraryShell) waitRefresh() tea.Cmd {
 	return func() tea.Msg {
 		select {
@@ -117,6 +123,9 @@ func (m libraryShell) selectedFeed() int64 {
 	return id
 }
 func (m libraryShell) selectedEpisode() (store.Episode, bool) {
+	if m.browse.active {
+		return m.previewEpisode()
+	}
 	item, ok := m.Model.Selected(ui.Episodes)
 	if !ok {
 		return store.Episode{}, false
@@ -133,6 +142,14 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	rebuild := false
 	switch msg := msg.(type) {
+	case discoverStartup:
+		if m.browse.active && !m.browse.loaded && !m.browse.loading {
+			cmd = m.searchDirectory("")
+		}
+	case directoryLoaded:
+		m.applyDirectory(msg)
+	case previewLoaded:
+		m.applyPreview(msg)
 	case libraryLoaded:
 		if msg.version != m.version {
 			return m, nil
@@ -145,6 +162,9 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.notice = msg.err.Error()
 		} else {
 			m.snapshot = msg.snapshot
+			if m.browse.localResults {
+				cmd = m.searchLibrary(m.browse.localQuery)
+			}
 			rebuild = true
 		}
 	case playerEdited:
@@ -161,6 +181,10 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.notice = "Library updated"
 		if msg.added {
+			m.cancelDirectory()
+			m.cancelPreview()
+			m.browse.active, m.browse.localResults = false, false
+			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).WithFocus(ui.Episodes)
 			m.feedID, m.wantFeedID = msg.id, msg.id
 			m.newOnly = false
 			m.snapshot.Show = nil
@@ -195,6 +219,10 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.renderDetails()
 		cmd = tea.Batch(wait, cmd)
 	case tea.PasteMsg:
+		if m.browse.searching {
+			m.appendSearch(msg.Content)
+			break
+		}
 		if m.adding {
 			m.appendInput(msg.Content)
 			break
@@ -212,10 +240,28 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.inputKey(msg)
 			break
 		}
+		if m.browse.searching {
+			cmd = m.searchKey(msg)
+			break
+		}
 		if m.Model.Busy() {
 			return m.delegate(msg)
 		}
 		switch msg.String() {
+		case "b":
+			cmd = m.switchBrowse()
+		case "f":
+			m.openSearch()
+		case "esc":
+			if m.browse.active && m.browse.preview != nil {
+				m.cancelPreview()
+				m.Model = m.Model.WithFocus(ui.Podcasts)
+				m.renderLibrary()
+			} else if m.browse.localResults {
+				cmd = m.searchLibrary("")
+			} else {
+				return m.delegate(msg)
+			}
 		case "space":
 			cmd = m.playSelected()
 		case "a", "A":
@@ -241,6 +287,10 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.order = (m.order + 1) % 3
 			rebuild = true
 		case "R":
+			if m.browse.active {
+				cmd = m.searchDirectory(m.browse.query)
+				break
+			}
 			m.notice = "No subscribed feeds to refresh"
 			for _, source := range m.snapshot.Feeds {
 				if source.Subscribed {
@@ -250,11 +300,27 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "u":
-			cmd = m.subscribe()
+			if m.browse.active {
+				cmd = m.subscribePreview()
+			} else {
+				cmd = m.subscribe()
+			}
 		case "c":
 			cmd = m.complete()
 		case "enter":
 			if m.Model.Focus() == ui.Podcasts {
+				if m.browse.active {
+					cmd = m.previewShow()
+					m.renderLibrary()
+					break
+				}
+				if _, ok := m.Model.Selected(ui.Podcasts); !ok {
+					m.notice = "Select a show or focus Episodes with 2"
+					break
+				}
+				if m.browse.localResults {
+					m.selectLibraryShow()
+				}
 				m.newOnly = false
 				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
@@ -274,14 +340,39 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if rebuild {
 		m.renderLibrary()
+		if !m.browse.active && !m.browse.localResults && m.wantFeedID == 0 {
+			if id := m.selectedFeed(); id != m.feedID {
+				m.feedID = id
+				m.snapshot.Show = nil
+				if !m.newOnly {
+					m.renderLibrary()
+					cmd = tea.Batch(cmd, m.reload())
+				}
+			}
+		}
 	} else {
 		m.renderStatus()
 	}
 	return m, cmd
 }
 func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	before, _ := m.Model.Selected(ui.Podcasts)
 	updated, cmd := m.shell.Update(msg)
 	m.shell = updated.(shell)
+	if m.browse.active {
+		after, _ := m.Model.Selected(ui.Podcasts)
+		if before.ID != after.ID {
+			m.cancelPreview()
+			m.renderLibrary()
+		} else {
+			m.renderDetails()
+		}
+		return m, cmd
+	}
+	if m.browse.localResults {
+		m.renderDetails()
+		return m, cmd
+	}
 	if id := m.selectedFeed(); m.wantFeedID == 0 && id != m.feedID {
 		m.feedID = id
 		m.snapshot.Show = nil
@@ -326,7 +417,7 @@ func (m *libraryShell) subscribe() tea.Cmd {
 		return nil
 	}
 	for _, source := range m.snapshot.Feeds {
-		if source.ID == m.feedID {
+		if source.ID == m.selectedFeed() {
 			m.mutating = true
 			service, ctx := m.service, m.s.ctx
 			return func() tea.Msg { return libraryEdited{err: service.Subscribe(ctx, source.ID, !source.Subscribed)} }
@@ -336,11 +427,15 @@ func (m *libraryShell) subscribe() tea.Cmd {
 	return nil
 }
 func (m *libraryShell) complete() tea.Cmd {
+	if m.browse.active && m.Model.Focus() == ui.Episodes {
+		m.notice = "Preview only · u subscribe before changing history"
+		return nil
+	}
 	if m.mutating {
 		return nil
 	}
 	episode, ok := m.selectedEpisode()
-	if !ok || m.Model.Focus() != ui.Episodes {
+	if !ok || m.Model.Focus() != ui.Episodes || episode.ID <= 0 {
 		m.notice = "Select an episode first"
 		return nil
 	}
@@ -350,12 +445,22 @@ func (m *libraryShell) complete() tea.Cmd {
 }
 
 func (m *libraryShell) renderLibrary() {
+	if m.browse.active {
+		m.renderDiscovery()
+		return
+	}
 	label := "Show"
 	if m.newOnly {
 		label = "New (uncompleted)"
 	}
-	data := ui.Data{EpisodeLabel: label + " · " + m.order.String()}
+	if m.browse.localResults {
+		label = "Library search: " + m.browse.localQuery
+	}
+	data := ui.Data{PodcastLabel: "My subscriptions", EpisodeLabel: label + " · " + m.order.String(), ContextHint: "b Discover · f library search · / filter · N feed/website · u subscribe · ? help · q quit"}
 	for _, source := range m.snapshot.Feeds {
+		if !source.Subscribed || !m.matchesShow(source) {
+			continue
+		}
 		marker := "[-] "
 		if source.Subscribed {
 			marker = "[+] "
@@ -366,7 +471,11 @@ func (m *libraryShell) renderLibrary() {
 		}
 		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: marker + title})
 	}
-	m.rows = library.Episodes(m.snapshot, m.newOnly, m.order)
+	episodes := m.snapshot
+	if m.browse.localResults {
+		episodes.Show = m.browse.hits
+	}
+	m.rows = library.Episodes(episodes, m.newOnly && !m.browse.localResults, m.order)
 	for _, episode := range m.rows {
 		marker := "[ ] "
 		if episode.Completed {
@@ -408,6 +517,13 @@ func (m *libraryShell) renderStatus() {
 }
 
 func (m *libraryShell) renderDetails() {
+	if m.browse.active && m.Model.Focus() != ui.Queue && !(m.Model.Focus() == ui.Details && m.detailTarget != nil && m.detailTarget.ID > 0) {
+		if m.Model.Focus() != ui.Details {
+			m.detailTarget = nil
+		}
+		m.renderPreviewDetails()
+		return
+	}
 	if m.Model.Focus() != ui.Details {
 		m.detailTarget = nil
 	}
