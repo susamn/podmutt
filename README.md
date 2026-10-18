@@ -171,7 +171,12 @@ shows. With existing subscriptions, startup stays local-first in **My subscripti
 1. Press `b` to switch My subscriptions / Apple Discover.
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
-3. Press `u` to subscribe; its stored episodes open, ready for Space playback.
+3. Press **Space to play without subscribing**, or `a`/`A` to enqueue the selected/
+   visible preview episodes. Only explicit selections are cached; show subscription
+   and feed refresh validators are unchanged. Space toggles if that episode is
+   already current, just like stored episodes; Player Space toggles current audio.
+4. Press `u` only if you want to subscribe. The complete preview is then cached,
+   preserving ad-hoc playback identity/history. Browsing/preview alone stays read-only.
 
 `f` opens search in the current view. Tab in the dialog switches **Library / Apple**;
 Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names

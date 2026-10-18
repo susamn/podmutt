@@ -80,11 +80,8 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 			if _, err := httpurl.Parse(episode.AudioURL); err != nil {
 				return err
 			}
-			identity := "url:" + episode.AudioURL
+			identity := EpisodeIdentity(episode)
 			guid := strings.TrimSpace(episode.GUID)
-			if guid != "" {
-				identity = "guid:" + guid
-			}
 			var published int64
 			if !episode.PublishedAt.IsZero() {
 				published = episode.PublishedAt.Unix()

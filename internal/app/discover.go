@@ -258,7 +258,7 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		m.browse.previewKey = msg.key
 		m.browse.source = msg.source
 		m.Model = m.Model.Reset(ui.Episodes).WithFocus(ui.Episodes)
-		m.notice = "Preview only · u subscribe · no audio fetched"
+		m.notice = "Space play · a enqueue · u subscribe · browsing fetched no audio"
 	}
 	m.renderLibrary()
 }
@@ -298,7 +298,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.query != "" {
 		label = "Discover · Apple search: " + m.browse.query
 	}
-	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview (subscribe first)", ContextHint: "b My subscriptions · f search · Enter preview/details · u subscribe · / filter · q quit"}
+	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing", ContextHint: "Space play · a/A enqueue · u subscribe · f search · b My subscriptions · q quit"}
 	for _, show := range m.browse.shows {
 		marker := "    "
 		for _, source := range m.snapshot.Feeds {
@@ -324,7 +324,7 @@ func (m *libraryShell) renderPreviewDetails() {
 		details = "Loading Apple Podcasts…\nYour cached subscriptions remain available with b."
 	}
 	if m.browse.preview != nil {
-		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nPreview only · u subscribe"
+		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nSpace play · a enqueue · u subscribe"
 		if m.browse.source != "" {
 			details += "\nApple Podcasts source: " + m.browse.source
 		}

@@ -55,8 +55,7 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 }
 func (m *libraryShell) playSelected() tea.Cmd {
 	if m.browse.active && m.Model.Focus() == ui.Episodes {
-		m.notice = "Preview only · u subscribe before playback"
-		return nil
+		return m.previewPlayback(false, false)
 	}
 	episode, selected := m.contextEpisode()
 	selected = selected && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue)
@@ -69,8 +68,7 @@ func (m *libraryShell) playSelected() tea.Cmd {
 }
 func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 	if m.browse.active && m.Model.Focus() == ui.Episodes {
-		m.notice = "Preview only · u subscribe before enqueue"
-		return nil
+		return m.previewPlayback(batch, true)
 	}
 	var ids []int64
 	if batch && m.Model.Focus() == ui.Episodes {
