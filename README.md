@@ -96,14 +96,24 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 ## Shell controls
 
-`j/k` or arrows select; `g/G` go first/last. `h/l`, Tab/Shift+Tab, or `1-4`
+`j/k` or arrows select; `g/G` go first/last. `h/l`, Tab/Shift+Tab, or `1-5`
 switch panes. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
 clears input. `?` opens help; `q` or Ctrl+C quits. Printable keys stay literal
 while typing a filter.
 
-The four-pane layout switches to stacked podcasts/episodes/player below 100
-columns or 24 rows. Queue/details open as overlays; Esc returns to the last
-visible list. Below 30×12, resize guidance replaces the panes.
+The wide grid keeps Podcasts/Episodes on the left and Queue above the bottom-right
+cell. That cell is split evenly: **Details above, Player below**. Long descriptions
+scroll with PgUp/PgDn inside their half; they never push the player/controls down.
+
+Press **5** for Player. Left/Right chooses **Play/Pause, Stop, Next**; Enter
+activates. Space/s/n still work as shortcuts. The player shows current title,
+status, elapsed/total and a read-only progress bar; unavailable buttons are dimmed.
+Playback errors remain visible independently of the selected description.
+
+Below 100 columns or 24 rows, lists stack above a persistent player. Queue/Details
+replace the middle list when focused; Esc returns to the last visible list.
+Very short terminals show one library pane plus controls. Below 30×12, resize
+guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
 
 `N` adds a public RSS/Atom feed or podcast website URL. Enter on a show opens its episodes; `v`
 switches Show/New (uncompleted subscribed episodes), and `o` cycles newest,
