@@ -53,7 +53,7 @@ type shell struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {

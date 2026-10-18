@@ -10,6 +10,14 @@ import (
 	"podmutt/internal/theme"
 )
 
+var Version = "dev"
+
+func SetVersion(v string) {
+	if v != "" {
+		Version = v
+	}
+}
+
 func Run(input io.Reader, output io.Writer) error {
 	return withProfile(func(cfg profile.Config, paths profile.Paths) error {
 		return withSession(cfg, paths, func(s *session) error {
