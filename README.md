@@ -193,7 +193,7 @@ The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview*
 and **t Apple US top 25**. The chart is not the whole catalog; search accepts
 arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
 
-1. Press `b` to switch My subscriptions / Apple Discover.
+1. Press `b` to switch My subscriptions / Discover (Apple initially).
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
 3. Press **Space to play without subscribing**, or `a`/`A` to enqueue the selected/

@@ -324,7 +324,7 @@ func (m libraryShell) selectedShow() (discovery.Show, bool) {
 func (m *libraryShell) previewShow() tea.Cmd {
 	show, ok := m.selectedShow()
 	if !ok {
-		m.notice = "Select an Apple show first"
+		m.notice = "Select a show first"
 		return nil
 	}
 	m.cancelPreview()
