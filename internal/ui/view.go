@@ -69,13 +69,21 @@ func (m Model) pane(panel Panel, width, height int) string {
 			if i == m.selected[panel] {
 				prefix = "> "
 			}
-			rows = append(rows, prefix+clean(items[i].Title, false))
+			rows = append(rows, prefix+m.Icon(panelIcon(panel), clean(items[i].Title, false)))
 		}
 		if len(items) == 0 {
 			rows = []string{"No items"}
 		}
 	}
-	title := titles[panel]
+	icon := panelIcon(panel)
+	if panel == Podcasts {
+		if strings.HasPrefix(m.data.PodcastLabel, "Discover") {
+			icon = SearchIcon
+		} else if strings.HasPrefix(m.data.PodcastLabel, "RSS/") {
+			icon = FeedIcon
+		}
+	}
+	title := m.Icon(icon, titles[panel])
 	if panel == Podcasts && m.data.PodcastLabel != "" {
 		title += " · " + clean(m.data.PodcastLabel, false)
 	}
@@ -190,7 +198,7 @@ func (m Model) View() tea.View {
 					"Episodes Enter details · a enqueue · A enqueue visible",
 					"Queue: Enter play/promote · j/k select",
 					"Pending: J/K move · d remove · D clear (confirm)",
-					"b My subscriptions / Apple Discover",
+					m.Icon(SearchIcon, "b My subscriptions / Apple Discover"),
 					"f search · Tab switches library/Apple scope",
 					"N feed/website · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
