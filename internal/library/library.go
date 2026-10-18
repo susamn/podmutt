@@ -3,7 +3,6 @@ package library
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -76,26 +75,11 @@ func (s *Service) Add(ctx context.Context, raw string) (int64, error) {
 			return source.ID, s.Subscribe(ctx, source.ID, true)
 		}
 	}
-	fetched, err := s.fetcher.Fetch(ctx, store.Feed{URL: address.String()})
+	preview, err := s.Preview(ctx, address.String())
 	if err != nil {
 		return 0, err
 	}
-	if fetched.NotModified {
-		return 0, fmt.Errorf("new feed returned no content")
-	}
-	source := store.Feed{URL: address.String(), Title: fetched.Document.Title, ArtworkURL: fetched.Document.ArtworkURL}
-	id, err := s.repo.UpsertFeed(ctx, source)
-	if err != nil {
-		return 0, err
-	}
-	if err := s.repo.UpsertEpisodes(ctx, id, fetched.Document.Episodes); err != nil {
-		return 0, err
-	}
-	source.ETag, source.LastModified = fetched.ETag, fetched.LastModified
-	if _, err := s.repo.UpsertFeed(ctx, source); err != nil {
-		return 0, err
-	}
-	return id, s.Subscribe(ctx, id, true)
+	return s.SubscribePreview(ctx, preview)
 }
 
 type Order int
