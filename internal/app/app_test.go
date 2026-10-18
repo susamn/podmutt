@@ -14,7 +14,10 @@ import (
 
 func isolatedProfile(t *testing.T) profile.Paths {
 	t.Helper()
-	home, err := os.MkdirTemp("", "pma-")
+	// macOS TMPDIR is commonly /var/folders/...; adding the normal macOS
+	// profile suffix exceeds sockaddr_un.sun_path (104 bytes). Use an atomically
+	// created private directory under the short /tmp alias, not the user's home.
+	home, err := os.MkdirTemp("/tmp", "pma-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,6 +31,25 @@ func isolatedProfile(t *testing.T) profile.Paths {
 		t.Fatal(err)
 	}
 	return paths
+}
+
+func TestIsolatedProfileSocketFitsWithLongSystemTMPDIR(t *testing.T) {
+	long := filepath.Join(t.TempDir(), strings.Repeat("long-temp-", 8))
+	if err := os.MkdirAll(long, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", long)
+	paths := isolatedProfile(t)
+	if len(filepath.Join(paths.Runtime, "control.sock")) > 103 {
+		t.Fatal("fixture socket exceeds macOS sun_path", paths.Runtime)
+	}
+	if filepath.Dir(os.Getenv("HOME")) != "/tmp" {
+		t.Fatal("fixture used long system TMPDIR")
+	}
+	info, err := os.Stat(os.Getenv("HOME"))
+	if err != nil || info.Mode().Perm() != 0700 {
+		t.Fatal("fixture is not private", err)
+	}
 }
 
 func TestSessionHoldsAndReleasesOwnership(t *testing.T) {
