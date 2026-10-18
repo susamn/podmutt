@@ -4,12 +4,13 @@ COVERAGE_MIN ?= 90
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X main.version=$(VERSION)
 
-.PHONY: help fmt fmt-check mod-check vet test coverage race mpv-test check build dist clean
+.PHONY: help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean
 
 help:
 	@printf '%s\n' 'make check    Format, modules, vet, tests, and coverage gate' \
 		'make race     Race-detector tests (native platform, requires C compiler)' \
 		'make mpv-test Real mpv checks with null audio (requires mpv)' \
+		'make mpris-test Private D-Bus protocol checks (requires dbus-daemon)' \
 		'make build    Build bin/podmutt' \
 		'make dist     Cross-build Linux/macOS amd64/arm64 archives' \
 		'make fmt      Format Go source' \
@@ -47,6 +48,9 @@ race:
 
 mpv-test:
 	PODMUTT_TEST_MPV='$(MPV)' $(GO) test -count=1 -run '^TestRealMPV' -timeout=60s ./internal/player
+
+mpris-test:
+	PODMUTT_TEST_DBUS=1 CGO_ENABLED=1 $(GO) test -race -count=1 -run '^TestPrivateBus' -timeout=60s ./internal/mpris
 
 check: fmt-check mod-check vet coverage
 

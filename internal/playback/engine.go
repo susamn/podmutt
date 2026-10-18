@@ -83,6 +83,7 @@ type Engine struct {
 	requests chan request
 	updates  chan State
 	done     chan struct{}
+	watchers subscriptions
 	closeErr error // published by closing done
 }
 
@@ -126,6 +127,7 @@ func newEngine(ctx context.Context, repo Repository, factory Factory, ticks <-ch
 func (e *Engine) run(ticks <-chan time.Time, stop func()) {
 	defer close(e.done)
 	defer close(e.updates)
+	defer e.closeWatchers()
 	defer stop()
 	e.publish()
 	for {
@@ -188,19 +190,8 @@ func (e *Engine) snapshot() State {
 }
 
 func (e *Engine) publish() {
-	state := e.snapshot()
-	select {
-	case e.updates <- state:
-	default:
-		select {
-		case <-e.updates:
-		default:
-		}
-		select {
-		case e.updates <- state:
-		default:
-		}
-	}
+	offer(e.updates, e.snapshot())
+	e.publishWatchers()
 }
 
 func (e *Engine) submit(ctx context.Context, apply action) (State, error) {

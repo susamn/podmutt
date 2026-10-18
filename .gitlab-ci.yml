@@ -53,6 +53,13 @@ mpv-integration:
     - apt-get install -y --no-install-recommends mpv
     - make mpv-test
 
+mpris-integration:
+  stage: verify
+  script:
+    - apt-get update -qq
+    - apt-get install -y --no-install-recommends dbus-daemon
+    - make mpris-test
+
 build:
   stage: build
   script:

@@ -16,6 +16,7 @@ require a separately installed mpv; no Go toolchain is needed for release users.
 make check       # formatting, module consistency, vet, tests, >=90% coverage
 make race        # native race-detector tests
 make mpv-test    # real-mpv lifecycle/playback tests, null audio; requires mpv
+make mpris-test  # private D-Bus protocol/lifecycle tests; requires dbus-daemon
 make build       # bin/podmutt
 make dist        # Linux/macOS amd64/arm64 archives in dist/
 ```
@@ -56,6 +57,19 @@ without changing source or weakening the normal 90% threshold.
 - [SQLite storage ADR](docs/adr/003-sqlite-storage.md)
 - [mpv ownership ADR](docs/adr/004-mpv-ownership.md)
 - [Responsive TUI ADR](docs/adr/005-tui-shell.md)
+
+## Linux media controls
+
+The foreground app exposes MPRIS on an existing Linux session D-Bus. Desktop
+Play/Pause, Stop, and Next use the same playback actor as keyboard/CLI controls.
+Next is enabled only while playing with a queued episode; Stop preserves resume
+progress. Seeking, Previous, URI opening, and volume/rate/repeat/shuffle changes
+are unsupported. A missing/broken bus is nonfatal and never launches a daemon.
+macOS is unchanged; its native media-key bridge is tracked in #16.
+
+See the [short ADR](docs/adr/010-linux-mpris.md) and
+[desktop smoke checklist](docs/linux-media-check.md). Physical desktop media-key
+verification remains a separate manual check, not a claim made by cross-builds.
 
 ## Configuration and profile
 
