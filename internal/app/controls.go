@@ -7,9 +7,11 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
+	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/ui"
@@ -45,29 +47,25 @@ type playbackUpdate struct {
 type actionError struct{ error }
 type shell struct {
 	ui.Model
-	s *session
+	s     *session
+	state playback.State
 }
 
 func newShell(s *session) shell {
-	return shell{ui.New(ui.Data{}).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
+			var err error
 			if command == "toggle" {
-				state, err := s.playback.Snapshot(s.ctx)
-				if err != nil {
-					return actionError{err}
-				}
-				command = "play"
-				if state.Status == playback.Playing {
-					command = "pause"
-				}
+				err = s.playback.Toggle(s.ctx, 0)
+			} else {
+				_, err = control.Execute(s.ctx, s.playback, command)
 			}
-			_, err := control.Execute(s.ctx, s.playback, command)
 			if err != nil {
 				return actionError{err}
 			}
 			return nil
 		}
-	}), s}
+	}), s: s}
 }
 func (m shell) wait() tea.Cmd {
 	return func() tea.Msg { state, ok := <-m.s.playback.Updates(); return playbackUpdate{state, ok} }
@@ -83,7 +81,20 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.state.Current != nil {
 			title = " · " + msg.state.Current.Title
 		}
-		text := fmt.Sprintf("%s%s", msg.state.Status, title)
+		m.state = msg.state
+		var queue []ui.Item
+		for _, episode := range msg.state.Queue {
+			queue = append(queue, ui.Item{ID: strconv.FormatInt(episode.ID, 10), Title: library.PlainText(episode.Title)})
+		}
+		duration := "--:--"
+		position := float64(0)
+		if episode := msg.state.Current; episode != nil {
+			position = episode.PositionSeconds
+			if episode.DurationSeconds > 0 {
+				duration = clock(float64(episode.DurationSeconds))
+			}
+		}
+		text := fmt.Sprintf("%s%s · %s / %s", msg.state.Status, title, clock(position), duration)
 		if msg.state.Error != "" {
 			text += " · " + msg.state.Error
 		}
@@ -94,7 +105,7 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if mediaError != nil {
 			text += " · " + mediaError.Error()
 		}
-		m.Model = m.Model.WithPlayer(text)
+		m.Model = m.Model.WithPlayback(queue, text)
 		return m, m.wait()
 	case actionError:
 		m.Model = m.Model.WithPlayer(msg.Error())

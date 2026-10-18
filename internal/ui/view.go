@@ -130,10 +130,18 @@ func (m Model) View() tea.View {
 			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
 		}
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.help || m.data.Prompt != "" || (m.compact() && m.focus >= Queue) {
+		if m.help || m.data.Prompt != "" || m.data.Dialog != nil || (m.compact() && m.focus >= Queue) {
 			width, height := min(72, m.width-2), min(16, m.height-2)
+			if m.help {
+				height = min(20, m.height-2)
+			}
 			var modal string
-			if m.data.Prompt != "" {
+			if m.data.Dialog != nil {
+				dialog := m.data.Dialog
+				rows := strings.Split(ansi.Wrap(clean(dialog.Body, true), max(1, width-2), ""), "\n")
+				rows = append(rows, clean(dialog.Hint, false))
+				modal = box(clean(dialog.Title, false), rows, width, height, true)
+			} else if m.data.Prompt != "" {
 				height = min(7, m.height-2)
 				modal = box("Add public RSS/Atom feed", []string{clean(m.data.Prompt, false), "Enter add · Esc cancel · Ctrl+U clear"}, width, height, true)
 			} else if m.help {
@@ -142,7 +150,9 @@ func (m Model) View() tea.View {
 					"h/l, Tab      Change pane", "1-4           Focus pane",
 					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
-					"Space toggle · s stop · n next (current episode)",
+					"Space selected play/toggle · s stop · n next",
+					"Enter details · a enqueue · A enqueue visible",
+					"Queue: J/K move · d remove · D clear (confirm)",
 					"N RSS · u subscribe/unsubscribe",
 					"v New/Show · o newest/oldest/title",
 					"c mark completion · R refresh", "PgUp/PgDn    Scroll details",
