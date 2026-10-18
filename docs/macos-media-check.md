@@ -1,13 +1,11 @@
 # Native macOS media verification — pending
 
-Run on macOS 11+ with Go matching go.mod, Xcode command-line tools, and mpv.
+Run on macOS 13+ with Go matching go.mod, Xcode command-line tools, and mpv.
 No Linux cross-build can satisfy this check. No native macOS host was available
 during implementation: even Objective-C compilation remains unverified here.
 
 ```sh
-CGO_ENABLED=1 make check race
-make native-macos
-make native-media-test
+make native-verify # preflight + check/race + app/native block tests + real-mpv/null audio
 bin/podmutt.app/Contents/MacOS/podmutt --version
 bin/podmutt.app/Contents/MacOS/podmutt
 ```
@@ -15,9 +13,19 @@ bin/podmutt.app/Contents/MacOS/podmutt
 Launch the bundled executable **from Terminal**, not Finder. An ad-hoc signature
 is local development only. Existing `make build/dist` use CGO=0 and deliberately
 omit the native bridge; the TUI displays an unavailable warning on those builds.
-`native-media-test` builds a bundled test executable and exercises the real
-framework registration/main-loop/metadata/teardown plus synthetic action mapping.
-It does **not** press physical keys or prove another player's arbitration.
+`native-media-test` builds a bundled `-tags=nativecheck` test executable with a
+separate bundle identity. It invokes the exact registered Objective-C blocks
+through CGO for Play/Pause/Toggle/Stop/Next, inspects public metadata/control flags,
+checks repeated registration and a retained handler delivered after teardown.
+The test-only C hooks are excluded from normal builds. This is not a Go callback
+shortcut, but it still does **not** press physical keys or prove system dispatch
+or another player's arbitration. Native compilation/execution remains unverified
+until this command runs on a real Mac.
+
+`native-preflight` records OS/architecture, Go and Apple SDK/compiler availability.
+`native-verify` requires mpv and also runs the real null-audio session/actor/process
+checkpoint-before-reap tests merged in !19. Go 1.27's macOS minimum is 13; the bundle
+and native compiler/linker settings are aligned to that version.
 
 Record OS/architecture, Go/Xcode/mpv versions, terminal and commit SHA, then check:
 
@@ -42,4 +50,8 @@ substitute a private API/global key hook or mark this complete from a cross-buil
 
 An optional GitLab shell runner tagged `macos` can run the native job when
 `PODMUTT_NATIVE_MACOS=1` is configured. Absent that runner, the job is not scheduled;
-this is an explicit verification gap, not a green native result.
+this is an explicit verification gap, not a green native result. All three current
+project runners were checked and are Linux amd64, without the `macos` tag. Configure
+a native shell runner with that tag and set `PODMUTT_NATIVE_MACOS=1` only once it is
+available. The job records its output as `coverage/native-macos.log` and retains the
+development app artifact; neither is evidence until the native job actually runs.

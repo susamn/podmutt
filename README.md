@@ -68,7 +68,9 @@ Next is enabled only while playing with a queued episode; Stop preserves resume
 progress. Seeking, Previous, URI opening, and volume/rate/repeat/shuffle changes
 are unsupported. A missing/broken bus is nonfatal and never launches a daemon.
 macOS has a public MediaPlayer/AppKit CGO bridge prototype in #16, not yet
-verified on a native host. `make native-macos` creates an ad-hoc signed bundle;
+verified on a native host. Go 1.27 requires **macOS 13+**. `make native-verify`
+runs SDK preflight, tests, the actual Objective-C/CGO handler check and real-mpv
+null-audio lifecycle tests. `make native-macos` creates an ad-hoc signed bundle;
 launch `bin/podmutt.app/Contents/MacOS/podmutt` from a terminal. `make build/dist`
 CGO=0 Darwin executables deliberately omit native keys and display a warning.
 See [native checks/build implications](docs/macos-media-check.md) and

@@ -83,8 +83,15 @@ native-macos:
   rules:
     - if: '$PODMUTT_NATIVE_MACOS == "1"'
   script:
-    - CGO_ENABLED=1 make check race
-    - make native-macos native-media-test
+    - mkdir -p coverage
+    - set -o pipefail
+    - make native-verify 2>&1 | tee coverage/native-macos.log
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - coverage/native-macos.log
+      - bin/podmutt.app/
 
 cross-build:
   stage: build
