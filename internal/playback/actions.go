@@ -28,7 +28,12 @@ func (e *Engine) load(ctx context.Context, id int64) error {
 		episode.PositionSeconds = e.state.Current.PositionSeconds
 	}
 	if e.player == nil {
-		created, err := e.factory(e.ctx)
+		// Actor cancellation starts cleanup; it must not kill mpv before the
+		// final Position/IPC-close/reap sequence. Abrupt process death still
+		// closes the inherited socket, and Player.Close retains its kill bound.
+		lifetime, cancel := context.WithCancel(context.WithoutCancel(e.ctx))
+		e.playerCancel = cancel
+		created, err := e.factory(lifetime)
 		if err != nil {
 			return e.fail(ctx, err)
 		}
@@ -232,10 +237,7 @@ func (e *Engine) fail(ctx context.Context, err error) error {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), operationTimeout)
 	defer cancel()
 	err = errors.Join(err, e.save(cleanup, false))
-	if e.player != nil {
-		err = errors.Join(err, e.player.Close())
-		e.player = nil
-	}
+	err = errors.Join(err, e.closePlayer())
 	e.active, e.ready = false, false
 	e.state.Status, e.state.Error = Failed, err.Error()
 	return err
