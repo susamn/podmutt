@@ -15,9 +15,10 @@ type Config struct {
 	RefreshMinutes int    `toml:"refresh_minutes"`
 	MPVPath        string `toml:"mpv_path"`
 	Telemetry      bool   `toml:"telemetry"`
+	Icons          string `toml:"icons"`
 }
 
-func Defaults() Config { return Config{RefreshMinutes: 30, MPVPath: "mpv"} }
+func Defaults() Config { return Config{RefreshMinutes: 30, MPVPath: "mpv", Icons: "unicode"} }
 
 // Load applies a TOML file over defaults. An absent file uses defaults.
 func Load(path string) (Config, error) {
@@ -38,6 +39,9 @@ func Load(path string) (Config, error) {
 	}
 	if cfg.RefreshMinutes < 1 || cfg.MPVPath == "" {
 		return Config{}, fmt.Errorf("configuration: refresh_minutes must be positive and mpv_path nonempty")
+	}
+	if cfg.Icons != "unicode" && cfg.Icons != "nerd" && cfg.Icons != "plain" {
+		return Config{}, fmt.Errorf("configuration: icons must be unicode, nerd or plain")
 	}
 	if cfg.Telemetry {
 		return Config{}, fmt.Errorf("configuration: telemetry is not supported")

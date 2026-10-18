@@ -33,6 +33,7 @@ type Data struct {
 }
 
 type Model struct {
+	icons         string
 	animation     animation
 	progress      progressClock
 	data          Data

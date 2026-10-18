@@ -73,7 +73,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 			if i == m.selected[panel] {
 				prefix = "> "
 			}
-			rows = append(rows, prefix+clean(items[i].Title, false))
+			rows = append(rows, prefix+m.Icon(panelIcon(panel), clean(items[i].Title, false)))
 		}
 		if len(items) == 0 {
 			empty := "No items"
@@ -83,7 +83,15 @@ func (m Model) pane(panel Panel, width, height int) string {
 			rows = append(rows, empty)
 		}
 	}
-	title := titles[panel]
+	icon := panelIcon(panel)
+	if panel == Podcasts {
+		if strings.HasPrefix(m.data.PodcastLabel, "Discover") {
+			icon = SearchIcon
+		} else if strings.HasPrefix(m.data.PodcastLabel, "RSS/") {
+			icon = FeedIcon
+		}
+	}
+	title := m.Icon(icon, titles[panel])
 	if panel == Podcasts && m.data.PodcastLabel != "" {
 		title += " · " + clean(m.data.PodcastLabel, false)
 	}
@@ -195,7 +203,7 @@ func (m Model) View() tea.View {
 					"j/k arrows · g/G first/last item",
 					"h/l, Tab · 1-5 focus pane",
 					"Player (5): h/l seek ±15s · Left/Right select · Enter activate",
-					"/             Filter current list", "Enter/Esc     Apply/cancel filter",
+					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"Space selected play/toggle · s stop · n next",
 					"Episodes Enter details · a enqueue · A enqueue visible",

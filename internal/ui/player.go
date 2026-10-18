@@ -56,9 +56,9 @@ func (m Model) playerPane(width, height int) string {
 	if title == "" {
 		title = "No episode selected"
 	}
-	summary := status + " · " + title
+	summary := m.Icon(stateIcon(status), status) + " · " + title
 	if player.Error != "" {
-		summary = status + " · " + clean(player.Error, false)
+		summary = m.Icon(stateIcon(status), status) + " · " + clean(player.Error, false)
 	}
 	capacity := max(0, height-3)
 	rows := []string{summary}
@@ -71,7 +71,7 @@ func (m Model) playerPane(width, height int) string {
 	}
 	if extra > 0 {
 		if player.Error == "" {
-			rows[0] = status
+			rows[0] = m.Icon(stateIcon(status), status)
 		}
 		rows = append(rows, title)
 		extra--
@@ -107,7 +107,7 @@ func (m Model) playerPane(width, height int) string {
 	if capacity < 2 {
 		rows = rows[len(rows)-min(capacity, len(rows)):]
 	}
-	return box("5 Player", rows, width, height, m.focus == PlayerPanel)
+	return box(m.Icon(stateIcon(status), "5 Player"), rows, width, height, m.focus == PlayerPanel)
 }
 func progressLine(player Player, width int) string {
 	position, duration := player.Position, player.Duration

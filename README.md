@@ -99,11 +99,17 @@ An absent `config.toml` uses these defaults:
 ```toml
 refresh_minutes = 30
 mpv_path = "mpv"
+icons = "unicode" # default; "nerd" (Nerd Font Mono) or "plain" (text labels)
 telemetry = false
 ```
 
 Refresh intervals must be positive whole minutes. `mpv_path` is a nonempty
 executable name or path. Telemetry is unsupported; enabling it is rejected.
+Icons use standard Unicode by default; no patched font is required. Set
+`icons = "nerd"` only with a Nerd Font Mono terminal font, or `icons = "plain"`
+for readable text without icon prefixes. Labels always remain; plain icon mode
+retains the existing TUI borders/progress bar. See [icon policy](docs/adr/025-icon-vocabulary.md).
+
 Malformed TOML and unknown keys are errors. Configuration files are never
 rewritten automatically.
 
