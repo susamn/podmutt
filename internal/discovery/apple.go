@@ -177,6 +177,11 @@ func (a *Apple) load(ctx context.Context, key string, fetch func(context.Context
 	return shows, nil
 }
 func (a *Apple) read(ctx context.Context, address string, document any) error {
+	return a.readHeaders(ctx, address, document, nil)
+}
+
+// readHeaders shares bounded I/O/quota policy, not directory caches or secrets.
+func (a *Apple) readHeaders(ctx context.Context, address string, document any, headers http.Header) error {
 	if delay := time.Until(a.next); delay > 0 {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
@@ -192,6 +197,9 @@ func (a *Apple) read(ctx context.Context, address string, document any) error {
 	}
 	req.Header.Set("User-Agent", "podmutt/dev")
 	req.Header.Set("Accept", "application/json")
+	for name, values := range headers {
+		req.Header[name] = append([]string(nil), values...)
+	}
 	a.next = time.Now().Add(a.interval)
 	response, err := a.client.Do(req)
 	if err != nil {
