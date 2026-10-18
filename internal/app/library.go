@@ -408,6 +408,9 @@ func (m *libraryShell) renderStatus() {
 }
 
 func (m *libraryShell) renderDetails() {
+	if m.Model.Focus() != ui.Details {
+		m.detailTarget = nil
+	}
 	details := ""
 	episode, ok := m.contextEpisode()
 	if m.Model.Focus() == ui.Details && m.detailTarget != nil {

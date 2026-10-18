@@ -160,6 +160,12 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		if m.Model.Focus() != ui.Details || m.detailTarget == nil || !strings.Contains(m.View().Content, m.detailTarget.Title) {
 			t.Fatal("details not opened")
 		}
+		// Leaving details and navigating must discard the old pinned target.
+		m.Model = m.Model.WithFocus(ui.Episodes)
+		libraryKey(&m, 'j')
+		if m.detailTarget != nil {
+			t.Fatal("old details target survived navigation")
+		}
 		m.Model = m.Model.WithFocus(ui.Queue)
 		libraryKey(&m, 'd')
 		if m.confirming == nil || !strings.Contains(m.View().Content, "Confirm queue edit") {
