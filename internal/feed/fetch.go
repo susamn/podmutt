@@ -9,7 +9,10 @@ import (
 	"podmutt/internal/store"
 )
 
-func (r *Refresher) fetch(ctx context.Context, source store.Feed) (result Fetched, err error) {
+func (r *Refresher) fetch(ctx context.Context, source store.Feed) (Fetched, error) {
+	return r.fetchWith(ctx, source, Parse)
+}
+func (r *Refresher) fetchWith(ctx context.Context, source store.Feed, decode func([]byte, string) (Document, error)) (result Fetched, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source.URL, nil)
 	if err != nil {
 		return result, fmt.Errorf("invalid feed request")
@@ -55,7 +58,7 @@ func (r *Refresher) fetch(ctx context.Context, source store.Feed) (result Fetche
 		if response.Request != nil && response.Request.URL != nil {
 			finalURL = response.Request.URL.String()
 		}
-		result.Document, err = Parse(data, finalURL)
+		result.Document, err = decode(data, finalURL)
 		if err != nil {
 			return result, err
 		}
