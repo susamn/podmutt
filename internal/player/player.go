@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,16 @@ const shutdownTimeout = 3 * time.Second
 
 var arguments = []string{"--idle=yes", "--no-video", "--no-terminal", "--no-config",
 	"--load-scripts=no", "--ytdl=no", "--input-ipc-client=fd://3"}
+
+// The foreground owns macOS commands; mpv must not register a competing remote
+// command center. This platform-specific option is not assumed to exist on Linux.
+func platformArguments(goos string) []string {
+	args := append([]string(nil), arguments...)
+	if goos == "darwin" {
+		args = append(args, "--input-media-keys=no")
+	}
+	return args
+}
 
 type Player struct {
 	*ipc
@@ -41,7 +52,7 @@ func Start(ctx context.Context, path string) (*Player, error) {
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	return launch(ctx, exec.CommandContext(ctx, binary, arguments...), shutdownTimeout)
+	return launch(ctx, exec.CommandContext(ctx, binary, platformArguments(runtime.GOOS)...), shutdownTimeout)
 }
 
 func launch(ctx context.Context, cmd *exec.Cmd, timeout time.Duration) (*Player, error) {

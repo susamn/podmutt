@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"runtime"
@@ -93,8 +94,9 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		mediaError := m.s.mediaError
 		if m.s.media != nil {
-			mediaError = m.s.media.Err()
+			mediaError = errors.Join(mediaError, m.s.media.Err())
 		}
+		mediaError = errors.Join(mediaError, m.s.nativeMedia.Err())
 		if mediaError != nil {
 			player.Warning = mediaError.Error()
 		}
