@@ -3,8 +3,8 @@
 A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
 Bubble Tea, SQLite, and mpv. Licensed under [MIT](LICENSE).
 
-**Status:** cached podcast browsing, feed refresh, and running-instance playback
-controls are available. Selected-episode playback/queue UI is tracked in #11.
+**Status:** cached podcast browsing, feed refresh, selected playback, queue editing,
+and running-instance controls are available.
 `--help` and `--version` work without creating profile files.
 
 ## Development
@@ -98,8 +98,14 @@ opens before background refresh; unsubscribed shows remain available as previews
 `[+]`/`[-]` indicate subscription, `[x]` indicates completion. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
-Space toggles the current episode; `s` stops and `n` skips to the explicit queue's
-next episode. Selected-episode playback is tracked in #11.
+Space plays the selected Episodes/Queue item, or toggles it if current; elsewhere
+it toggles current playback. Enter opens details, never audio. `s` stops and `n`
+skips to the explicit queue's next episode. `a` enqueues one item; `A` enqueues
+visible (filtered) Episodes in display order. In Queue, `J/K` move an item,
+`d` removes it, and `D` clears the full queue. Removal/clear require explicit `y`;
+Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do not
+change current playback/history. Status shows position, optional duration, and
+persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
 
 ## Running-instance commands
 
