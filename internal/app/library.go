@@ -45,6 +45,8 @@ type libraryShell struct {
 	refreshErrors      map[int64]string
 	lastPlayingID      int64
 	lastCompleted      bool
+	confirming         *queueConfirmation
+	detailTarget       *store.Episode
 }
 
 func runLibrary(s *session, input io.Reader, output io.Writer) error {
@@ -79,6 +81,12 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	model := libraryShell{shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.renderLibrary()
+	state, err := s.playback.Snapshot(s.ctx)
+	if err != nil {
+		return libraryShell{}, err
+	}
+	updated, _ := model.shell.Update(playbackUpdate{state, true})
+	model.shell = updated.(shell)
 	model.feedID = model.selectedFeed()
 	return model, nil
 }
@@ -139,6 +147,12 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.snapshot = msg.snapshot
 			rebuild = true
 		}
+	case playerEdited:
+		if msg.err != nil {
+			m.notice = msg.err.Error()
+		} else {
+			m.notice = "Playback/queue updated"
+		}
 	case libraryEdited:
 		m.mutating = false
 		if msg.err != nil {
@@ -171,13 +185,14 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.state.Current != nil {
 				id, completed = msg.state.Current.ID, msg.state.Current.Completed
 			}
-			if m.lastPlayingID != 0 && (m.lastPlayingID != id || m.lastCompleted != completed) {
+			if m.lastPlayingID != id || m.lastCompleted != completed {
 				cmd = m.reload()
 			}
 			m.lastPlayingID, m.lastCompleted = id, completed
 		}
 		updated, wait := m.shell.Update(msg)
 		m.shell = updated.(shell)
+		m.renderDetails()
 		cmd = tea.Batch(wait, cmd)
 	case tea.PasteMsg:
 		if m.adding {
@@ -186,6 +201,10 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.delegate(msg)
 	case tea.KeyPressMsg:
+		if m.confirming != nil {
+			cmd = m.confirmationKey(msg)
+			break
+		}
 		if m.adding {
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
@@ -197,6 +216,18 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.delegate(msg)
 		}
 		switch msg.String() {
+		case "space":
+			cmd = m.playSelected()
+		case "a", "A":
+			cmd = m.enqueue(msg.String() == "A")
+		case "J", "K":
+			step := 1
+			if msg.String() == "K" {
+				step = -1
+			}
+			cmd = m.moveQueue(step)
+		case "d", "D":
+			m.confirmQueue(msg.String() == "D")
 		case "N":
 			if !m.mutating {
 				m.adding = true
@@ -228,6 +259,12 @@ func (m libraryShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
 				cmd = m.reload()
+			} else if m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue {
+				if episode, ok := m.contextEpisode(); ok {
+					m.detailTarget = &episode
+					m.Model = m.Model.WithFocus(ui.Details)
+					m.renderDetails()
+				}
 			}
 		default:
 			return m.delegate(msg)
@@ -372,7 +409,11 @@ func (m *libraryShell) renderStatus() {
 
 func (m *libraryShell) renderDetails() {
 	details := ""
-	if episode, ok := m.selectedEpisode(); ok {
+	episode, ok := m.contextEpisode()
+	if m.Model.Focus() == ui.Details && m.detailTarget != nil {
+		episode, ok = *m.detailTarget, true
+	}
+	if ok {
 		show := ""
 		for _, source := range m.snapshot.Feeds {
 			if source.ID == episode.FeedID {
