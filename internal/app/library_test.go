@@ -98,14 +98,21 @@ func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal("completed episode remains in New")
 		}
 		finishLibrary(&m, libraryKey(&m, 'v'))
+		if len(m.Model.Visible(ui.Podcasts)) != 1 {
+			t.Fatal("unsubscribed cache leaked into My subscriptions")
+		}
+		cached, err := s.store.Episodes(s.ctx, b)
+		if err != nil || len(cached) != 1 {
+			t.Fatal("unsubscribed history was deleted")
+		}
+		if err := m.service.Subscribe(s.ctx, b, true); err != nil {
+			t.Fatal(err)
+		}
+		finishLibrary(&m, m.reload())
 		m.Model = m.Model.WithFocus(ui.Podcasts)
 		finishLibrary(&m, libraryKey(&m, 'j'))
 		if m.feedID != b || len(m.rows) != 1 || m.rows[0].Title != "Cached beta" {
-			t.Fatal("unsubscribed show cache unavailable")
-		}
-		finishLibrary(&m, libraryKey(&m, 'u'))
-		if !m.snapshot.Feeds[1].Subscribed {
-			t.Fatal("resubscribe failed")
+			t.Fatal("resubscribed show cache unavailable")
 		}
 		finishLibrary(&m, libraryKey(&m, 'u'))
 		if m.snapshot.Feeds[1].Subscribed {
@@ -134,7 +141,7 @@ func TestRSSInputAddAndInvalidFeed(t *testing.T) {
 		}
 		updateLibrary(&m, tea.WindowSizeMsg{Width: 120, Height: 24})
 		libraryKey(&m, 'N')
-		if !m.adding || !strings.Contains(m.View().Content, "Add public RSS") {
+		if !m.adding || !strings.Contains(m.View().Content, "Add feed or podcast website") {
 			t.Fatal("RSS prompt missing")
 		}
 		updateLibrary(&m, tea.PasteMsg{Content: server.URL + "/rss"})
@@ -149,7 +156,7 @@ func TestRSSInputAddAndInvalidFeed(t *testing.T) {
 		libraryKey(&m, 'N')
 		updateLibrary(&m, tea.PasteMsg{Content: server.URL + "/bad"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if len(m.snapshot.Feeds) != 1 || !strings.Contains(m.View().Content, "unsupported feed") {
+		if len(m.snapshot.Feeds) != 1 || !strings.Contains(m.View().Content, "RSS/Atom links") {
 			t.Fatal("invalid add lost cache or hid error")
 		}
 		libraryKey(&m, 'N')

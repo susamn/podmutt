@@ -16,6 +16,9 @@ func TestEmptyLibraryRefreshIsNotPerpetuallyBusy(t *testing.T) {
 		if m.notice != "Cached library" {
 			t.Fatal("empty library claims an active refresh")
 		}
+		// An empty profile starts in Discover; the library remains reachable
+		// without waiting for or running any online command in this unit test.
+		libraryKey(&m, 'b')
 		libraryKey(&m, 'R')
 		if m.notice != "No subscribed feeds to refresh" {
 			t.Fatal(m.notice)
