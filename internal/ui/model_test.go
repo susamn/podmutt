@@ -395,3 +395,25 @@ func TestPopupInputBoxStyling(t *testing.T) {
 		t.Fatalf("unexpected prompt output: %s", strippedPrm)
 	}
 }
+
+func TestHairlineSpectrumVisualizer(t *testing.T) {
+	pal := theme.Default()
+	lines2 := globalVisualizer.Render(60, 2, 5.0, "playing", pal)
+	if len(lines2) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(lines2))
+	}
+	combined := ansi.Strip(strings.Join(lines2, "\n"))
+	if !strings.Contains(combined, "│") && !strings.Contains(combined, "╵") && !strings.Contains(combined, "╷") {
+		t.Fatalf("expected hairline spectrum characters: %s", combined)
+	}
+
+	lines1 := globalVisualizer.Render(60, 1, 5.0, "playing", pal)
+	if len(lines1) != 1 {
+		t.Fatalf("expected 1 line, got %d", len(lines1))
+	}
+
+	stopped := ansi.Strip(strings.Join(globalVisualizer.Render(60, 2, 5.0, "stopped", pal), ""))
+	if strings.TrimSpace(stopped) != "" {
+		t.Fatalf("expected empty visualizer when stopped: %q", stopped)
+	}
+}
