@@ -84,7 +84,7 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 		progress = append(progress, "In Up next")
 	}
 	add(strings.Join(progress, " · "), muted)
-	limit := max(0, height-4)
+	limit := max(0, m.detailContentRows(height)-1)
 	if len(header) > limit {
 		for _, row := range header[limit:] {
 			overflow = append(overflow, ansi.Strip(row))
@@ -110,21 +110,28 @@ func (m Model) detailRows(width int) []string {
 	return body
 }
 
+func (m Model) detailContentRows(height int) int {
+	if m.data.EpisodeDetails != nil {
+		return max(0, height-2) // Use every interior row for card identity/reading.
+	}
+	return max(0, height-3)
+}
+
 func (m Model) detailCapacity(width, height int) int {
 	header, _ := m.detailLayout(width, height)
-	return max(0, height-3-len(header))
+	return max(0, m.detailContentRows(height)-len(header))
 }
 
 func (m *Model) scrollDetails(delta int) {
 	width, height := m.detailsSize()
 	header, body := m.detailLayout(width, height)
-	capacity := max(1, height-3-len(header))
+	capacity := max(1, m.detailContentRows(height)-len(header))
 	m.detailScroll = max(0, min(m.detailScroll+delta, len(body)-capacity))
 }
 
 func (m Model) renderDetails(width, height int) (rows []string, indicator string) {
 	header, body := m.detailLayout(width, height)
-	capacity := max(0, height-3-len(header))
+	capacity := max(0, m.detailContentRows(height)-len(header))
 	start := min(m.detailScroll, max(0, len(body)-max(1, capacity)))
 	end := min(len(body), start+capacity)
 	rows = append(header, body[start:end]...)
