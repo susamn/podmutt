@@ -37,6 +37,30 @@ func (m *Model) scrollDetails(delta int) {
 	m.detailScroll = max(0, min(m.detailScroll+delta, len(m.detailRows(width))-max(1, height-3)))
 }
 
+func listCapacity(panel Panel, height int) int {
+	rows := height - 3
+	if panel == Episodes || panel == Queue {
+		rows-- // pinned table header
+	}
+	return max(0, rows)
+}
+
+func (m Model) listPageSize() int {
+	available := max(0, m.height-1)
+	height := available / 2
+	if m.focus == Episodes {
+		height = available - height
+	}
+	if m.compact() {
+		top, middle, _ := m.compactHeights()
+		height = middle
+		if m.focus == Podcasts && top > 0 {
+			height = top
+		}
+	}
+	return max(1, listCapacity(m.focus, height))
+}
+
 func (m Model) pane(panel Panel, width, height int) string {
 	if panel == PlayerPanel {
 		return m.playerPane(width, height)
@@ -67,7 +91,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 		} else if panel == Queue {
 			rows = append(rows, m.renderQueueHeader(width))
 		}
-		visible := max(0, height-3-len(rows))
+		visible := listCapacity(panel, height)
 		start := max(0, m.selected[panel]-visible+1)
 		for i := start; i < min(len(items), start+visible); i++ {
 			rows = append(rows, m.renderRow(panel, items[i], width, i == m.selected[panel]))
@@ -126,12 +150,6 @@ func (m Model) renderEpisodesHeader(width int) string {
 	chanBudget := max(6, slack-titleBudget)
 
 	hdrText := padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padRight("Date", dateWidth) + " " + padLeft("Duration", durWidth)
-	if offset := m.colOffset[Episodes]; offset > 0 {
-		runes := []rune(hdrText)
-		if offset < len(runes) {
-			hdrText = ansi.Truncate(string(runes[offset:]), avail, "…")
-		}
-	}
 	return headerStyle.Render("      " + hdrText)
 }
 
@@ -155,12 +173,6 @@ func (m Model) renderQueueHeader(width int) string {
 	chanBudget := max(6, slack-titleBudget)
 
 	hdrText := "Remains " + padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padLeft("Time", timeWidth)
-	if offset := m.colOffset[Queue]; offset > 0 {
-		runes := []rune(hdrText)
-		if offset < len(runes) {
-			hdrText = ansi.Truncate(string(runes[offset:]), avail, "…")
-		}
-	}
 	return headerStyle.Render("    #   " + hdrText)
 }
 
@@ -189,12 +201,6 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 		}
 		chanColor := lipgloss.Color(string(m.Theme().ChannelColor(channel)))
 		title := clean(item.Title, false)
-		if offset := m.colOffset[Podcasts]; offset > 0 {
-			runes := []rune(title)
-			if offset < len(runes) {
-				title = string(runes[offset:])
-			}
-		}
 		return prefix + m.Icon(ShowIcon, lipgloss.NewStyle().Foreground(chanColor).Render(title))
 	case Episodes:
 		return m.renderEpisodeRow(item, width, selected)
@@ -266,14 +272,7 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 	durPad := max(0, durWidth-ansi.StringWidth(durStr))
 	durCol := strings.Repeat(" ", durPad) + durStr
 
-	row := prefix + gutter + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + dateCol + " " + durCol
-	if offset := m.colOffset[Episodes]; offset > 0 {
-		runes := []rune(titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + dateCol + " " + durCol)
-		if offset < len(runes) {
-			row = prefix + gutter + ansi.Truncate(string(runes[offset:]), avail, "…")
-		}
-	}
-	return row
+	return prefix + gutter + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + dateCol + " " + durCol
 }
 
 func (m Model) renderQueueRow(item Item, width int, selected bool) string {
@@ -347,14 +346,7 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	timePad := max(0, timeWidth-ansi.StringWidth(timeStr))
 	timeCol := strings.Repeat(" ", timePad) + timeStr
 
-	row := prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
-	if offset := m.colOffset[Queue]; offset > 0 {
-		runes := []rune(remCol + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol)
-		if offset < len(runes) {
-			row = prefix + gutter + idxStr + ansi.Truncate(string(runes[offset:]), avail, "…")
-		}
-	}
-	return row
+	return prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {
@@ -759,8 +751,8 @@ func (m Model) View() tea.View {
 			} else if m.help {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
-					"h/l, Tab · 1-5 focus pane",
-					"Player (5): h/l seek ±15s · Left/Right select · Enter activate",
+					"h/Left back · l/Right open · Tab lists · 1-5 focus",
+					"Player (5): ,/. seek ±15s · Left/Right select · Enter activate",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",

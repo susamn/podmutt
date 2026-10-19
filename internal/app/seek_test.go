@@ -30,11 +30,11 @@ func TestPlayerSeekUsesActorAndPreservesPause(t *testing.T) {
 		}
 		syncPlayer(t, &m)
 		m.Model = m.Model.WithFocus(ui.PlayerPanel)
-		finishLibrary(&m, libraryKey(&m, 'h'))
+		finishLibrary(&m, libraryKey(&m, ','))
 		if state := syncPlayer(t, &m); state.Current.PositionSeconds != 27 || state.Status != "paused" {
 			t.Fatal("backward seek", state)
 		}
-		finishLibrary(&m, libraryKey(&m, 'l'))
+		finishLibrary(&m, libraryKey(&m, '.'))
 		if state := syncPlayer(t, &m); state.Current.PositionSeconds != 42 || state.Status != "paused" {
 			t.Fatal("forward seek", state)
 		}

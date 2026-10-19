@@ -70,7 +70,6 @@ type Model struct {
 	theme         theme.Palette
 	settings      bool
 	settingsData  SettingsData
-	colOffset     [3]int
 	icons         string
 	animation     animation
 	progress      progressClock
@@ -151,6 +150,10 @@ func (m Model) Selected(panel Panel) (Item, bool) {
 	}
 	return items[m.selected[panel]], true
 }
+func (m Model) HasFilter(panel Panel) bool {
+	return panel >= Podcasts && panel <= Queue && m.filters[panel] != ""
+}
+
 func (m Model) ClearFilter(panel Panel) Model {
 	if panel >= Podcasts && panel <= Queue {
 		m.filters[panel] = ""
@@ -161,7 +164,6 @@ func (m Model) ClearFilter(panel Panel) Model {
 func (m Model) Reset(panel Panel) Model {
 	if panel >= Podcasts && panel <= Queue {
 		m.selected[panel] = 0
-		m.colOffset[panel] = 0
 	}
 	return m
 }
@@ -222,6 +224,15 @@ func (m *Model) setFocus(panel Panel) {
 	m.focus = panel
 	if panel == Podcasts || panel == Episodes {
 		m.lastVisible = panel
+	}
+}
+
+// back leaves supporting panes without changing the selected episode.
+func (m *Model) back() {
+	if m.focus == Episodes {
+		m.setFocus(Podcasts)
+	} else if m.focus >= Queue {
+		m.setFocus(m.lastVisible)
 	}
 }
 
@@ -331,16 +342,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.data.Dialog != nil {
 			return m, nil
 		}
-		if m.focus == PlayerPanel && (key == "h" || key == "l" || key == "," || key == "." || key == "<" || key == ">") {
-			if !m.data.Player.CanSeek || m.actions == nil {
-				return m, nil
-			}
-			command := "seek-forward"
-			if key == "h" || key == "," || key == "<" {
-				command = "seek-backward"
-			}
-			return m, m.actions(command)
-		}
 		switch key {
 		case "left", "right":
 			if m.focus == PlayerPanel {
@@ -349,6 +350,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					step = -1
 				}
 				m.playerButton = (m.playerButton + step + 3) % 3
+			} else if key == "left" {
+				m.back()
 			}
 		case "enter":
 			if m.focus == PlayerPanel {
@@ -365,6 +368,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delta = -delta
 				}
 				m.scrollDetails(delta)
+			} else if m.focus <= Queue {
+				delta := m.listPageSize()
+				if key == "ctrl+d" || key == "ctrl+u" {
+					delta = max(1, delta/2)
+				}
+				if key == "pgup" || key == "ctrl+u" {
+					delta = -delta
+				}
+				m.selected[m.focus] += delta
+				m.clamp()
 			}
 		case "space", "s", "n":
 			if m.actions != nil {
@@ -386,26 +399,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.actions("seek-forward")
 			}
 		case "h":
-			if m.focus < Details {
-				m.colOffset[m.focus] = max(0, m.colOffset[m.focus]-4)
-			}
-			return m, nil
-		case "l":
-			if m.focus < Details {
-				m.colOffset[m.focus] += 4
-			}
-			return m, nil
+			m.back()
 		case "tab":
-			m.setFocus((m.focus + 1) % (PlayerPanel + 1))
+			if m.focus >= Queue {
+				m.setFocus(Podcasts)
+			} else {
+				m.setFocus(m.focus + 1)
+			}
 		case "shift+tab":
-			m.setFocus((m.focus + PlayerPanel) % (PlayerPanel + 1))
+			if m.focus == Podcasts || m.focus > Queue {
+				m.setFocus(Queue)
+			} else {
+				m.setFocus(m.focus - 1)
+			}
 		case "1", "2", "3", "4", "5":
 			m.setFocus(Panel(key[0] - '1'))
 		case "esc":
-			if m.compact() && m.focus >= Queue {
-				m.setFocus(m.lastVisible)
-			} else if m.focus < Details {
+			if m.focus < Details && m.filters[m.focus] != "" {
 				m.filters[m.focus] = ""
+				m.clamp()
+			} else {
+				m.back()
 			}
 		case "/":
 			if m.focus < Details {

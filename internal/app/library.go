@@ -351,7 +351,17 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if m.Model.Busy() {
 			return m.delegate(msg)
 		}
-		switch msg.String() {
+		key := msg.String()
+		focus := m.Model.Focus()
+		if key == "h" || (key == "left" && focus != ui.PlayerPanel) {
+			key = "esc"
+		} else if key == "l" || (key == "right" && focus != ui.PlayerPanel) {
+			key = "i"
+			if focus == ui.Podcasts {
+				key = "enter"
+			}
+		}
+		switch key {
 		case "b":
 			cmd = m.switchBrowse()
 		case "f":
@@ -362,6 +372,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
 			cmd = m.searchDirectory("")
 		case "esc":
+			if msg.String() == "esc" && m.Model.HasFilter(focus) {
+				return m.delegate(msg)
+			}
 			if m.browse.loading || m.browse.previewCancel != nil {
 				m.cancelDirectory()
 				m.cancelPreview()
@@ -370,7 +383,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			} else if m.Model.Focus() == ui.Details && m.detailTarget != nil {
 				m.Model = m.Model.WithFocus(m.detailFrom)
 				m.renderDetails()
-			} else if m.browse.active && m.browse.preview != nil {
+			} else if m.browse.active && m.browse.preview != nil && (focus == ui.Podcasts || focus == ui.Episodes) {
 				m.cancelPreview()
 				m.Model = m.Model.WithFocus(ui.Podcasts)
 				m.renderLibrary()

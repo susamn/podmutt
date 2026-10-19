@@ -38,7 +38,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		s.playback = engine
 		m := browserLibrary(t, s, &fixtureDirectory{shows: []discovery.Show{{Title: "Adhoc show", FeedURL: server.URL + "/rss"}}})
 		finishLibrary(&m, updateLibrary(&m, discoverStartup{}))
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		finishLibrary(&m, libraryKey(&m, 'l'))
 		sources, err := s.store.Feeds(s.ctx, false)
 		if err != nil || len(sources) != 0 {
 			t.Fatal("browsing wrote cache", sources, err)
@@ -50,10 +50,17 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		if sources, err := s.store.Feeds(s.ctx, false); err != nil || len(sources) != 0 {
 			t.Fatal("Space wrote preview cache", sources, err)
 		}
-		libraryKey(&m, 'i')
-		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		libraryKey(&m, 'l')
+		libraryKey(&m, 'h')
 		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes {
 			t.Fatal("details return discarded preview")
+		}
+		libraryKey(&m, '/')
+		updateLibrary(&m, tea.PasteMsg{Content: "First"})
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter})
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.browse.preview == nil || m.Model.HasFilter(ui.Episodes) || m.Model.Focus() != ui.Episodes {
+			t.Fatal("Esc exited preview before clearing its filter")
 		}
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state := syncPlayer(t, &m)
@@ -61,6 +68,16 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("ad-hoc playback blocked", state, m.notice)
 		}
 		id := state.Current.ID
+		m.Model = m.Model.WithFocus(ui.Queue)
+		libraryKey(&m, 'l')
+		libraryKey(&m, 'h')
+		if m.Model.Focus() != ui.Queue || m.browse.preview == nil {
+			t.Fatal("queue details lost preview or origin")
+		}
+		libraryKey(&m, 'h')
+		if m.Model.Focus() != ui.Episodes || m.browse.preview == nil {
+			t.Fatal("leaving queue closed unrelated preview")
+		}
 		sources, err = s.store.Feeds(s.ctx, true)
 		if err != nil || len(sources) != 0 {
 			t.Fatal("ad-hoc subscribed", sources, err)
