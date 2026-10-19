@@ -377,8 +377,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if key == "pgup" || key == "ctrl+u" {
 					delta = -delta
 				}
-				m.selected[m.focus] += delta
-				m.clamp()
+				m.pageList(delta)
 			}
 		case "space", "s", "n":
 			if m.actions != nil {

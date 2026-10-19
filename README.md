@@ -167,16 +167,19 @@ Very short terminals show one library pane plus controls. Below 30×12, resize
 guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
 
 `N` adds a public RSS/Atom feed or podcast website URL. **My library** offers
-**New episodes**, **Continue listening**, **All subscriptions**, then subscribed
-shows. Highlighting a show always displays that show's episodes (including
-completed history); Enter/l focuses them. `o` cycles newest, oldest, and title
+**New episodes**, **Continue listening**, and **All episodes** at the top.
+A muted, non-selectable **Subscriptions** divider separates the individual shows
+below. The divider adds no navigation stop; short panes omit the blank spacer.
+Highlighting a show always displays that show's episodes (including completed
+history); Enter/l focuses them. `o` cycles newest, oldest, and title
 ordering. There is no hidden Show/New mode or `v` toggle.
 
 New episodes contains uncompleted subscribed episodes. Continue listening contains
 unfinished episodes with saved progress, including unsubscribed/explicitly played
-preview episodes; Enter resumes without subscribing. All subscriptions includes
-completed episodes. Opening any destination never starts audio. `u` toggles the selected show's subscription; `c`
-toggles completion in the episode pane. `R` refreshes manually. Cached content
+preview episodes; Enter resumes without subscribing. All episodes includes
+completed episodes from subscribed shows; its Episodes heading explicitly says
+**All subscribed episodes**. Opening any destination never starts audio.
+`u` toggles the selected show's subscription; `c` toggles episode completion. `R` refreshes manually. Cached content
 opens before background refresh. The show list includes subscribed shows only;
 unsubscribing retains cached episodes/history, including Continue listening. `[+]` indicates
 subscription, `[x]` indicates completion. PgUp/PgDn scroll
