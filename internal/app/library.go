@@ -28,15 +28,18 @@ type themeReloadMsg struct {
 }
 
 type libraryLoaded struct {
-	version  uint64
-	snapshot library.Snapshot
-	err      error
+	version   uint64
+	snapshot  library.Snapshot
+	details   *store.Episode
+	detailKey string
+	err       error
 }
 type libraryEdited struct {
-	id    int64
-	added bool
-	state *playback.State
-	err   error
+	id      int64
+	added   bool
+	state   *playback.State
+	episode *store.Episode
+	err     error
 }
 type refreshUpdate struct {
 	result feed.Result
@@ -120,6 +123,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	}
 	updated, _ := model.shell.Update(playbackUpdate{state, true})
 	model.shell = updated.(shell)
+	model.renderDetails()
 	// Constructor discards commands; arm presentation timers from Init messages,
 	// not from the synthetic initial snapshot.
 	model.Model = model.Model.WithProgress(s.ctx, nil, nil)
@@ -162,8 +166,24 @@ func (m *libraryShell) reload() tea.Cmd {
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.loadCancel = cancel
 	m.version++
-	version, id, service := m.version, m.libraryFeedID(), m.service
-	return func() tea.Msg { snapshot, err := service.Read(ctx, id); return libraryLoaded{version, snapshot, err} }
+	version, id, service, repo := m.version, m.libraryFeedID(), m.service, m.s.store
+	var target *store.Episode
+	detailKey, previewURL := "", ""
+	if m.Model.Focus() == ui.Details && m.detailTarget != nil {
+		copy := *m.detailTarget
+		target, detailKey = &copy, m.detailKey(copy)
+		if copy.ID == 0 && m.browse.preview != nil {
+			previewURL = m.browse.preview.URL
+		}
+	}
+	return func() tea.Msg {
+		snapshot, err := service.Read(ctx, id)
+		var details *store.Episode
+		if err == nil {
+			details = readInspected(ctx, repo, snapshot.Feeds, target, previewURL)
+		}
+		return libraryLoaded{version: version, snapshot: snapshot, details: details, detailKey: detailKey, err: err}
+	}
 }
 func (m libraryShell) selectedFeed() int64 {
 	item, _ := m.Model.Selected(ui.Podcasts)
@@ -260,6 +280,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.notice = msg.err.Error()
 		} else {
 			m.snapshot = msg.snapshot
+			if msg.details != nil && m.detailTarget != nil && m.detailKey(*m.detailTarget) == msg.detailKey {
+				m.detailTarget.PositionSeconds, m.detailTarget.Completed = msg.details.PositionSeconds, msg.details.Completed
+			}
 			if m.browse.localResults {
 				cmd = m.searchLibrary(m.browse.localQuery)
 			}
@@ -286,6 +309,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		}
 	case playerEdited:
+		if msg.cached {
+			cmd = m.reload()
+		}
 		if errors.Is(msg.err, playback.ErrNoEpisode) {
 			m.notice = "No current episode · Enter plays the selected episode"
 		} else if msg.err != nil {
@@ -302,6 +328,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		m.notice = "Library updated"
 		if msg.state != nil {
 			m.state = *msg.state
+		}
+		if msg.episode != nil && m.detailTarget != nil && m.detailTarget.ID == msg.episode.ID {
+			m.detailTarget.Completed = msg.episode.Completed
 		}
 		if msg.added {
 			m.discardIndexResults()
@@ -407,8 +436,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				m.notice = "Discovery request canceled"
 				m.renderLibrary()
 			} else if m.Model.Focus() == ui.Details && m.detailTarget != nil {
-				m.Model = m.Model.WithFocus(m.detailFrom)
-				m.renderDetails()
+				m.leaveDetails()
 			} else if m.browse.active && m.browse.preview != nil && (focus == ui.Podcasts || focus == ui.Episodes) {
 				m.cancelPreview()
 				m.Model = m.Model.WithFocus(ui.Podcasts)
@@ -420,7 +448,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		case "space":
 			engine, ctx := m.s.playback, m.s.ctx
-			cmd = func() tea.Msg { return playerEdited{engine.Toggle(ctx, 0)} }
+			cmd = func() tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} }
 		case "i":
 			m.openDetails()
 		case "a", "A":
@@ -489,7 +517,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				if cmd == nil {
 					cmd = m.reload()
 				}
-			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes {
+			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Details {
 				cmd = m.playSelected()
 			}
 		default:
@@ -508,8 +536,13 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 }
 func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	before, _ := m.Model.Selected(ui.Podcasts)
+	origin := m.Model.Focus()
+	episode, hasEpisode := m.contextEpisode()
 	updated, cmd := m.shell.Update(msg)
 	m.shell = updated.(shell)
+	if origin != ui.Details && m.Model.Focus() == ui.Details && hasEpisode {
+		m.detailTarget, m.detailFrom = &episode, origin
+	}
 	if m.browse.active {
 		after, _ := m.Model.Selected(ui.Podcasts)
 		if before.ID != after.ID {
@@ -573,15 +606,15 @@ func (m *libraryShell) subscribe() tea.Cmd {
 	return nil
 }
 func (m *libraryShell) complete() tea.Cmd {
-	if m.browse.active && m.Model.Focus() == ui.Episodes {
+	if m.previewActionContext() {
 		m.notice = "Preview only · u subscribe before changing history"
 		return nil
 	}
 	if m.mutating {
 		return nil
 	}
-	episode, ok := m.selectedEpisode()
-	if !ok || m.Model.Focus() != ui.Episodes || episode.ID <= 0 {
+	episode, ok := m.contextEpisode()
+	if !ok || (m.Model.Focus() != ui.Episodes && m.Model.Focus() != ui.Details) || episode.ID <= 0 {
 		m.notice = "Select an episode first"
 		return nil
 	}
@@ -591,8 +624,9 @@ func (m *libraryShell) complete() tea.Cmd {
 		if err := engine.MarkCompleted(ctx, episode.ID, !episode.Completed); err != nil {
 			return libraryEdited{err: err}
 		}
+		episode.Completed = !episode.Completed
 		state, err := engine.Snapshot(ctx)
-		return libraryEdited{state: &state, err: err}
+		return libraryEdited{state: &state, episode: &episode, err: err}
 	}
 }
 

@@ -499,7 +499,8 @@ func (m Model) bottomHints() string {
 	var hints []hint
 	switch m.focus {
 	case Details:
-		hints = []hint{
+		hints = append(m.episodeHints(), []hint{
+			{"Esc", "back"},
 			{"j/k", "scroll"},
 			{"Ctrl-d/u", "half-page"},
 			{"g/G", "top/bottom"},
@@ -507,7 +508,7 @@ func (m Model) bottomHints() string {
 			{"e", "settings"},
 			{"?", "help"},
 			{"q", "quit"},
-		}
+		}...)
 	case PlayerPanel:
 		hints = []hint{
 			{"Left/Right", "select"},
@@ -579,6 +580,24 @@ func (m Model) bottomHints() string {
 		}
 	}
 
+	if m.focus == Episodes && m.episodeOps.Available {
+		// Prioritize one shared action set in the list and its reading surface.
+		actions := m.episodeHints()
+		var remaining []hint
+		for _, existing := range hints {
+			matched := false
+			for _, action := range actions {
+				if existing.key == action.key {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				remaining = append(remaining, existing)
+			}
+		}
+		hints = append(actions, remaining...)
+	}
 	hintText := m.formatHints(hints)
 	if m.data.Notice != "" && m.width >= 80 {
 		pal := m.Theme()
@@ -729,6 +748,8 @@ func (m Model) View() tea.View {
 			} else if m.help {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
+					"Details: Enter play/resume · a queue · c complete",
+					"Preview completion requires subscription",
 					"h/Left back · l/Right open · Tab lists · 1-5 focus",
 					"Now playing (5): ,/. seek ±15s · arrows select · Enter activate",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",

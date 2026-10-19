@@ -60,7 +60,9 @@ func (m *libraryShell) cancelPreview() {
 	m.browse.previewGeneration++
 	m.browse.preview = nil
 	m.browse.previewKey = ""
-	m.detailTarget = nil
+	if m.detailTarget != nil && m.detailTarget.ID == 0 {
+		m.detailTarget = nil
+	}
 }
 func (m *libraryShell) cancelDirectory() {
 	if m.browse.cancel != nil {
