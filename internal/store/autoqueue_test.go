@@ -43,7 +43,7 @@ func TestLatestReceiptsPreserveManualQueueAndNeverResurrect(t *testing.T) {
 		t.Fatal(err)
 	}
 	queue, err := s.EnqueueLatest(ctx, current, 0)
-	if err != nil || len(queue) != 2 || queue[0].ID != manual || queue[1].ID != latest {
+	if err != nil || len(queue) != 3 || queue[0].ID != manual || queue[1].ID != latest || queue[2].ID != byGUID(a, "b") {
 		t.Fatal("latest/tie/manual ordering", queue, err)
 	}
 	if err := s.ReplaceQueue(ctx, []int64{manual}); err != nil {
