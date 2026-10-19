@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/library"
@@ -11,27 +12,76 @@ import (
 	"podmutt/internal/ui"
 )
 
+func cleanTitle(title string) string {
+	plain := library.PlainText(title)
+	if plain == "" {
+		return "Untitled episode"
+	}
+	return plain
+}
+
+func cleanShow(show string) string {
+	plain := library.PlainText(show)
+	if plain == "" {
+		return "Unknown show"
+	}
+	return plain
+}
+
+func formatPublishedDate(t time.Time) string {
+	if t.Unix() > 0 {
+		return t.Format("2006-01-02")
+	}
+	return ""
+}
+
+func formatEpisodeDuration(seconds int64) string {
+	if seconds > 0 {
+		return clock(float64(seconds))
+	}
+	return "--:--"
+}
+
+func episodeItem(episode store.Episode, queued bool) ui.Item {
+	plain := cleanTitle(episode.Title)
+	marker := "[ ] "
+	if episode.Completed {
+		marker = "[x] "
+	}
+	return ui.Item{
+		ID:         strconv.FormatInt(episode.ID, 10),
+		Title:      marker + plain,
+		PlainTitle: plain,
+		Channel:    library.PlainText(episode.FeedTitle),
+		Date:       formatPublishedDate(episode.PublishedAt),
+		Duration:   formatEpisodeDuration(episode.DurationSeconds),
+		Queued:     queued,
+		Completed:  episode.Completed,
+	}
+}
+
+func previewEpisodeItem(index int, episode store.Episode, showTitle string) ui.Item {
+	plain := cleanTitle(episode.Title)
+	return ui.Item{
+		ID:         fmt.Sprintf("preview:%d", index),
+		Title:      plain,
+		PlainTitle: plain,
+		Channel:    showTitle,
+		Date:       formatPublishedDate(episode.PublishedAt),
+		Duration:   formatEpisodeDuration(episode.DurationSeconds),
+	}
+}
+
 func queueItem(episode store.Episode) ui.Item {
-	show := library.PlainText(episode.FeedTitle)
-	if show == "" {
-		show = "Unknown show"
-	}
-	duration := "--:--"
-	if episode.DurationSeconds > 0 {
-		duration = clock(float64(episode.DurationSeconds))
-	}
-	plainTitle := library.PlainText(episode.Title)
-	if plainTitle == "" {
-		plainTitle = "Untitled episode"
-	}
+	show := cleanShow(episode.FeedTitle)
+	duration := formatEpisodeDuration(episode.DurationSeconds)
+	plainTitle := cleanTitle(episode.Title)
 	pos := clock(episode.PositionSeconds)
 	remains := "100%"
-	if episode.DurationSeconds > 0 {
-		if episode.PositionSeconds > 0 {
-			pct := int(math.Round((1.0 - (episode.PositionSeconds / float64(episode.DurationSeconds))) * 100))
-			pct = max(0, min(100, pct))
-			remains = fmt.Sprintf("%d%%", pct)
-		}
+	if episode.DurationSeconds > 0 && episode.PositionSeconds > 0 {
+		pct := int(math.Round((1.0 - (episode.PositionSeconds / float64(episode.DurationSeconds))) * 100))
+		pct = max(0, min(100, pct))
+		remains = fmt.Sprintf("%d%%", pct)
 	}
 	return ui.Item{
 		ID:              strconv.FormatInt(episode.ID, 10),
