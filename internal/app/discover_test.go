@@ -316,3 +316,69 @@ func TestPreviewFailureDoesNotSubscribeAndLibraryReloadRefreshesSearch(t *testin
 		}
 	})
 }
+
+func TestModalKeystrokesAddURLAndSearch(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, err := newLibrary(s, feed.New(s.store, nil, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 120, Height: 24})
+
+		// Test 'N' (Add feed modal) keystrokes
+		libraryKey(&m, 'N')
+		if !m.adding || !m.Model.Busy() {
+			t.Fatal("N modal not open")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'h', Text: "h"})
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'i', Text: "i"})
+		if m.input != "hi" {
+			t.Fatalf("expected 'hi', got %q", m.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if m.input != "h" {
+			t.Fatalf("expected backspace to leave 'h', got %q", m.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+		if m.input != "" {
+			t.Fatalf("expected ctrl+u to clear input, got %q", m.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.adding {
+			t.Fatal("esc did not close N modal")
+		}
+
+		// Test 'f' (Search dialog) keystrokes
+		libraryKey(&m, 'f')
+		if !m.browse.searching || !m.Model.Busy() {
+			t.Fatal("search dialog not open")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'a', Text: "a"})
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'b', Text: "b"})
+		if m.browse.input != "ab" {
+			t.Fatalf("expected search input 'ab', got %q", m.browse.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if m.browse.input != "a" {
+			t.Fatalf("expected backspace to leave 'a', got %q", m.browse.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+		if m.browse.input != "" {
+			t.Fatalf("expected ctrl+u to clear search input, got %q", m.browse.input)
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.browse.searching {
+			t.Fatal("esc did not close search dialog")
+		}
+
+		// Test 'U' (Preview URL dialog) keystrokes
+		libraryKey(&m, 'U')
+		if !m.browse.searching || !m.browse.urlInput {
+			t.Fatal("U dialog not open")
+		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.browse.searching {
+			t.Fatal("esc did not close U dialog")
+		}
+	})
+}
