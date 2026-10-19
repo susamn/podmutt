@@ -19,17 +19,20 @@ const (
 )
 
 type Item struct {
-	ID         string
-	Title      string
-	PlainTitle string
-	Channel    string
-	Date       string
-	Duration   string
-	Position   string
-	Queued     bool
-	Completed  bool
-	State      string
-	Index      int
+	ID              string
+	Title           string
+	PlainTitle      string
+	Channel         string
+	Date            string
+	Duration        string
+	Position        string
+	Remains         string
+	PositionSeconds float64
+	DurationSeconds float64
+	Queued          bool
+	Completed       bool
+	State           string
+	Index           int
 }
 
 type Dialog struct{ Title, Body, Hint string }
