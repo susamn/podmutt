@@ -13,11 +13,12 @@ import (
 )
 
 type Config struct {
-	RefreshMinutes int    `toml:"refresh_minutes"`
-	MPVPath        string `toml:"mpv_path"`
-	Telemetry      bool   `toml:"telemetry"`
-	Icons          string `toml:"icons"`
-	Theme          string `toml:"theme"`
+	RefreshMinutes   int    `toml:"refresh_minutes"`
+	MPVPath          string `toml:"mpv_path"`
+	Telemetry        bool   `toml:"telemetry"`
+	Icons            string `toml:"icons"`
+	Theme            string `toml:"theme"`
+	PlayerDecoration bool   `toml:"player_decoration"`
 }
 
 func Defaults() Config {

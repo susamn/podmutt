@@ -123,7 +123,7 @@ func TestSelectedPlayToggleQueueEOFAndQuitCheckpoint(t *testing.T) {
 		for syncPlayer(t, &m).Current.PositionSeconds != 42 && time.Now().Before(deadline) {
 			time.Sleep(time.Millisecond)
 		}
-		if !strings.Contains(m.View().Content, "0:42 / --:--") {
+		if !strings.Contains(m.View().Content, "0:42") || !strings.Contains(m.View().Content, "--:--") {
 			t.Fatal("position hidden")
 		}
 		p.events <- player.Event{Name: "end-file", Reason: "eof", PlaylistEntryID: &entry}

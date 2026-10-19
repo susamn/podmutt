@@ -100,6 +100,7 @@ An absent `config.toml` uses these defaults:
 refresh_minutes = 30
 mpv_path = "mpv"
 icons = "unicode" # default; "nerd" (Nerd Font Mono) or "plain" (text labels)
+player_decoration = false # opt in to decorative animation in spacious layouts
 telemetry = false
 theme = "colors" # default on Linux; "solarized-dark", "catppuccin", or custom
 ```
@@ -138,8 +139,10 @@ scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
 a full page. These keys do not change episode selection or playback.
 
 The wide grid keeps Podcasts/Episodes on the left and **Up next (3)** above the
-bottom-right cell. That cell is split evenly: **Details above, Now playing below**. Long descriptions
-scroll with PgUp/PgDn inside their half; they never push the player/controls down.
+bottom-right cell. **Now playing normally uses six rows**, with **Details taking
+the remaining height above it**. Long descriptions scroll without moving controls.
+Errors/warnings may reserve a few additional player rows; compact layouts adapt
+without hiding current identity or transport.
 
 **,/. seeks backward/forward 15 seconds from any pane** after an episode
 loads, preserving pause state and resume position. h/l never seeks. Seek hints appear when space
@@ -157,9 +160,12 @@ two seconds if actual samples stall. Unknown duration stays unknown. Queue-only
 updates preserve the clock; real samples/seeks correct it. See
 [progress policy](docs/adr/022-realtime-player-progress.md).
 Playback errors remain visible independently of the selected description.
-When a tall wide Player pane has spare room, a labelled **Decorative** pattern
-scrolls during playback, freezes on pause and clears on stop. It is not an audio
-spectrum; compact/crowded layouts hide it and stop its timer.
+Decoration is off by default. With `player_decoration = true`, spacious wide
+layouts reserve two optional rows for the labelled **Decorative** pattern and
+hairline visualizer. They are not measured audio analysis. Animation freezes on
+pause and clears on stop; hidden, compact, modal, or disabled decoration has no
+continuing animation timer. Elapsed time appears once, with total/remaining only
+when space permits.
 
 Below 100 columns or 24 rows, lists stack above a persistent player. Up next/Details
 replace the middle list when focused; Esc returns to the last visible list.

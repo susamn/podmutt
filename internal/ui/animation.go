@@ -37,19 +37,12 @@ func waitFrame(ctx context.Context, delay time.Duration) error {
 	}
 }
 func (m Model) animationVisible() bool {
-	if m.compact() {
+	if !m.decoration || m.compact() || m.Busy() {
 		return false
 	}
-	available := m.height - 1
-	bottom := available - available/2
-	player := bottom - bottom/2
-	extra := player - 6
-	if m.data.Player.Warning != "" {
-		extra--
-	}
-	extra-- // title
-	extra-- // seek hints
-	return extra > 0
+	_, player := m.rightCellHeights()
+	width := m.width - m.width*2/5
+	return player-6-len(m.playerNotices(width-2)) >= 2
 }
 
 // SyncAnimation is called after transport changes and resize. Pausing preserves

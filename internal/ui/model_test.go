@@ -193,11 +193,11 @@ func TestViewsFitTerminal(t *testing.T) {
 		}
 	}
 	m := resize(New(Data{}), 120, 32)
-	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No items") || !strings.Contains(text, "No episode selected") {
+	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No items") || !strings.Contains(text, "No current episode") {
 		t.Fatal("empty-state placeholders missing")
 	}
 	m = resize(New(Data{}), 50, 15)
-	if !strings.Contains(ansi.Strip(m.View().Content), "No episode selected") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "No current episode") {
 		t.Fatal("compact empty player missing")
 	}
 }

@@ -673,9 +673,9 @@ func (m Model) View() tea.View {
 		} else {
 			left, top := m.width*2/5, available/2
 			right, bottom := m.width-left, available-top
-			details := bottom / 2
+			details, player := m.rightCellHeights()
 			rightCell := lipgloss.JoinVertical(lipgloss.Left,
-				m.pane(Details, right, details), m.playerPane(right, bottom-details))
+				m.pane(Details, right, details), m.playerPane(right, player))
 			content = lipgloss.JoinVertical(lipgloss.Left,
 				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, left, top), m.pane(Queue, right, top)),
 				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, bottom), rightCell))

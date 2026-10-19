@@ -87,6 +87,7 @@ type Model struct {
 	actions       func(string) tea.Cmd
 	detailScroll  int
 	playerButton  int
+	decoration    bool
 	artColumns    int
 	artRows       []string
 }
@@ -246,7 +247,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.generation != m.animation.generation || !m.animation.running {
 			return m, nil
 		}
-		if m.animation.ctx.Err() != nil {
+		if m.animation.ctx.Err() != nil || !m.animationVisible() {
 			return m.SyncAnimation()
 		}
 		m.animation.frame = (m.animation.frame + 1) % 1024
@@ -265,6 +266,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m, progress = m.SyncProgress()
 		return m, tea.Batch(animation, progress)
 	case Data:
+		layoutChanged := msg.Player.Error != m.data.Player.Error || msg.Player.Warning != m.data.Player.Warning
 		// Keep the selected identity as asynchronous data replaces list contents.
 		for panel := Podcasts; panel <= Queue; panel++ {
 			old := m.items(panel)
@@ -283,6 +285,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.data = msg
 		m.clamp()
+		if layoutChanged {
+			m.scrollDetails(0)
+		}
 	case tea.PasteMsg:
 		if m.editing {
 			ti := TextInput{Value: m.filters[m.focus], Limit: 256}

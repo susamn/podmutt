@@ -28,9 +28,9 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 +----------------------+---------------------------+
 | Podcasts/subscribed  | Up next (pending only)    |
 +----------------------+---------------------------+
-| Episodes             | Details (upper 50%)       |
+| Episodes             | Details (remaining space) |
 |                      +---------------------------+
-|                      | Now playing (lower 50%)   |
+|                      | Now playing (~6 rows)     |
 +----------------------+---------------------------+
 ```
 
