@@ -228,10 +228,10 @@ func (m *libraryShell) renderSearch() {
 	}
 	m.Model = m.Model.WithDialog(&ui.Dialog{
 		Title:      title,
-		Body:       scope,
-		InputLabel: "Query",
+		Body:       scope + "\nOr paste a feed/website URL for a read-only preview.",
+		InputLabel: "Query or URL",
 		InputValue: m.browse.input,
-		Hint:       "Enter search · Tab switch source · Esc cancel · Ctrl+U clear",
+		Hint:       "Enter search/preview · Tab switch source · Esc cancel · Ctrl+U clear",
 	})
 }
 func (m *libraryShell) appendSearch(text string) {
@@ -242,12 +242,22 @@ func (m *libraryShell) appendSearch(text string) {
 		}
 		return r
 	}, text)
-	runes := []rune(m.browse.input + text)
-	m.browse.input = string(runes[:min(len(runes), m.searchLimit())])
+	input := m.browse.input + text
+	runes := []rune(input)
+	m.browse.input = string(runes[:min(len(runes), m.searchLimit(input))])
 	m.renderSearch()
 }
-func (m libraryShell) searchLimit() int {
-	if m.browse.urlInput {
+
+// Recognize URL intent before provider dispatch, including unsupported schemes.
+// Do not send pasted URLs (possibly containing credentials) to a directory.
+func (m libraryShell) searchingURL(input string) bool {
+	input = strings.ToLower(strings.TrimSpace(input))
+	return m.browse.urlInput || strings.Contains(input, "://") ||
+		strings.HasPrefix(input, "http:") || strings.HasPrefix(input, "https:")
+}
+
+func (m libraryShell) searchLimit(input string) int {
+	if m.searchingURL(input) {
 		return 4096
 	}
 	return 128
@@ -280,7 +290,7 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		m.browse.input = string(runes[:max(0, len(runes)-1)])
 		m.renderSearch()
 	case "enter":
-		if m.browse.urlInput {
+		if m.searchingURL(m.browse.input) {
 			address, err := httpurl.Parse(strings.TrimSpace(m.browse.input))
 			if err != nil {
 				m.notice = err.Error()
