@@ -65,6 +65,8 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 - Controls: play, pause, stop. Up next is persistent, reorderable, batch enqueue;
   no duplicate entries. Current playback stays in the separate Now playing pane,
   never an editable queue row (ADR 041). Direct playback preserves pending work.
+  d/Delete removes immediately; u in Up next undoes one session-local removal
+  by merging into the live queue. D clear still requires confirmation (ADR 044).
 - Playback failure: persistent notification and stop; no automatic retry or skip.
 - CLI controls/status target the running TUI for use in external keybindings;
   they must not create a background player when no TUI is running.
