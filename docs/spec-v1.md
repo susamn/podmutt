@@ -24,11 +24,11 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 
 ```text
 +----------------------+---------------------------+
-| Podcasts/subscribed  | Queue                     |
+| Podcasts/subscribed  | Up next (pending only)    |
 +----------------------+---------------------------+
 | Episodes             | Details (upper 50%)       |
 |                      +---------------------------+
-|                      | Player (lower 50%)        |
+|                      | Now playing (lower 50%)   |
 +----------------------+---------------------------+
 ```
 
@@ -61,8 +61,9 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 - Resume interrupted episodes. Completion means reaching natural EOF or explicit
   user marking, not merely receiving a playback error or pressing Stop.
 - At natural EOF advance through the explicit queue; stop when it is empty.
-- Controls: play, pause, stop. Queue: persistent, reorderable, batch enqueue;
-  no duplicate episode entries. Direct playback preserves the remaining queue.
+- Controls: play, pause, stop. Up next is persistent, reorderable, batch enqueue;
+  no duplicate entries. Current playback stays in the separate Now playing pane,
+  never an editable queue row (ADR 041). Direct playback preserves pending work.
 - Playback failure: persistent notification and stop; no automatic retry or skip.
 - CLI controls/status target the running TUI for use in external keybindings;
   they must not create a background player when no TUI is running.

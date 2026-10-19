@@ -126,7 +126,7 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 `j/k` or Up/Down select; `g/G` go first/last. **h/Left goes back; l/Right opens**
 a show or inspects an episode without starting playback. Tab/Shift+Tab cycles
-**Podcasts → Episodes → Queue**; `1-5` still focuses any pane directly.
+**Podcasts → Episodes → Up next**; `1-5` still focuses any pane directly.
 Details and Player are no longer mandatory Tab stops. In lists, Ctrl-d/Ctrl-u
 moves half a visible page and PgUp/PgDn moves a full page. Esc clears an applied
 filter first, then goes back; h goes directly back. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
@@ -137,8 +137,8 @@ With **Details (4)** focused, `j/k` or arrows scroll one line, Ctrl-d/Ctrl-u
 scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
 a full page. These keys do not change episode selection or playback.
 
-The wide grid keeps Podcasts/Episodes on the left and Queue above the bottom-right
-cell. That cell is split evenly: **Details above, Player below**. Long descriptions
+The wide grid keeps Podcasts/Episodes on the left and **Up next (3)** above the
+bottom-right cell. That cell is split evenly: **Details above, Now playing below**. Long descriptions
 scroll with PgUp/PgDn inside their half; they never push the player/controls down.
 
 **,/. seeks backward/forward 15 seconds from any pane** after an episode
@@ -148,7 +148,7 @@ Control Center skip commands; absolute system scrubbing remains disabled. Linux
 TUI seeking works independently of MPRIS (which still advertises no seek support).
 See [seeking policy](docs/adr/021-shared-seeking.md).
 
-Press **5** for Player. Here Left/Right chooses **Play/Pause, Stop, Next**; Enter
+Press **5** for **Now playing**, the fixed player pane. Here Left/Right chooses **Play/Pause, Stop, Next**; Enter
 activates. Space/s/n still work as shortcuts. The player shows current title,
 status, real-time elapsed/total/remaining and a fractional read-only progress bar;
 unavailable buttons are dimmed. The presentation clock updates at 4Hz without
@@ -161,7 +161,7 @@ When a tall wide Player pane has spare room, a labelled **Decorative** pattern
 scrolls during playback, freezes on pause and clears on stop. It is not an audio
 spectrum; compact/crowded layouts hide it and stop its timer.
 
-Below 100 columns or 24 rows, lists stack above a persistent player. Queue/Details
+Below 100 columns or 24 rows, lists stack above a persistent player. Up next/Details
 replace the middle list when focused; Esc returns to the last visible list.
 Very short terminals show one library pane plus controls. Below 30×12, resize
 guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
@@ -184,13 +184,15 @@ details. See [library UI policy](docs/adr/009-library-ui.md).
 
 **Space pauses/resumes current playback everywhere**, never the highlighted episode.
 With no current episode it shows guidance instead of starting the queue.
-**Enter plays the selected Episodes/Queue item** (and promotes a queued row);
+**Enter plays the selected Episodes/Up next item** (and promotes a queued row);
 repeated Enter keeps it playing. **i opens Details; Esc returns to the originating
 list and selection**. `s` stops and `n` advances to the first pending
-episode. The Queue shows current playback plus pending episodes with show/title,
-state and resume position. Playing a different episode pushes interrupted playback
-behind it; completion removes the row but keeps history. Restart restores stopped.
-`a` enqueues one item; `A` enqueues visible Episodes in display order. In Queue,
+episode. **Up next contains only pending episodes**, numbered from 1, with show/title
+and resume position. **Now playing is separate and cannot be selected for queue
+edits**. The header shows pending count (or matching/total while filtering).
+Playing a different episode preserves interrupted playback in Up next; completion
+keeps history. Restart restores stopped.
+`a` enqueues one item; `A` enqueues visible Episodes in display order. In Up next,
 `j/k` select, `J/K` move pending items, `d` removes a pending item, and `D` clears
 pending items while keeping current playback. Removal/clear require explicit `y`;
 Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do not
