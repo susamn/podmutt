@@ -47,6 +47,7 @@ type Data struct {
 	Dialog                     *Dialog
 	Podcasts, Episodes, Queue  []Item
 	Details                    string
+	EpisodeDetails             *EpisodeDetails
 	Player                     Player
 	EpisodeLabel, EpisodeEmpty string
 	Notice, Prompt             string
@@ -173,6 +174,7 @@ func (m Model) Reset(panel Panel) Model {
 func (m Model) WithLibrary(data Data) Model {
 	data.Player, data.Queue, data.Details = m.data.Player, m.data.Queue, m.data.Details
 	data.Dialog = m.data.Dialog
+	data.EpisodeDetails = m.data.EpisodeDetails
 	updated, _ := m.Update(data)
 	return updated.(Model)
 }
@@ -181,9 +183,10 @@ func (m Model) WithStatus(notice, prompt string) Model {
 	return m
 }
 func (m Model) WithDetails(text string) Model {
-	if text != m.data.Details {
+	if text != m.data.Details || m.data.EpisodeDetails != nil {
 		m.detailScroll = 0
 	}
+	m.data.EpisodeDetails = nil
 	m.data.Details = text
 	return m
 }
@@ -358,8 +361,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "pgdown", "pgup", "ctrl+d", "ctrl+u":
 			if m.focus == Details {
-				_, height := m.detailsSize()
-				delta := max(1, height-3)
+				width, height := m.detailsSize()
+				delta := max(1, m.detailCapacity(width, height))
 				if key == "ctrl+d" || key == "ctrl+u" {
 					delta = max(1, delta/2)
 				}

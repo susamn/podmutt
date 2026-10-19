@@ -26,18 +26,6 @@ func clean(text string, multiline bool) string {
 	}, ansi.Strip(text))
 }
 
-func (m Model) detailRows(width int) []string {
-	text := m.data.Details
-	if text == "" {
-		text = "Select an episode for details."
-	}
-	return strings.Split(ansi.Wrap(clean(text, true), max(1, m.descriptionWidth(width)-2), ""), "\n")
-}
-func (m *Model) scrollDetails(delta int) {
-	width, height := m.detailsSize()
-	m.detailScroll = max(0, min(m.detailScroll+delta, len(m.detailRows(width))-max(1, height-3)))
-}
-
 func listCapacity(panel Panel, height int) int {
 	rows := height - 3
 	if panel == Episodes || panel == Queue {
@@ -67,10 +55,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 		return m.playerPane(width, height)
 	}
 	var rows []string
+	extraTag := ""
 	if panel == Details {
-		rows = m.detailRows(width)
-		start := min(m.detailScroll, max(0, len(rows)-max(1, height-3)))
-		rows = rows[start:min(len(rows), start+max(0, height-3))]
+		rows, extraTag = m.renderDetails(width, height)
 		if columns, _ := m.ArtworkSize(); columns > 0 && m.artColumns > 0 {
 			merged := make([]string, max(len(rows), len(m.artRows)))
 			for i := range merged {
@@ -120,6 +107,13 @@ func (m Model) pane(panel Panel, width, height int) string {
 	if panel == Podcasts && m.data.PodcastLabel != "" {
 		title += " · " + clean(m.data.PodcastLabel, false)
 	}
+	if panel == Details && m.data.EpisodeDetails != nil {
+		context := "Selected"
+		if m.data.EpisodeDetails.Inspecting {
+			context = "Inspecting"
+		}
+		title += " · " + context
+	}
 	if panel == Episodes && m.data.EpisodeLabel != "" {
 		title += " · " + clean(m.data.EpisodeLabel, false)
 	}
@@ -134,7 +128,6 @@ func (m Model) pane(panel Panel, width, height int) string {
 		title += " / " + clean(m.filters[panel], false)
 	}
 	tag := fmt.Sprintf("[%d]", panel+1)
-	extraTag := ""
 	if panel == Queue {
 		extraTag = m.Version()
 	}

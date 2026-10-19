@@ -7,6 +7,12 @@ func (m Model) ArtworkSize() (int, int) {
 		return 0, 0
 	}
 	width, height := m.detailsSize()
+	if m.data.EpisodeDetails != nil {
+		if width < 78 || height < 12 {
+			return 0, 0
+		}
+		return 16, min(6, height-3)
+	}
 	return min(24, max(0, (width-3)/3)), min(10, max(0, height-3))
 }
 

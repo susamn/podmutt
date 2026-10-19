@@ -471,13 +471,6 @@ func (m *libraryShell) renderPreviewDetails() {
 		} else if m.browse.directURL {
 			details += "\nFeed: " + m.browse.preview.URL
 		}
-		episode, ok := m.previewEpisode()
-		if m.Model.Focus() == ui.Details && m.detailTarget != nil {
-			episode, ok = *m.detailTarget, true
-		}
-		if ok {
-			details += "\n\n" + library.PlainText(episode.Title) + "\n" + library.PlainText(episode.Description)
-		}
 	}
 	m.Model = m.Model.WithDetails(details)
 }
