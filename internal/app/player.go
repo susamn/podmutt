@@ -55,11 +55,7 @@ type queueEdited struct {
 }
 
 func clock(seconds float64) string {
-	value := int64(max(0, seconds))
-	if value >= 3600 {
-		return fmt.Sprintf("%d:%02d:%02d", value/3600, value/60%60, value%60)
-	}
-	return fmt.Sprintf("%d:%02d", value/60, value%60)
+	return ui.FormatDuration(seconds)
 }
 func (m libraryShell) contextEpisode() (store.Episode, bool) {
 	if m.Model.Focus() == ui.Queue {

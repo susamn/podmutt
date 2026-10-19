@@ -42,7 +42,7 @@ func seededLibrary(t *testing.T, s *session) (int64, int64) {
 		t.Fatal(err)
 	}
 	for id, items := range map[int64][]store.Episode{
-		a: {{GUID: "a", Title: "Zulu", AudioURL: "https://example.test/z", Description: "<p>Hello</p><script>hidden</script>", PublishedAt: time.Unix(100, 0)},
+		a: {{GUID: "a", Title: "Zulu", AudioURL: "https://example.test/z", Description: "<p>Hello</p><script>hidden</script>", PublishedAt: time.Unix(100, 0), DurationSeconds: 4500},
 			{GUID: "b", Title: "Alpha", AudioURL: "https://example.test/x", PublishedAt: time.Unix(200, 0)}},
 		b: {{GUID: "c", Title: "Cached beta", AudioURL: "https://example.test/y"}},
 	} {
@@ -259,8 +259,8 @@ func TestLibraryGuardsAndPlainDetails(t *testing.T) {
 		m.Model = m.Model.WithFocus(ui.Episodes)
 		m.Model = m.Model.Select(ui.Episodes, strconv.FormatInt(m.rows[1].ID, 10))
 		m.renderLibrary()
-		if view := m.View().Content; !strings.Contains(view, "Hello") || strings.Contains(view, "hidden") {
-			t.Fatal("details not plain text")
+		if view := m.View().Content; !strings.Contains(view, "Hello") || strings.Contains(view, "hidden") || !strings.Contains(view, "1:15:00") {
+			t.Fatal("details not plain text or duration not formatted")
 		}
 		libraryKey(&m, '/')
 		libraryKey(&m, 'c')

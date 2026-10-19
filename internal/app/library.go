@@ -756,8 +756,9 @@ func (m *libraryShell) renderDetails() {
 		if !episode.PublishedAt.IsZero() {
 			published = episode.PublishedAt.Format("2006-01-02")
 		}
-		details = fmt.Sprintf("%s\n%s · %s · %d:%02d\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
-			episode.DurationSeconds/60, episode.DurationSeconds%60, episode.Completed, library.PlainText(episode.Description))
+		durationStr := ui.FormatDuration(float64(episode.DurationSeconds))
+		details = fmt.Sprintf("%s\n%s · %s · %s\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
+			durationStr, episode.Completed, library.PlainText(episode.Description))
 	}
 	m.Model = m.Model.WithDetails(details)
 }
