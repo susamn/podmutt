@@ -87,8 +87,8 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 		}
 		// Inspecting remains read-only. Explicit Enter/a/A are covered separately.
 		finishLibrary(&m, libraryKey(&m, 'i'))
-		if !strings.Contains(m.View().Content, "Inspect before subscribing") || !strings.Contains(m.View().Content, "https://podcasts.apple.com/show") {
-			t.Fatal("preview details/source hidden")
+		if !strings.Contains(m.View().Content, "Inspect before subscribing") || !strings.Contains(m.View().Content, "Science Hour") || strings.Contains(m.View().Content, "https://podcasts.apple.com/show") {
+			t.Fatal("RSS episode card missing or provider-specific metadata leaked")
 		}
 		finishLibrary(&m, libraryKey(&m, 'u'))
 		if m.browse.active || m.mutating || len(m.snapshot.Feeds) != 1 || !m.snapshot.Feeds[0].Subscribed || len(m.rows) != 1 || m.rows[0].ID <= 0 || m.Model.Focus() != ui.Episodes {

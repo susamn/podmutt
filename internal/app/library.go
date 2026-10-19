@@ -700,38 +700,3 @@ func (m *libraryShell) renderStatus() {
 	}
 	m.Model = m.Model.WithStatus(notice, prompt)
 }
-
-func (m *libraryShell) renderDetails() {
-	if m.browse.active && m.Model.Focus() != ui.Queue && !(m.Model.Focus() == ui.Details && m.detailTarget != nil && m.detailTarget.ID > 0) {
-		if m.Model.Focus() != ui.Details {
-			m.detailTarget = nil
-		}
-		m.renderPreviewDetails()
-		return
-	}
-	if m.Model.Focus() != ui.Details {
-		m.detailTarget = nil
-	}
-	details := ""
-	episode, ok := m.contextEpisode()
-	if m.Model.Focus() == ui.Details && m.detailTarget != nil {
-		episode, ok = *m.detailTarget, true
-	}
-	if ok {
-		show := ""
-		for _, source := range m.snapshot.Feeds {
-			if source.ID == episode.FeedID {
-				show = library.PlainText(source.Title)
-				break
-			}
-		}
-		published := "unknown date"
-		if !episode.PublishedAt.IsZero() {
-			published = episode.PublishedAt.Format("2006-01-02")
-		}
-		durationStr := ui.FormatDuration(float64(episode.DurationSeconds))
-		details = fmt.Sprintf("%s\n%s · %s · %s\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
-			durationStr, episode.Completed, library.PlainText(episode.Description))
-	}
-	m.Model = m.Model.WithDetails(details)
-}
