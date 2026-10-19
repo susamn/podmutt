@@ -376,3 +376,38 @@ func TestPlayerInputGuardsBatchFilterAndFailures(t *testing.T) {
 		}
 	})
 }
+
+func TestPresenterHelpers(t *testing.T) {
+	ep := store.Episode{
+		ID:              42,
+		Title:           "<b>Episode Title</b>",
+		FeedTitle:       "Podcast Show",
+		DurationSeconds: 3661,
+		PublishedAt:     time.Date(2026, 4, 15, 10, 0, 0, 0, time.UTC),
+		Completed:       true,
+	}
+
+	item := episodeItem(ep, true)
+	if item.ID != "42" || item.PlainTitle != "Episode Title" || item.Title != "[x] Episode Title" ||
+		item.Channel != "Podcast Show" || item.Date != "2026-04-15" || item.Duration != "1:01:01" ||
+		!item.Queued || !item.Completed {
+		t.Fatalf("unexpected episodeItem: %+v", item)
+	}
+
+	prev := previewEpisodeItem(3, store.Episode{Title: "", DurationSeconds: 0}, "Preview Show")
+	if prev.ID != "preview:3" || prev.PlainTitle != "Untitled episode" || prev.Channel != "Preview Show" ||
+		prev.Date != "" || prev.Duration != "--:--" {
+		t.Fatalf("unexpected previewEpisodeItem: %+v", prev)
+	}
+
+	q := queueItem(store.Episode{
+		ID:              10,
+		Title:           "Queued Title",
+		FeedTitle:       "",
+		DurationSeconds: 100,
+		PositionSeconds: 25,
+	})
+	if q.Channel != "Unknown show" || q.Duration != "1:40" || q.Position != "0:25" || q.Remains != "75%" {
+		t.Fatalf("unexpected queueItem: %+v", q)
+	}
+}

@@ -664,33 +664,7 @@ func (m *libraryShell) renderLibrary() {
 		queuedSet[qItem.ID] = true
 	}
 	for _, episode := range m.rows {
-		marker := "[ ] "
-		if episode.Completed {
-			marker = "[x] "
-		}
-		title := library.PlainText(episode.Title)
-		if title == "" {
-			title = "Untitled episode"
-		}
-		channel := library.PlainText(episode.FeedTitle)
-		dateStr := ""
-		if episode.PublishedAt.Unix() > 0 {
-			dateStr = episode.PublishedAt.Format("2006-01-02")
-		}
-		durationStr := "--:--"
-		if episode.DurationSeconds > 0 {
-			durationStr = clock(float64(episode.DurationSeconds))
-		}
-		data.Episodes = append(data.Episodes, ui.Item{
-			ID:         strconv.FormatInt(episode.ID, 10),
-			Title:      marker + title,
-			PlainTitle: title,
-			Channel:    channel,
-			Date:       dateStr,
-			Duration:   durationStr,
-			Queued:     queuedSet[episode.ID],
-			Completed:  episode.Completed,
-		})
+		data.Episodes = append(data.Episodes, episodeItem(episode, queuedSet[episode.ID]))
 	}
 	m.Model = m.Model.WithLibrary(data)
 	if m.wantLibraryID != "" {
@@ -756,8 +730,9 @@ func (m *libraryShell) renderDetails() {
 		if !episode.PublishedAt.IsZero() {
 			published = episode.PublishedAt.Format("2006-01-02")
 		}
-		details = fmt.Sprintf("%s\n%s · %s · %d:%02d\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
-			episode.DurationSeconds/60, episode.DurationSeconds%60, episode.Completed, library.PlainText(episode.Description))
+		durationStr := ui.FormatDuration(float64(episode.DurationSeconds))
+		details = fmt.Sprintf("%s\n%s · %s · %s\nCompleted: %t\n\n%s", library.PlainText(episode.Title), show, published,
+			durationStr, episode.Completed, library.PlainText(episode.Description))
 	}
 	m.Model = m.Model.WithDetails(details)
 }

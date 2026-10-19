@@ -105,7 +105,7 @@ func (m Model) displayPlayer() Player {
 	player.Position = progressTime(position)
 	return player
 }
-func progressTime(seconds float64) string {
+func FormatDuration(seconds float64) string {
 	if math.IsNaN(seconds) || math.IsInf(seconds, 0) {
 		seconds = 0
 	}
@@ -114,4 +114,8 @@ func progressTime(seconds float64) string {
 		return fmt.Sprintf("%d:%02d:%02d", value/3600, value/60%60, value%60)
 	}
 	return fmt.Sprintf("%d:%02d", value/60, value%60)
+}
+
+func progressTime(seconds float64) string {
+	return FormatDuration(seconds)
 }

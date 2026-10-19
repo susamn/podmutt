@@ -143,6 +143,32 @@ func TestProgressUnknownDurationAndResponsiveRendering(t *testing.T) {
 	}
 }
 
+func TestFormatDuration(t *testing.T) {
+	cases := []struct {
+		seconds  float64
+		expected string
+	}{
+		{0, "0:00"},
+		{45, "0:45"},
+		{59, "0:59"},
+		{60, "1:00"},
+		{3599, "59:59"},
+		{3600, "1:00:00"},
+		{3661, "1:01:01"},
+		{4500, "1:15:00"},
+		{math.NaN(), "0:00"},
+		{math.Inf(1), "0:00"},
+		{math.Inf(-1), "0:00"},
+		{-10, "0:00"},
+	}
+	for _, tc := range cases {
+		got := FormatDuration(tc.seconds)
+		if got != tc.expected {
+			t.Errorf("FormatDuration(%v) = %q; want %q", tc.seconds, got, tc.expected)
+		}
+	}
+}
+
 func TestProgressTickGuardsAndPromptLifecycle(t *testing.T) {
 	now := time.Now()
 	m := resize(New(Data{Player: Player{Status: "playing", HasCurrent: true, ClockAt: now, DurationSeconds: 100}}), 140, 44).WithProgress(context.Background(), func() time.Time { return now }, func(context.Context, time.Duration) error { return nil })

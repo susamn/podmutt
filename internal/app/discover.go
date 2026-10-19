@@ -445,23 +445,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.preview != nil {
 		previewShowTitle := library.PlainText(m.browse.preview.Fetched.Document.Title)
 		for i, episode := range m.browse.preview.Fetched.Document.Episodes {
-			dateStr := ""
-			if episode.PublishedAt.Unix() > 0 {
-				dateStr = episode.PublishedAt.Format("2006-01-02")
-			}
-			durationStr := "--:--"
-			if episode.DurationSeconds > 0 {
-				durationStr = clock(float64(episode.DurationSeconds))
-			}
-			plainTitle := library.PlainText(episode.Title)
-			data.Episodes = append(data.Episodes, ui.Item{
-				ID:         fmt.Sprintf("preview:%d", i),
-				Title:      plainTitle,
-				PlainTitle: plainTitle,
-				Channel:    previewShowTitle,
-				Date:       dateStr,
-				Duration:   durationStr,
-			})
+			data.Episodes = append(data.Episodes, previewEpisodeItem(i, episode, previewShowTitle))
 		}
 	}
 	m.Model = m.Model.WithLibrary(data)
