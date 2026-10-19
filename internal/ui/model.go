@@ -88,6 +88,7 @@ type Model struct {
 	detailScroll  int
 	playerButton  int
 	decoration    bool
+	episodeOps    EpisodeActions
 	artColumns    int
 	artRows       []string
 }

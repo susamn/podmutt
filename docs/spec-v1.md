@@ -47,7 +47,9 @@ lists; 1–5 directly focuses any pane. Ctrl-d/u and PgUp/PgDn page lists. See A
 in the current scope (Tab switches Library/Apple in the dialog), ? shows help.
 Space always pauses/resumes current playback; in text input it types a space.
 Enter opens a podcast or plays a selected episode; i opens episode details and
-Esc returns to the originating list. a enqueues; s stops playback. See ADR 037.
+Esc returns to the originating list. In Details, Enter/a/c target the pinned
+inspected episode (ADR 047); preview completion remains read-only. Space always
+controls current audio. a enqueues; s stops playback. See ADR 037.
 1–5 focus Podcasts/Episodes/Queue/Details/Player. In Player, Left/Right selects
 Play/Pause, Stop or Next; Enter activates. The position bar is display-only.
 No configurable bindings or themes in v1. Keep contextual hints and help short.

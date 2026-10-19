@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 
 	"podmutt/internal/library"
@@ -56,7 +57,46 @@ func (m libraryShell) detailHistory(episode store.Episode) store.Episode {
 	return episode
 }
 
+// Called only by versioned reload commands, never by a render/progress frame.
+// Completed unsubscribed history may no longer appear in aggregate collections.
+func readInspected(ctx context.Context, repo *store.Store, feeds []store.Feed, target *store.Episode, previewURL string) *store.Episode {
+	if target == nil {
+		return nil
+	}
+	if target.ID > 0 {
+		episode, err := repo.Episode(ctx, target.ID)
+		if err == nil {
+			return &episode
+		}
+		return nil
+	}
+	for _, source := range feeds {
+		if source.URL != previewURL {
+			continue
+		}
+		episodes, err := repo.Episodes(ctx, source.ID)
+		if err != nil {
+			return nil
+		}
+		for _, episode := range episodes {
+			if target.GUID != "" && target.GUID == episode.GUID || target.GUID == "" && target.AudioURL == episode.AudioURL {
+				return &episode
+			}
+		}
+		break
+	}
+	return nil
+}
+
+func (m libraryShell) detailKey(episode store.Episode) string {
+	if episode.ID == 0 && m.browse.preview != nil {
+		return m.browse.preview.URL + "\x00" + episode.GUID + "\x00" + episode.AudioURL
+	}
+	return fmt.Sprintf("episode:%d", episode.ID)
+}
+
 func (m *libraryShell) renderDetails() {
+	defer m.renderEpisodeActions()
 	inspecting := m.Model.Focus() == ui.Details && m.detailTarget != nil
 	if !inspecting {
 		m.detailTarget = nil
@@ -73,10 +113,9 @@ func (m *libraryShell) renderDetails() {
 		}
 		return
 	}
-	show, key := episode.FeedTitle, fmt.Sprintf("episode:%d", episode.ID)
+	show, key := episode.FeedTitle, m.detailKey(episode)
 	if episode.ID == 0 && m.browse.preview != nil {
 		show = m.browse.preview.Fetched.Document.Title
-		key = m.browse.preview.URL + "\x00" + episode.GUID + "\x00" + episode.AudioURL
 	} else if show == "" {
 		for _, source := range m.snapshot.Feeds {
 			if source.ID == episode.FeedID {

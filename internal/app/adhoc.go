@@ -14,7 +14,20 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 		return nil
 	}
 	items := m.Model.Visible(ui.Episodes)
-	if !batch {
+	var indices []int
+	if m.Model.Focus() == ui.Details {
+		if batch || m.detailTarget == nil {
+			m.notice = "Inspect a preview episode first"
+			return nil
+		}
+		index := m.previewTargetIndex(*m.detailTarget)
+		if index < 0 {
+			m.notice = "Preview changed · inspect the episode again"
+			return nil
+		}
+		indices = append(indices, index)
+		items = nil
+	} else if !batch {
 		selected, ok := m.Model.Selected(ui.Episodes)
 		if !ok {
 			m.notice = "Select a preview episode"
@@ -22,7 +35,6 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 		}
 		items = []ui.Item{selected}
 	}
-	indices := make([]int, 0, len(items))
 	for _, item := range items {
 		prefix, ok := strings.CutPrefix(item.ID, "preview:")
 		if !ok {
@@ -41,11 +53,11 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 	return func() tea.Msg {
 		ids, err := service.CachePreviewEpisodes(ctx, preview, indices)
 		if err != nil {
-			return playerEdited{err}
+			return playerEdited{err: err}
 		}
 		if enqueue {
-			return playerEdited{engine.Enqueue(ctx, ids...)}
+			return playerEdited{err: engine.Enqueue(ctx, ids...), cached: true}
 		}
-		return playerEdited{engine.PlayEpisode(ctx, ids[0])}
+		return playerEdited{err: engine.PlayEpisode(ctx, ids[0]), cached: true}
 	}
 }

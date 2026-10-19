@@ -97,7 +97,10 @@ func queueItem(episode store.Episode) ui.Item {
 	}
 }
 
-type playerEdited struct{ err error }
+type playerEdited struct {
+	err    error
+	cached bool
+}
 type queueConfirmation struct{ ids []int64 }
 type queueEdited struct {
 	undo bool
@@ -108,6 +111,12 @@ func clock(seconds float64) string {
 	return ui.FormatDuration(seconds)
 }
 func (m libraryShell) contextEpisode() (store.Episode, bool) {
+	if m.Model.Focus() == ui.Details {
+		if m.detailTarget == nil {
+			return store.Episode{}, false
+		}
+		return m.detailHistory(*m.detailTarget), true
+	}
 	if m.Model.Focus() == ui.Queue {
 		item, ok := m.Model.Selected(ui.Queue)
 		if !ok {
@@ -123,7 +132,7 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 	return m.selectedEpisode()
 }
 func (m *libraryShell) playSelected() tea.Cmd {
-	if m.browse.active && m.Model.Focus() == ui.Episodes {
+	if m.previewActionContext() {
 		return m.previewPlayback(false, false)
 	}
 	episode, selected := m.contextEpisode()
@@ -132,7 +141,7 @@ func (m *libraryShell) playSelected() tea.Cmd {
 		return nil
 	}
 	engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
-	return func() tea.Msg { return playerEdited{engine.PlayEpisode(ctx, id)} }
+	return func() tea.Msg { return playerEdited{err: engine.PlayEpisode(ctx, id)} }
 }
 
 func (m *libraryShell) openDetails() {
@@ -147,7 +156,21 @@ func (m *libraryShell) openDetails() {
 	}
 }
 func (m *libraryShell) enqueue(batch bool) tea.Cmd {
-	if m.browse.active && m.Model.Focus() == ui.Episodes {
+	if !batch && m.Model.Focus() == ui.Details {
+		if episode, ok := m.contextEpisode(); ok && episode.ID > 0 {
+			if m.state.Current != nil && m.state.Current.ID == episode.ID && !m.state.Current.Completed {
+				m.notice = "Already now playing"
+				return nil
+			}
+			for _, item := range m.state.Queue {
+				if item.ID == episode.ID {
+					m.notice = "Already in Up next"
+					return nil
+				}
+			}
+		}
+	}
+	if m.previewActionContext() {
 		return m.previewPlayback(batch, true)
 	}
 	var ids []int64
@@ -156,7 +179,7 @@ func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 			id, _ := strconv.ParseInt(item.ID, 10, 64)
 			ids = append(ids, id)
 		}
-	} else if !batch && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue) {
+	} else if !batch && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Details) {
 		if episode, ok := m.contextEpisode(); ok {
 			ids = append(ids, episode.ID)
 		}
@@ -166,7 +189,7 @@ func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{engine.Enqueue(ctx, ids...)} }
+	return func() tea.Msg { return playerEdited{err: engine.Enqueue(ctx, ids...)} }
 }
 func (m *libraryShell) moveQueue(step int) tea.Cmd {
 	if m.Model.Focus() != ui.Queue {
@@ -177,7 +200,7 @@ func (m *libraryShell) moveQueue(step int) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{engine.MoveQueued(ctx, episode.ID, step)} }
+	return func() tea.Msg { return playerEdited{err: engine.MoveQueued(ctx, episode.ID, step)} }
 }
 func (m *libraryShell) removeQueueItem() tea.Cmd {
 	if m.Model.Focus() != ui.Queue || m.queueEditing {
@@ -228,5 +251,5 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{engine.ClearQueue(ctx, confirmation.ids)} }
+	return func() tea.Msg { return playerEdited{err: engine.ClearQueue(ctx, confirmation.ids)} }
 }
