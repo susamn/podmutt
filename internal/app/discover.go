@@ -209,7 +209,7 @@ func (m *libraryShell) renderSearch() {
 		input := m.browse.input
 		m.Model = m.Model.WithDialog(&ui.Dialog{
 			Title:      "RSS or Website Preview",
-			Body:       "HTTP(S) podcast feed or website URL.\nRead-only preview. Space plays; u subscribes.",
+			Body:       "HTTP(S) podcast feed or website URL.\nRead-only preview. Enter plays; u subscribes.",
 			InputLabel: "URL",
 			InputValue: input,
 			Hint:       "Enter preview · Esc cancel · Ctrl+U clear",
@@ -367,7 +367,7 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		m.browse.previewKey = msg.key
 		m.browse.source = msg.source
 		m.Model = m.Model.Reset(ui.Episodes).WithFocus(ui.Episodes)
-		m.notice = "Space play · a enqueue · u subscribe · browsing fetched no audio"
+		m.notice = "Enter play · i details · a enqueue · u subscribe · browsing fetched no audio"
 	}
 	m.renderLibrary()
 }
@@ -413,7 +413,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.directURL {
 		label = "RSS/website · read-only preview"
 	}
-	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing"}
+	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Enter plays without subscribing"}
 	data.PodcastEmpty = "No matching shows · f search"
 	if m.browse.loading {
 		data.PodcastEmpty = "Loading " + m.directoryName() + "…"
@@ -479,7 +479,7 @@ func (m *libraryShell) renderPreviewDetails() {
 		details = "Loading RSS/feed preview…\nEsc cancels; no subscription or autoplay."
 	}
 	if m.browse.preview != nil {
-		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nSpace play · a enqueue · u subscribe"
+		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nEnter play · i details · a enqueue · u subscribe"
 		if m.browse.source != "" {
 			details += "\nDirectory source: " + m.browse.source
 		} else if m.browse.directURL {

@@ -13,7 +13,7 @@ import (
 func TestPlayerSeekUsesActorAndPreservesPause(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		entry, _ := p.EntryID(s.ctx)
 		p.events <- player.Event{Name: "start-file", PlaylistEntryID: &entry}
 		p.events <- player.Event{Name: "file-loaded"}

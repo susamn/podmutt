@@ -46,6 +46,6 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 		if enqueue {
 			return playerEdited{engine.Enqueue(ctx, ids...)}
 		}
-		return playerEdited{engine.Toggle(ctx, ids[0])}
+		return playerEdited{engine.PlayEpisode(ctx, ids[0])}
 	}
 }

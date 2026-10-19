@@ -44,6 +44,18 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("browsing wrote cache", sources, err)
 		}
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		if state := syncPlayer(t, &m); state.Current != nil {
+			t.Fatal("Space cached/played preview without current", state)
+		}
+		if sources, err := s.store.Feeds(s.ctx, false); err != nil || len(sources) != 0 {
+			t.Fatal("Space wrote preview cache", sources, err)
+		}
+		libraryKey(&m, 'i')
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes {
+			t.Fatal("details return discarded preview")
+		}
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state := syncPlayer(t, &m)
 		if state.Status != playback.Playing || state.Current == nil || state.Current.ID <= 0 || !m.browse.active {
 			t.Fatal("ad-hoc playback blocked", state, m.notice)

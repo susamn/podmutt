@@ -84,13 +84,24 @@ func (m *libraryShell) playSelected() tea.Cmd {
 		return m.previewPlayback(false, false)
 	}
 	episode, selected := m.contextEpisode()
-	selected = selected && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue)
-	engine, ctx := m.s.playback, m.s.ctx
-	id := int64(0)
-	if selected {
-		id = episode.ID
+	if !selected {
+		m.notice = "Select an episode to play"
+		return nil
 	}
-	return func() tea.Msg { return playerEdited{engine.Toggle(ctx, id)} }
+	engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
+	return func() tea.Msg { return playerEdited{engine.PlayEpisode(ctx, id)} }
+}
+
+func (m *libraryShell) openDetails() {
+	focus := m.Model.Focus()
+	if focus != ui.Episodes && focus != ui.Queue {
+		return
+	}
+	if episode, ok := m.contextEpisode(); ok {
+		m.detailTarget, m.detailFrom = &episode, focus
+		m.Model = m.Model.WithFocus(ui.Details)
+		m.renderDetails()
+	}
 }
 func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 	if m.browse.active && m.Model.Focus() == ui.Episodes {

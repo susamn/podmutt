@@ -44,7 +44,7 @@ func TestExplicitIndexScopePreviewAndSharedFeedIdentity(t *testing.T) {
 		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes {
 			t.Fatal("Index preview failed")
 		}
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		first := syncPlayer(t, &m).Current.ID
 		sources, _ := s.store.Feeds(s.ctx, true)
 		if len(sources) != 1 {
@@ -54,7 +54,7 @@ func TestExplicitIndexScopePreviewAndSharedFeedIdentity(t *testing.T) {
 		finishLibrary(&m, m.searchDirectory("shared"))
 		m.Model = m.Model.WithFocus(ui.Podcasts)
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		if syncPlayer(t, &m).Current.ID != first {
 			t.Fatal("provider changed episode identity")
 		}
