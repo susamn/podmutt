@@ -11,8 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Player contains presentation-only transport data, independent of the selected
-// episode's description. Progress is display-only; ,/. dispatch explicit seeks.
+// Player is transport presentation, independent of the inspected episode.
 type Player struct {
 	Status, Title, Channel, Position, Duration string
 	Error, Warning                             string
@@ -23,6 +22,12 @@ type Player struct {
 	HasCurrent                                 bool
 	CanNext                                    bool
 	CanSeek                                    bool
+}
+
+func (m Model) WithPlayerDecoration(enabled bool) Model {
+	m.decoration = enabled
+	m.scrollDetails(0)
+	return m
 }
 
 func (m Model) playerControl(index int) (label, command string, enabled bool) {
@@ -39,6 +44,7 @@ func (m Model) playerControl(index int) (label, command string, enabled bool) {
 		return "Next", "next", m.data.Player.CanNext
 	}
 }
+
 func (m Model) activatePlayer() tea.Cmd {
 	_, command, enabled := m.playerControl(m.playerButton)
 	if !enabled || m.actions == nil {
@@ -46,160 +52,128 @@ func (m Model) activatePlayer() tea.Cmd {
 	}
 	return m.actions(command)
 }
+
+func playerStatus(player Player) string {
+	switch player.Status {
+	case "playing":
+		return "Playing"
+	case "paused":
+		return "Paused"
+	case "failed":
+		return "Failed"
+	default:
+		return "Stopped"
+	}
+}
+
+// Put the first line of both failures ahead of continuations, so one long error
+// cannot hide an independent warning in a constrained viewport.
+func (m Model) playerNotices(width int) []string {
+	pal := m.Theme()
+	var first, continuation []string
+	for _, notice := range []struct{ text, label, color string }{
+		{m.data.Player.Error, "Error: ", string(pal.BrightRed)},
+		{m.data.Player.Warning, "Media: ", string(pal.BrightYellow)},
+	} {
+		if notice.text == "" {
+			continue
+		}
+		rows := strings.Split(ansi.Wrap(notice.label+clean(notice.text, false), max(1, width-2), ""), "\n")
+		if len(rows) > 2 {
+			rows[1] = ansi.Truncate(rows[1], max(1, width-3), "") + "…"
+		}
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(notice.color))
+		first = append(first, "  "+style.Render(rows[0]))
+		if len(rows) > 1 {
+			continuation = append(continuation, "  "+style.Render(rows[1]))
+		}
+	}
+	return append(first, continuation...)
+}
+
 func (m Model) playerPane(width, height int) string {
 	player := m.displayPlayer()
-	status := player.Status
-	if status == "" {
-		status = "stopped"
-	}
-	pal := m.Theme()
-	innerWidth := max(0, width-2)
-	innerHeight := max(0, height-2)
-
-	topRow := m.renderPlayerTopLine(player, innerWidth)
-	sliderRow := m.renderSliderLine(player, innerWidth)
-	transportRow := m.renderTransportRow(player, innerWidth)
-
+	innerWidth, innerHeight := max(0, width-2), max(0, height-2)
+	title := m.renderPlayerTopLine(player, innerWidth)
+	meta := m.renderPlayerMetaLine(player, innerWidth)
+	slider, transport := m.renderSliderLine(player, innerWidth), m.renderTransportRow(player, innerWidth)
+	notices := m.playerNotices(innerWidth)
 	var rows []string
-	rows = append(rows, topRow)
-
-	vizRows := min(2, max(0, innerHeight-3))
-	if innerHeight >= 6 {
-		if frame := m.animationFrame(max(0, innerWidth-4)); frame != "" {
-			rows = append(rows, "  "+frame)
-		}
-	}
-
-	if vizRows > 0 {
-		t := player.PositionSeconds
-		if t <= 0 && status == "playing" {
-			t = float64(time.Now().UnixNano()) / 1e9
-		}
-		vizLines := globalVisualizer.Render(innerWidth, vizRows, t, status, pal)
-		rows = append(rows, vizLines...)
-	}
-
-	rows = append(rows, sliderRow)
-	rows = append(rows, transportRow)
-
-	if len(rows) > innerHeight {
-		if innerHeight <= 2 {
-			rows = []string{sliderRow, transportRow}
-		} else if innerHeight == 3 {
-			rows = []string{topRow, sliderRow, transportRow}
+	if innerHeight <= 2 {
+		rows = []string{slider, transport}
+	} else {
+		budget := max(0, innerHeight-3)
+		if len(notices) < budget {
+			rows = []string{title, meta}
+			budget--
 		} else {
-			rows = rows[len(rows)-innerHeight:]
+			status := " · " + playerStatus(player)
+			rows = []string{ansi.Truncate(title, max(0, innerWidth-ansi.StringWidth(status)), "…") + status}
 		}
+		rows = append(rows, notices[:min(len(notices), budget)]...)
+		spare := innerHeight - len(rows) - 2
+		if m.decoration && !m.Busy() && spare >= 2 {
+			if frame := m.animationFrame(max(0, innerWidth-15)); frame != "" {
+				rows = append(rows, "  "+frame)
+				rows = append(rows, globalVisualizer.Render(innerWidth, 1, float64(m.animation.frame), player.Status, m.Theme())...)
+			}
+		}
+		rows = append(rows, slider, transport)
 	}
-
-	return m.box(m.Icon(stateIcon(status), "Now playing"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
+	return m.box(m.Icon(stateIcon(player.Status), "Now playing"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
 
 func (m Model) renderPlayerTopLine(player Player, width int) string {
-	pal := m.Theme()
-	status := player.Status
-	if status == "" {
-		status = "stopped"
-	}
-	glyph := "■"
-	glyphColor := pal.BrightRed
-	statusText := "STOPPED"
-	switch status {
-	case "playing":
-		glyph = "●"
-		glyphColor = pal.BrightGreen
-		statusText = "PLAYING"
-	case "paused":
-		glyph = "⏸"
-		glyphColor = pal.BrightYellow
-		statusText = "PAUSED"
-	case "failed":
-		glyph = "!"
-		glyphColor = pal.BrightRed
-		statusText = "FAILED"
-	}
-
-	pill := lipgloss.NewStyle().Foreground(lipgloss.Color(string(glyphColor))).Bold(true).Render(glyph + " " + statusText)
-	if player.Error != "" {
-		pill = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightRed))).Bold(true).Render(glyph + " " + clean(player.Error, false))
-	}
-
-	badge := ""
-	if player.Channel != "" {
-		chanColor := lipgloss.Color(string(pal.ChannelColor(player.Channel)))
-		badge = "[ " + lipgloss.NewStyle().Foreground(chanColor).Render(ansi.Truncate(player.Channel, 24, "…")) + " ]"
-	}
-
 	title := clean(player.Title, false)
 	if title == "" {
-		title = "No episode selected"
+		title = "No current episode"
 	}
+	return "  " + lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, max(0, width-2), "…"))
+}
 
-	fixedWidth := ansi.StringWidth(pill) + ansi.StringWidth(badge) + 6
-	availTitle := max(8, width-fixedWidth)
-	titleCol := ansi.Truncate(title, availTitle, "…")
-
-	pad := max(1, width-ansi.StringWidth(pill)-ansi.StringWidth(titleCol)-ansi.StringWidth(badge)-4)
-	if badge != "" {
-		return "  " + pill + "   " + titleCol + strings.Repeat(" ", pad) + badge
+func (m Model) renderPlayerMetaLine(player Player, width int) string {
+	status := playerStatus(player)
+	show := clean(player.Channel, false)
+	if show == "" {
+		return "  " + status
 	}
-	return "  " + pill + "   " + titleCol
+	show = ansi.Truncate(show, max(0, width-ansi.StringWidth(status)-5), "…")
+	color := lipgloss.Color(string(m.Theme().ChannelColor(clean(player.Channel, false))))
+	return "  " + lipgloss.NewStyle().Foreground(color).Render(show) + " · " + status
 }
 
 func (m Model) renderSliderLine(player Player, width int) string {
-	pal := m.Theme()
-	pos := player.Position
+	pos, dur := player.Position, player.Duration
 	if pos == "" {
 		pos = "0:00"
 	}
-	dur := player.Duration
 	if dur == "" {
 		dur = "--:--"
 	}
-
-	countdown := ""
-	if player.DurationSeconds > 0 && player.PositionSeconds >= 0 {
-		remSec := max(0, player.DurationSeconds-player.PositionSeconds)
-		countdown = " [-" + progressTime(remSec) + "]"
+	right := dur
+	if width >= 60 && player.DurationSeconds > 0 {
+		right += " · -" + progressTime(max(0, player.DurationSeconds-player.PositionSeconds))
 	}
-
-	timeSummary := pos + " / " + dur
-	rightText := timeSummary + countdown
-	if width < 60 {
-		rightText = timeSummary
+	cells := width - ansi.StringWidth(pos) - ansi.StringWidth(right) - 6
+	if cells < 4 {
+		return ansi.Truncate("  "+pos+" / "+dur, max(0, width), "…")
 	}
-
-	fixed := 2 + ansi.StringWidth(pos) + 2 + 2 + ansi.StringWidth(rightText)
-	sliderWidth := max(6, width-fixed)
-
 	progress := player.Progress
 	if math.IsNaN(progress) || math.IsInf(progress, 0) {
 		progress = 0
 	}
 	progress = max(0, min(1, progress))
-
-	knobPos := int(math.Round(progress * float64(sliderWidth-1)))
-	leftLen := max(0, knobPos)
-	rightLen := max(0, sliderWidth-1-leftLen)
-
-	cyanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan)))
-	knobStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.BrightCyan)))
-	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
-
-	leftTrack := cyanStyle.Render(strings.Repeat("─", leftLen))
-	knob := knobStyle.Render("●")
-	rightTrack := mutedStyle.Render(strings.Repeat("─", rightLen))
-
-	return "  " + pos + "  " + leftTrack + knob + rightTrack + "  " + rightText
+	knob := int(math.Round(progress * float64(cells-1)))
+	pal := m.Theme()
+	left := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(strings.Repeat("─", knob))
+	point := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightCyan))).Render("●")
+	rest := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted))).Render(strings.Repeat("─", cells-knob-1))
+	return "  " + pos + "  " + left + point + rest + "  " + right
 }
 
 func (m Model) renderTransportRow(player Player, width int) string {
-	pal := m.Theme()
-	chipBack := lipgloss.NewStyle().Faint(!player.CanSeek).Render("[◀◀ ,] 15s")
-	chipFwd := lipgloss.NewStyle().Faint(!player.CanSeek).Render("[.] 15s ▶▶")
-
 	var buttons []string
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		label, _, enabled := m.playerControl(i)
 		style := lipgloss.NewStyle().Faint(!enabled)
 		if m.focus == PlayerPanel && m.playerButton == i {
@@ -207,20 +181,11 @@ func (m Model) renderTransportRow(player Player, width int) string {
 		}
 		buttons = append(buttons, style.Render("["+label+"]"))
 	}
-	btnRow := strings.Join(buttons, " ")
-
-	if player.Warning != "" {
-		warnText := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))).Render("Media: " + clean(player.Warning, false))
-		return "  " + btnRow + "   " + warnText
+	row := "  " + strings.Join(buttons, " ")
+	if width >= ansi.StringWidth(row)+15 {
+		row += "   " + lipgloss.NewStyle().Faint(!player.CanSeek).Render(",/. seek 15s")
 	}
-
-	if width < 55 {
-		return "  " + btnRow
-	}
-
-	gap := max(1, (width-ansi.StringWidth(chipBack)-ansi.StringWidth(btnRow)-ansi.StringWidth(chipFwd)-6)/2)
-	gapStr := strings.Repeat(" ", min(4, gap))
-	return "  " + chipBack + gapStr + btnRow + gapStr + chipFwd
+	return row
 }
 
 func (m Model) progressLine(player Player, width int) string {
@@ -256,35 +221,10 @@ func (m Model) progressLine(player Player, width int) string {
 	if partial != "" {
 		empty--
 	}
-
 	pal := m.Theme()
 	barText := strings.Repeat("█", filled) + partial + strings.Repeat("░", empty)
 	cyanBar := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(barText)
 	return fmt.Sprintf("%s [[%s]]", stamp, cyanBar)
 }
 
-func progressLine(player Player, width int) string {
-	return Model{}.progressLine(player, width)
-}
-
-// compactHeights reserves a persistent player; at the minimum terminal size,
-// show one library pane instead of squeezing three panes into unusable rows.
-func (m Model) compactHeights() (top, middle, player int) {
-	available := max(0, m.height-1)
-	player = 6
-	if m.height < 14 {
-		return 0, max(0, available-5), 5
-	}
-	top = max(4, min(6, (available-player)/3))
-	middle = available - player - top
-	return
-}
-func (m Model) detailsSize() (width, height int) {
-	if m.compact() {
-		_, height, _ = m.compactHeights()
-		return m.width, height
-	}
-	available := max(0, m.height-1)
-	bottom := available - available/2
-	return m.width - m.width*2/5, bottom / 2
-}
+func progressLine(player Player, width int) string { return Model{}.progressLine(player, width) }

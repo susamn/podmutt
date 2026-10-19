@@ -16,7 +16,7 @@ func TestDecorativeAnimationClockPauseStopResizeAndStaleTicks(t *testing.T) {
 	defer cancel()
 	waits := 0
 	var pending context.Context
-	m := resize(New(Data{Player: Player{Status: "playing", HasCurrent: true}}), 140, 44).WithAnimation(ctx, func(ctx context.Context, _ time.Duration) error { waits++; pending = ctx; return ctx.Err() })
+	m := resize(New(Data{Player: Player{Status: "playing", HasCurrent: true}}), 140, 44).WithPlayerDecoration(true).WithAnimation(ctx, func(ctx context.Context, _ time.Duration) error { waits++; pending = ctx; return ctx.Err() })
 	m, cmd := m.SyncAnimation()
 	if cmd == nil {
 		t.Fatal("no clock")
@@ -86,7 +86,7 @@ func TestRealAnimationWaitCancellationAndIdle(t *testing.T) {
 	if err := waitFrame(context.Background(), time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
-	m := resize(New(Data{}), 140, 44).WithAnimation(context.Background(), nil)
+	m := resize(New(Data{}), 140, 44).WithPlayerDecoration(true).WithAnimation(context.Background(), nil)
 	if _, cmd := m.SyncAnimation(); cmd != nil {
 		t.Fatal("idle ticking")
 	}

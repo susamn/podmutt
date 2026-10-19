@@ -26,8 +26,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 		data.Player = Player{Status: "playing", HasCurrent: true, Title: "Current audio", Position: "0:42", Duration: "2:00", Progress: .35}
 		m := resize(New(data), size[0], size[1]).WithFocus(Details)
 		available := size[1] - 1
-		bottom := available - available/2
-		want := available/2 + bottom/2
+		want := available - 6
 		for _, description := range []string{"Short description", strings.Repeat("very long paragraph words that must wrap 界\n", 2000)} {
 			m = m.WithDetails(description)
 			if got := rowContaining(t, m.View().Content, "Now playing"); got != want {
@@ -194,15 +193,15 @@ func TestPlayerFormattingBoundsAndErrorPriority(t *testing.T) {
 	}
 }
 
-func TestMPDTUIPlayerStyleAndGlyphs(t *testing.T) {
+func TestCompactPlayerHierarchy(t *testing.T) {
 	for _, tc := range []struct {
 		status    string
 		wantGlyph string
 	}{
-		{"playing", "● PLAYING"},
-		{"paused", "⏸ PAUSED"},
-		{"stopped", "■ STOPPED"},
-		{"failed", "! FAILED"},
+		{"playing", "Playing"},
+		{"paused", "Paused"},
+		{"stopped", "Stopped"},
+		{"failed", "Failed"},
 	} {
 		m := New(Data{Player: Player{Status: tc.status, HasCurrent: true, Title: "Test Song", Channel: "Podcast Channel", Position: "01:23", Duration: "04:56", Progress: 0.5}})
 		pane := ansi.Strip(m.playerPane(80, 8))

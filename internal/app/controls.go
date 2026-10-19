@@ -11,7 +11,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
-	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/theme"
@@ -53,7 +52,7 @@ type shell struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {
@@ -105,8 +104,8 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			player.PositionSeconds = episode.PositionSeconds
 			player.DurationSeconds = float64(episode.DurationSeconds)
 			player.ClockAt = msg.state.ClockAt
-			player.Title = library.PlainText(episode.Title)
-			player.Channel = library.PlainText(episode.FeedTitle)
+			player.Title = cleanTitle(episode.Title)
+			player.Channel = cleanShow(episode.FeedTitle)
 			player.Position = clock(episode.PositionSeconds)
 			if episode.DurationSeconds > 0 {
 				player.Duration = clock(float64(episode.DurationSeconds))
@@ -133,7 +132,8 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	updated, cmd := m.Model.Update(msg)
 	m.Model = updated.(ui.Model)
-	var progress tea.Cmd
+	var animation, progress tea.Cmd
+	m.Model, animation = m.Model.SyncAnimation()
 	m.Model, progress = m.Model.SyncProgress()
-	return m, tea.Batch(cmd, progress)
+	return m, tea.Batch(cmd, animation, progress)
 }

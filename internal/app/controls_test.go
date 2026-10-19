@@ -90,7 +90,7 @@ func TestPlaybackRenderingPreservesQueueProgressAndMediaWarnings(t *testing.T) {
 	if !ok || queued.ID != "7" || queued.Index != 1 || len(m.Model.Visible(ui.Queue)) != 1 || !strings.Contains(queued.Title, "Queued episode") {
 		t.Fatalf("queue lost: %+v", queued)
 	}
-	for _, text := range []string{"0:42 / 2:00", "stream failed", "session bus unavailable"} {
+	for _, text := range []string{"0:42", "2:00", "stream failed", "session bus unavailable"} {
 		if !strings.Contains(m.View().Content, text) {
 			t.Fatalf("rendering lost %q", text)
 		}
