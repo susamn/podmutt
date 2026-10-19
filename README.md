@@ -166,12 +166,19 @@ replace the middle list when focused; Esc returns to the last visible list.
 Very short terminals show one library pane plus controls. Below 30×12, resize
 guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
 
-`N` adds a public RSS/Atom feed or podcast website URL. Enter on a show opens its episodes; `v`
-switches Show/New (uncompleted subscribed episodes), and `o` cycles newest,
-oldest, and title ordering. `u` toggles the selected show's subscription; `c`
+`N` adds a public RSS/Atom feed or podcast website URL. **My library** offers
+**New episodes**, **Continue listening**, **All subscriptions**, then subscribed
+shows. Highlighting a show always displays that show's episodes (including
+completed history); Enter/l focuses them. `o` cycles newest, oldest, and title
+ordering. There is no hidden Show/New mode or `v` toggle.
+
+New episodes contains uncompleted subscribed episodes. Continue listening contains
+unfinished episodes with saved progress, including unsubscribed/explicitly played
+preview episodes; Enter resumes without subscribing. All subscriptions includes
+completed episodes. Opening any destination never starts audio. `u` toggles the selected show's subscription; `c`
 toggles completion in the episode pane. `R` refreshes manually. Cached content
-opens before background refresh. My subscriptions lists subscribed shows only;
-unsubscribing retains cached episodes/history for resubscription. `[+]` indicates
+opens before background refresh. The show list includes subscribed shows only;
+unsubscribing retains cached episodes/history, including Continue listening. `[+]` indicates
 subscription, `[x]` indicates completion. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
@@ -202,13 +209,15 @@ consistent backup before upgrading, not a forced downgrade.
 ## Discover and subscribe
 
 An empty profile opens **Discover**, automatically loading Apple's **US top-25**
-shows. With existing subscriptions, startup stays local-first in **My subscriptions**.
+shows. With existing subscriptions, startup stays local-first in **My library →
+New episodes**. With unfinished history but no subscriptions, startup shows
+**Continue listening**, stopped, instead of hiding that history behind Discover.
 
 The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview**
 and **t Apple US top 25**. The chart is not the whole catalog; search accepts
 arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
 
-1. Press `b` to switch My subscriptions / Discover (Apple initially).
+1. Press `b` to switch My library / Discover (Apple initially).
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
 3. Press **Enter to play without subscribing**, or `a`/`A` to enqueue the selected/

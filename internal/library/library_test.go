@@ -71,6 +71,41 @@ func TestAddSubscriptionViewsAndHistory(t *testing.T) {
 		t.Fatal("resubscribe lost metadata/history")
 	}
 }
+func TestLibraryDestinationsHaveDistinctSources(t *testing.T) {
+	db := database(t)
+	s := New(db, &fixtureFetcher{})
+	id, err := s.Add(ctx, "https://example.test/feed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := s.Read(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Checkpoint(ctx, snapshot.Show[0].ID, 42); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetCompleted(ctx, snapshot.Show[1].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = s.Read(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for view, count := range map[View]int{ShowView: 2, NewView: 1, ContinueView: 1, AllView: 2} {
+		if rows := Episodes(snapshot, view, Newest); len(rows) != count || view.String() == "" {
+			t.Fatal("wrong destination source", view, rows)
+		}
+	}
+	if err := s.Subscribe(ctx, id, false); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = s.Read(ctx, 0)
+	if err != nil || len(snapshot.All) != 0 || len(snapshot.New) != 0 || len(snapshot.Continue) != 1 {
+		t.Fatal("unsubscribe lost continuation or leaked subscriptions", snapshot, err)
+	}
+}
+
 func TestSortCopiesAndDeterministicTies(t *testing.T) {
 	snapshot := Snapshot{Show: []store.Episode{
 		{ID: 2, Title: "<b>Zulu</b>", PublishedAt: time.Unix(100, 0)},
@@ -78,7 +113,7 @@ func TestSortCopiesAndDeterministicTies(t *testing.T) {
 		{ID: 3, Title: "Alpha", PublishedAt: time.Unix(200, 0)},
 	}}
 	for order, want := range map[Order][]int64{Newest: {1, 3, 2}, Oldest: {2, 1, 3}, Title: {1, 3, 2}} {
-		rows := Episodes(snapshot, false, order)
+		rows := Episodes(snapshot, ShowView, order)
 		for i, id := range want {
 			if rows[i].ID != id {
 				t.Fatalf("%s: %+v", order, rows)
@@ -88,7 +123,7 @@ func TestSortCopiesAndDeterministicTies(t *testing.T) {
 	if snapshot.Show[0].ID != 2 {
 		t.Fatal("sorting mutated snapshot")
 	}
-	if len(Episodes(snapshot, true, Newest)) != 0 {
+	if len(Episodes(snapshot, NewView, Newest)) != 0 {
 		t.Fatal("new tab used show rows")
 	}
 }
@@ -111,6 +146,12 @@ func (r *brokenRepo) Episodes(ctx context.Context, id int64) ([]store.Episode, e
 	}
 	return r.Repository.Episodes(ctx, id)
 }
+func (r *brokenRepo) InProgress(ctx context.Context) ([]store.Episode, error) {
+	if r.op == "continue" {
+		return nil, failure
+	}
+	return r.Repository.InProgress(ctx)
+}
 func (r *brokenRepo) UpsertFeed(ctx context.Context, source store.Feed) (int64, error) {
 	r.writes++
 	if r.op == "feed" || (r.op == "validators" && r.writes == 2) {
@@ -132,11 +173,11 @@ func (r *brokenRepo) SetSubscribed(ctx context.Context, id int64, yes bool) erro
 }
 
 func TestReadAndWriteFailures(t *testing.T) {
-	for _, op := range []string{"feeds", "all", "show", "feed", "episodes", "validators", "subscribe"} {
+	for _, op := range []string{"feeds", "all", "show", "continue", "feed", "episodes", "validators", "subscribe"} {
 		t.Run(op, func(t *testing.T) {
 			db := database(t)
 			s := New(&brokenRepo{Repository: db, op: op}, &fixtureFetcher{})
-			if op == "all" || op == "show" {
+			if op == "all" || op == "show" || op == "continue" {
 				if _, err := s.Read(ctx, 1); !errors.Is(err, failure) {
 					t.Fatal(err)
 				}

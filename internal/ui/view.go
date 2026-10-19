@@ -100,6 +100,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 			empty := "No items"
 			if panel == Podcasts && m.data.PodcastEmpty != "" {
 				empty = clean(m.data.PodcastEmpty, false)
+			} else if panel == Episodes && m.data.EpisodeEmpty != "" {
+				empty = clean(m.data.EpisodeEmpty, false)
 			}
 			rows = append(rows, empty)
 		}
@@ -195,6 +197,9 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 	}
 	switch panel {
 	case Podcasts:
+		if item.Destination {
+			return prefix + clean(item.Title, false)
+		}
 		channel := item.Channel
 		if channel == "" {
 			channel = item.Title
@@ -568,7 +573,6 @@ func (m Model) bottomHints() string {
 				{"b", "discover"},
 				{"N", "add"},
 				{"u", "unsub"},
-				{"v", "view"},
 				{"o", "sort"},
 				{"c", "complete"},
 				{"Enter", "open/play"},
@@ -764,7 +768,7 @@ func (m Model) View() tea.View {
 					"f Search · Tab library/Apple/Podcast Index",
 					"U RSS/website preview · t Apple US top 25",
 					"N add/subscribe · u subscribe/unsubscribe",
-					"v New/Show · o newest/oldest/title",
+					"New / Continue / All subscriptions / a show · o sort",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
 				}, width, height, true, "", "")
 			}

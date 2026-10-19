@@ -29,6 +29,7 @@ type Item struct {
 	Remains         string
 	PositionSeconds float64
 	DurationSeconds float64
+	Destination     bool
 	Queued          bool
 	Completed       bool
 	State           string
@@ -44,14 +45,15 @@ type Dialog struct {
 }
 
 type Data struct {
-	Dialog                       *Dialog
-	Podcasts, Episodes, Queue    []Item
-	Details                      string
-	Player                       Player
-	EpisodeLabel, Notice, Prompt string
-	PodcastLabel, ContextHint    string
-	PodcastHint                  string
-	PodcastEmpty                 string
+	Dialog                     *Dialog
+	Podcasts, Episodes, Queue  []Item
+	Details                    string
+	Player                     Player
+	EpisodeLabel, EpisodeEmpty string
+	Notice, Prompt             string
+	PodcastLabel, ContextHint  string
+	PodcastHint                string
+	PodcastEmpty               string
 }
 
 type SettingsData struct {

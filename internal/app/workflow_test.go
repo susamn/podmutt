@@ -176,6 +176,10 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if state := syncPlayer(t, &model); state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
 		t.Fatal("browse/pause changed episode", state)
 	}
+	openLibraryDestination(&model, continueDestination)
+	if len(model.rows) != 1 || model.rows[0].ID != episodes[0].ID || model.rows[0].PositionSeconds != 42 {
+		t.Fatal("paused episode unavailable in Continue", model.rows)
+	}
 	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeySpace}))
 	if _, err = control.Call(s.ctx, paths, "pause"); err != nil {
 		t.Fatal(err)
@@ -239,7 +243,10 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	updateLibrary(&restored, tea.WindowSizeMsg{Width: 70, Height: 20})
-	restored.Model = restored.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(episodes[0].ID))
+	openLibraryDestination(&restored, continueDestination)
+	if len(restored.rows) != 1 || restored.rows[0].ID != episodes[1].ID || restored.rows[0].PositionSeconds != 42 {
+		t.Fatal("offline Continue lost saved history or includes completed episode", restored.rows)
+	}
 	finishLibrary(&restored, updateLibrary(&restored, tea.KeyPressMsg{Code: tea.KeySpace}))
 	if state := syncPlayer(t, &restored); state.Current.ID != episodes[1].ID || state.Status != playback.Playing {
 		t.Fatal("offline Space did not resume saved current", state)

@@ -85,7 +85,7 @@ func (m *libraryShell) switchBrowse() tea.Cmd {
 	m.browse.active = !m.browse.active
 	m.browse.localResults = false
 	m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
-	m.notice = "My subscriptions"
+	m.notice = "My library"
 	var cmd tea.Cmd
 	if m.browse.active {
 		m.notice = "Apple Podcasts · Enter preview · u subscribe"
@@ -93,10 +93,10 @@ func (m *libraryShell) switchBrowse() tea.Cmd {
 			cmd = m.searchDirectory(m.browse.query)
 		}
 	} else {
-		m.wantFeedID = m.feedID
+		m.wantLibraryID = m.libraryID
 	}
 	m.renderLibrary()
-	return cmd
+	return tea.Batch(cmd, m.syncLibrarySelection())
 }
 func (m libraryShell) directoryName() string {
 	if m.browse.usingIndex {
@@ -149,9 +149,10 @@ func (m *libraryShell) searchLibrary(query string) tea.Cmd {
 	m.browse.localResults = query != ""
 	m.browse.hits = nil
 	if query == "" {
-		m.notice = "My subscriptions"
+		m.notice = "My library"
+		m.wantLibraryID = m.libraryID
 		m.renderLibrary()
-		return nil
+		return m.syncLibrarySelection()
 	}
 	m.notice = "Searching cached subscriptions…"
 	m.browse.loading = true
@@ -468,7 +469,7 @@ func (m *libraryShell) renderDiscovery() {
 	m.renderStatus()
 }
 func (m *libraryShell) renderPreviewDetails() {
-	details := "Apple Podcasts · US top 25\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to My subscriptions.\nSource: https://podcasts.apple.com/us/charts"
+	details := "Apple Podcasts · US top 25\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to My library.\nSource: https://podcasts.apple.com/us/charts"
 	if m.browse.query != "" {
 		details = m.directoryName() + " search: " + m.browse.query + "\nOnline shows, not remote episode text."
 		if m.browse.usingIndex {
@@ -521,6 +522,6 @@ func (m *libraryShell) selectLibraryShow() {
 	id := m.selectedFeed()
 	m.browse.localResults = false
 	m.browse.localQuery = ""
-	m.feedID = id
-	m.wantFeedID = id
+	m.libraryID = fmt.Sprint(id)
+	m.wantLibraryID = m.libraryID
 }

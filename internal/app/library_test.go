@@ -13,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/feed"
+	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/store"
@@ -69,7 +70,12 @@ func finishLibrary(m *libraryShell, cmd tea.Cmd) {
 	}
 }
 
-func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
+func openLibraryDestination(m *libraryShell, id string) {
+	m.Model = m.Model.WithFocus(ui.Podcasts).Select(ui.Podcasts, id)
+	finishLibrary(m, updateLibrary(m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+}
+
+func TestCachedDestinationsSortingSelectionAndCompletion(t *testing.T) {
 	librarySession(t, func(s *session) {
 		a, b := seededLibrary(t, s)
 		m, err := newLibrary(s, feed.New(s.store, nil, 0))
@@ -77,7 +83,7 @@ func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 32})
-		if len(m.rows) != 2 || m.feedID != a || !strings.Contains(m.View().Content, "New (uncompleted)") {
+		if len(m.rows) != 2 || m.libraryID != newDestination || !strings.Contains(m.View().Content, "New episodes") {
 			t.Fatal("cached content missing")
 		}
 		selected, _ := m.Model.Selected(ui.Episodes)
@@ -86,8 +92,8 @@ func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal("sort lost selection identity")
 		}
 		finishLibrary(&m, libraryKey(&m, 'o'))
-		finishLibrary(&m, libraryKey(&m, 'v'))
-		if m.newOnly || len(m.rows) != 2 {
+		openLibraryDestination(&m, strconv.FormatInt(a, 10))
+		if m.libraryView() != library.ShowView || len(m.rows) != 2 {
 			t.Fatal("show tab not loaded")
 		}
 		m.Model = m.Model.WithFocus(ui.Episodes)
@@ -95,12 +101,12 @@ func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
 		if selected, ok := m.selectedEpisode(); !ok || !selected.Completed {
 			t.Fatal("completion not shown")
 		}
-		finishLibrary(&m, libraryKey(&m, 'v'))
+		openLibraryDestination(&m, newDestination)
 		if len(m.rows) != 1 {
 			t.Fatal("completed episode remains in New")
 		}
-		finishLibrary(&m, libraryKey(&m, 'v'))
-		if len(m.Model.Visible(ui.Podcasts)) != 1 {
+		openLibraryDestination(&m, strconv.FormatInt(a, 10))
+		if len(m.Model.Visible(ui.Podcasts)) != len(libraryDestinations)+1 {
 			t.Fatal("unsubscribed cache leaked into My subscriptions")
 		}
 		cached, err := s.store.Episodes(s.ctx, b)
@@ -111,9 +117,8 @@ func TestCachedTabsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		finishLibrary(&m, m.reload())
-		m.Model = m.Model.WithFocus(ui.Podcasts)
-		finishLibrary(&m, libraryKey(&m, 'j'))
-		if m.feedID != b || len(m.rows) != 1 || m.rows[0].Title != "Cached beta" {
+		openLibraryDestination(&m, strconv.FormatInt(b, 10))
+		if m.libraryFeedID() != b || len(m.rows) != 1 || m.rows[0].Title != "Cached beta" {
 			t.Fatal("resubscribed show cache unavailable")
 		}
 		finishLibrary(&m, libraryKey(&m, 'u'))
@@ -148,7 +153,7 @@ func TestRSSInputAddAndInvalidFeed(t *testing.T) {
 		}
 		updateLibrary(&m, tea.PasteMsg{Content: server.URL + "/rss"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if m.newOnly || len(m.rows) != 1 || m.rows[0].Title != "Added episode" || m.wantFeedID != 0 {
+		if m.libraryView() != library.ShowView || len(m.rows) != 1 || m.rows[0].Title != "Added episode" || m.wantLibraryID != "" {
 			t.Fatal("added feed not selected")
 		}
 		state, err := s.playback.Snapshot(s.ctx)
@@ -278,10 +283,10 @@ func TestLibraryGuardsAndPlainDetails(t *testing.T) {
 		if m.Model.Focus() != ui.Episodes {
 			t.Fatal("Enter did not focus episodes")
 		}
-		m.wantFeedID = b
-		m.feedID = b
+		m.wantLibraryID = strconv.FormatInt(b, 10)
+		m.libraryID = m.wantLibraryID
 		libraryKey(&m, 'j')
-		if m.feedID != b {
+		if m.libraryFeedID() != b {
 			t.Fatal("pending add selection was overwritten")
 		}
 	})

@@ -20,10 +20,10 @@ func TestOpenAndBackNavigateWithoutStartingPlayback(t *testing.T) {
 					open = func() tea.Cmd { return updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyRight}) }
 					back = func() tea.Cmd { return updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyLeft}) }
 				}
-				m.Model = m.Model.WithFocus(ui.Podcasts)
+				m.Model = m.Model.WithFocus(ui.Podcasts).Select(ui.Podcasts, fmt.Sprint(m.snapshot.Feeds[0].ID))
 				show, _ := m.Model.Selected(ui.Podcasts)
 				finishLibrary(&m, open())
-				if m.Model.Focus() != ui.Episodes || m.newOnly || len(m.rows) == 0 {
+				if m.Model.Focus() != ui.Episodes || m.libraryFeedID() == 0 || len(m.rows) == 0 {
 					t.Fatal("open did not descend into show")
 				}
 				selected, _ := m.selectedEpisode()

@@ -14,6 +14,7 @@ import (
 type Repository interface {
 	Feeds(context.Context, bool) ([]store.Feed, error)
 	Episodes(context.Context, int64) ([]store.Episode, error)
+	InProgress(context.Context) ([]store.Episode, error)
 	UpsertFeed(context.Context, store.Feed) (int64, error)
 	UpsertEpisodes(context.Context, int64, []store.Episode) error
 	SetSubscribed(context.Context, int64, bool) error
@@ -29,8 +30,21 @@ type Service struct {
 func New(repo Repository, fetcher Fetcher) *Service { return &Service{repo, fetcher} }
 
 type Snapshot struct {
-	Feeds     []store.Feed
-	New, Show []store.Episode
+	Feeds                    []store.Feed
+	New, Continue, All, Show []store.Episode
+}
+
+type View int
+
+const (
+	ShowView View = iota
+	NewView
+	ContinueView
+	AllView
+)
+
+func (v View) String() string {
+	return [...]string{"Show", "New episodes", "Continue listening", "All subscriptions"}[v]
 }
 
 func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
@@ -41,6 +55,11 @@ func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
 		return result, err
 	}
 	all, err := s.repo.Episodes(ctx, 0)
+	if err != nil {
+		return result, err
+	}
+	result.All = all
+	result.Continue, err = s.repo.InProgress(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -93,10 +112,15 @@ const (
 func (o Order) String() string { return [...]string{"newest", "oldest", "title"}[o] }
 
 // Episodes returns a sorted copy, so changing tabs/order never mutates a snapshot.
-func Episodes(snapshot Snapshot, newOnly bool, order Order) []store.Episode {
+func Episodes(snapshot Snapshot, view View, order Order) []store.Episode {
 	source := snapshot.Show
-	if newOnly {
+	switch view {
+	case NewView:
 		source = snapshot.New
+	case ContinueView:
+		source = snapshot.Continue
+	case AllView:
+		source = snapshot.All
 	}
 	result := append([]store.Episode(nil), source...)
 	sort.SliceStable(result, func(i, j int) bool {
