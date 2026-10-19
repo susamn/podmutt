@@ -63,10 +63,11 @@ func (m Model) playerPane(width, height int) string {
 	var rows []string
 	rows = append(rows, topRow)
 
-	vizRows := max(0, innerHeight-3)
-	if frame := m.animationFrame(max(0, innerWidth-4)); frame != "" && vizRows > 0 {
-		rows = append(rows, "  "+frame)
-		vizRows--
+	vizRows := min(2, max(0, innerHeight-3))
+	if innerHeight >= 6 {
+		if frame := m.animationFrame(max(0, innerWidth-4)); frame != "" {
+			rows = append(rows, "  "+frame)
+		}
 	}
 
 	if vizRows > 0 {
