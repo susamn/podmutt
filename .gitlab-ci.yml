@@ -9,6 +9,7 @@ workflow:
 stages:
   - verify
   - build
+  - analyze
 
 default:
   image: golang:1.27.2-bookworm
@@ -74,6 +75,36 @@ build:
     expire_in: 14 days
     paths:
       - bin/podmutt
+
+# Community Build supports default-branch analysis only. Enable after configuring
+# protected Sonar variables; never submit an MR as the imported project's main.
+sonarqube:
+  stage: analyze
+  image:
+    name: sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0@sha256:a3f4215076706c95a17a68c19322ee916e40a3acd081a8c1a1e839e0194afa57
+    entrypoint: [""]
+  tags: [linux, neucleus.local]
+  variables:
+    GIT_DEPTH: "0"
+    SONAR_USER_HOME: "$CI_PROJECT_DIR/.sonar"
+  cache:
+    key: sonar-scanner-12.2-linux-amd64
+    paths:
+      - .sonar/cache/
+  dependencies: [verify]
+  resource_group: sonarqube-main
+  interruptible: false
+  timeout: 15m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_TAG'
+      when: never
+    - if: '$SONAR_ENABLED == "1" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - ': "${SONAR_HOST_URL:?Set SONAR_HOST_URL}"'
+    - ': "${SONAR_PROJECT_KEY:?Set SONAR_PROJECT_KEY}"'
+    - ': "${SONAR_TOKEN:?Set protected SONAR_TOKEN}"'
+    - test -s coverage/coverage.out
+    - sonar-scanner -Dsonar.projectKey="$SONAR_PROJECT_KEY" -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300
 
 # Opt-in native shell runner. Never count omitted native testing as verified.
 native-macos:
