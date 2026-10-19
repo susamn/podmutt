@@ -314,23 +314,33 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 		t.Fatalf("unexpected compact episode row: %s", compactEp)
 	}
 
-	qPlaying := Item{ID: "1", Index: 1, PlainTitle: "Track Playing", Channel: "Tech Daily", State: "playing", Position: "10:00", Duration: "40:00"}
-	qPaused := Item{ID: "2", Index: 2, PlainTitle: "Track Paused", Channel: "Tech Daily", State: "paused", Position: "05:00", Duration: "20:00"}
-	qStopped := Item{ID: "3", Index: 3, PlainTitle: "Track Stopped", Channel: "Other Show", State: "stopped", Position: "00:00", Duration: "15:00"}
+	qPlaying := Item{ID: "1", Index: 1, PlainTitle: "Track Playing", Channel: "Tech Daily", State: "playing", Position: "10:00", Duration: "40:00", Remains: "75%"}
+	qPaused := Item{ID: "2", Index: 2, PlainTitle: "Track Paused", Channel: "Tech Daily", State: "paused", Position: "05:00", Duration: "20:00", Remains: "75%"}
+	qStopped := Item{ID: "3", Index: 3, PlainTitle: "Track Stopped", Channel: "Other Show", State: "stopped", Position: "00:00", Duration: "15:00", Remains: "100%"}
 
 	qPlayRow := ansi.Strip(m.renderQueueRow(qPlaying, 100, true))
-	if !strings.Contains(qPlayRow, "> ▶") || !strings.Contains(qPlayRow, "#1") || !strings.Contains(qPlayRow, "10:00/40:00") {
+	if !strings.Contains(qPlayRow, "> ▶") || !strings.Contains(qPlayRow, "1   ") || !strings.Contains(qPlayRow, "75%") || !strings.Contains(qPlayRow, "10:00/40:00") {
 		t.Fatalf("unexpected queue play row: %s", qPlayRow)
 	}
 
 	qPauseRow := ansi.Strip(m.renderQueueRow(qPaused, 100, false))
-	if !strings.Contains(qPauseRow, "⏸") || !strings.Contains(qPauseRow, "#2") {
+	if !strings.Contains(qPauseRow, "⏸") || !strings.Contains(qPauseRow, "2   ") || !strings.Contains(qPauseRow, "75%") {
 		t.Fatalf("unexpected queue pause row: %s", qPauseRow)
 	}
 
 	qStopRow := ansi.Strip(m.renderQueueRow(qStopped, 50, false))
-	if !strings.Contains(qStopRow, "■") || !strings.Contains(qStopRow, "#3") {
+	if !strings.Contains(qStopRow, "■") || !strings.Contains(qStopRow, "3   ") || !strings.Contains(qStopRow, "100%") {
 		t.Fatalf("unexpected queue stop row: %s", qStopRow)
+	}
+
+	epHeader := ansi.Strip(m.renderEpisodesHeader(100))
+	if !strings.Contains(epHeader, "Title") || !strings.Contains(epHeader, "Channel") || !strings.Contains(epHeader, "Date") || !strings.Contains(epHeader, "Duration") {
+		t.Fatalf("unexpected episodes header: %s", epHeader)
+	}
+
+	qHeader := ansi.Strip(m.renderQueueHeader(100))
+	if !strings.Contains(qHeader, "#") || !strings.Contains(qHeader, "Remains") || !strings.Contains(qHeader, "Title") || !strings.Contains(qHeader, "Time") {
+		t.Fatalf("unexpected queue header: %s", qHeader)
 	}
 }
 

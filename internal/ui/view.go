@@ -62,9 +62,10 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	} else {
 		items := m.items(panel)
-		if panel == Podcasts && m.data.PodcastHint != "" {
-			hints := strings.Split(clean(m.data.PodcastHint, true), "\n")
-			rows = append(rows, hints[:min(len(hints), max(0, height-4))]...)
+		if panel == Episodes {
+			rows = append(rows, m.renderEpisodesHeader(width))
+		} else if panel == Queue {
+			rows = append(rows, m.renderQueueHeader(width))
 		}
 		visible := max(0, height-3-len(rows))
 		start := max(0, m.selected[panel]-visible+1)
@@ -103,6 +104,62 @@ func (m Model) pane(panel Panel, width, height int) string {
 		extraTag = m.Version()
 	}
 	return m.box(title, rows, width, height, panel == m.focus, tag, extraTag)
+}
+
+func (m Model) renderEpisodesHeader(width int) string {
+	pal := m.Theme()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.LightForeground)))
+	dateWidth := 10
+	durWidth := 8
+	gutterWidth := 6
+	innerWidth := max(0, width-2)
+	avail := max(0, innerWidth-gutterWidth)
+
+	if width < 70 {
+		availText := max(8, avail-durWidth-1)
+		return headerStyle.Render("      " + padRight("Title", availText) + " " + padLeft("Duration", durWidth))
+	}
+
+	fixedWidths := dateWidth + durWidth + 4
+	slack := max(16, avail-fixedWidths)
+	titleBudget := max(8, (slack*60)/100)
+	chanBudget := max(6, slack-titleBudget)
+
+	return headerStyle.Render("      " + padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padRight("Date", dateWidth) + " " + padLeft("Duration", durWidth))
+}
+
+func (m Model) renderQueueHeader(width int) string {
+	pal := m.Theme()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.LightForeground)))
+	remWidth := 8
+	timeWidth := 13
+	idxWidth := 4
+	gutterWidth := 4
+	innerWidth := max(0, width-2)
+	avail := max(0, innerWidth-gutterWidth-idxWidth-remWidth)
+
+	if width < 70 {
+		availText := max(8, avail-timeWidth-1)
+		return headerStyle.Render("    #   Remains " + padRight("Title", availText) + " " + padLeft("Time", timeWidth))
+	}
+
+	slack := max(16, avail-timeWidth-3)
+	titleBudget := max(8, (slack*60)/100)
+	chanBudget := max(6, slack-titleBudget)
+
+	return headerStyle.Render("    #   Remains " + padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padLeft("Time", timeWidth))
+}
+
+func padRight(s string, width int) string {
+	s = ansi.Truncate(s, width, "…")
+	pad := max(0, width-ansi.StringWidth(s))
+	return s + strings.Repeat(" ", pad)
+}
+
+func padLeft(s string, width int) string {
+	s = ansi.Truncate(s, width, "…")
+	pad := max(0, width-ansi.StringWidth(s))
+	return strings.Repeat(" ", pad) + s
 }
 
 func (m Model) renderRow(panel Panel, item Item, width int, selected bool) string {
@@ -151,7 +208,7 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 	}
 
 	dateWidth := 10
-	durWidth := 7
+	durWidth := 8
 	gutterWidth := 4
 	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
 	avail := max(0, innerWidth-gutterWidth)
@@ -208,10 +265,16 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightRed))).Render("■ ")
 	}
 
-	idxStr := ""
+	idxStr := "    "
 	if item.Index > 0 {
-		idxStr = fmt.Sprintf("#%-2d ", item.Index)
+		idxStr = fmt.Sprintf("%-3d ", item.Index)
 	}
+
+	remainsStr := item.Remains
+	if remainsStr == "" {
+		remainsStr = "100%"
+	}
+	remCol := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(padRight(remainsStr, 7)) + " "
 
 	titleText := item.PlainTitle
 	if titleText == "" {
@@ -231,7 +294,7 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	}
 
 	timeWidth := 13
-	gutterWidth := 2 + ansi.StringWidth(idxStr)
+	gutterWidth := 2 + ansi.StringWidth(idxStr) + ansi.StringWidth(remCol)
 	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
 	avail := max(0, innerWidth-gutterWidth)
 
@@ -239,7 +302,7 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 		availText := max(8, avail-timeWidth-1)
 		titleCol := ansi.Truncate(titleText, availText, "…")
 		pad := max(0, availText-ansi.StringWidth(titleCol))
-		return prefix + gutter + idxStr + titleCol + strings.Repeat(" ", pad) + " " + timeStr
+		return prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", pad) + " " + timeStr
 	}
 
 	slack := max(16, avail-timeWidth-3)
@@ -257,7 +320,7 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	timePad := max(0, timeWidth-ansi.StringWidth(timeStr))
 	timeCol := strings.Repeat(" ", timePad) + timeStr
 
-	return prefix + gutter + idxStr + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
+	return prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {

@@ -88,4 +88,7 @@ func TestStackRowFormattingAndCurrentContext(t *testing.T) {
 	if !strings.Contains(row.Title, "Unknown show") || !strings.Contains(row.Title, "1:02/2:00") {
 		t.Fatal(row)
 	}
+	if row.Remains != "48%" {
+		t.Fatalf("expected remains 48%%, got %q", row.Remains)
+	}
 }
