@@ -124,7 +124,7 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 ## Shell controls
 
-`j/k` or arrows select; `g/G` go first/last. Outside Player, `h/l` switch panes;
+`j/k` or arrows select; `g/G` go first/last. `h/l` scroll columns horizontally;
 Tab/Shift+Tab or `1-5` switch panes everywhere. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
 clears input. `?` opens help; `e` opens settings; `q` or Ctrl+C quits. Printable keys stay literal
 while typing a filter.
@@ -137,7 +137,7 @@ The wide grid keeps Podcasts/Episodes on the left and Queue above the bottom-rig
 cell. That cell is split evenly: **Details above, Player below**. Long descriptions
 scroll with PgUp/PgDn inside their half; they never push the player/controls down.
 
-Press **5** for Player. **h/l seek backward/forward 15 seconds** after an episode
+Press **5** for Player. **,/. (or h/l) seek backward/forward 15 seconds** after an episode
 loads, preserving pause state and resume position. Seek hints appear when space
 permits; Tab always leaves Player. Native macOS builds expose matching 15-second
 Control Center skip commands; absolute system scrubbing remains disabled. Linux

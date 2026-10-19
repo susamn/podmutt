@@ -58,7 +58,7 @@ func TestNavigationAndBounds(t *testing.T) {
 	if m.selected[Podcasts] != 1 {
 		t.Fatal("first/last navigation failed")
 	}
-	m = press(m, "l", "tab", "shift+tab", "h", "h")
+	m = press(m, "tab", "tab", "tab", "tab")
 	if m.focus != PlayerPanel {
 		t.Fatalf("focus = %v", m.focus)
 	}
@@ -66,7 +66,7 @@ func TestNavigationAndBounds(t *testing.T) {
 	if m.focus != Queue {
 		t.Fatal("numbered pane navigation failed")
 	}
-	m = press(m, "l", "l", "tab")
+	m = press(m, "tab", "tab", "tab")
 	if m.focus != Podcasts {
 		t.Fatal("focus did not wrap")
 	}

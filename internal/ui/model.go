@@ -64,6 +64,7 @@ type Model struct {
 	theme         theme.Palette
 	settings      bool
 	settingsData  SettingsData
+	colOffset     [3]int
 	icons         string
 	animation     animation
 	progress      progressClock
@@ -154,6 +155,7 @@ func (m Model) ClearFilter(panel Panel) Model {
 func (m Model) Reset(panel Panel) Model {
 	if panel >= Podcasts && panel <= Queue {
 		m.selected[panel] = 0
+		m.colOffset[panel] = 0
 	}
 	return m
 }
@@ -267,6 +269,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyPressMsg:
 		key := msg.String()
+		_ = key
 		if key == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -322,12 +325,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.data.Dialog != nil {
 			return m, nil
 		}
-		if m.focus == PlayerPanel && (key == "h" || key == "l") {
+		if m.focus == PlayerPanel && (key == "h" || key == "l" || key == "," || key == "." || key == "<" || key == ">") {
 			if !m.data.Player.CanSeek || m.actions == nil {
 				return m, nil
 			}
 			command := "seek-forward"
-			if key == "h" {
+			if key == "h" || key == "," || key == "<" {
 				command = "seek-backward"
 			}
 			return m, m.actions(command)
@@ -366,9 +369,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help = true
 		case "e":
 			m.settings = true
-		case "tab", "l":
+		case ",", "<":
+			if m.data.Player.CanSeek && m.actions != nil {
+				cmd := m.actions("seek-backward")
+				return m, cmd
+			}
+			return m, nil
+		case ".", ">":
+			if m.data.Player.CanSeek && m.actions != nil {
+				return m, m.actions("seek-forward")
+			}
+		case "h":
+			if m.focus < Details {
+				m.colOffset[m.focus] = max(0, m.colOffset[m.focus]-4)
+			}
+			return m, nil
+		case "l":
+			if m.focus < Details {
+				m.colOffset[m.focus] += 4
+			}
+			return m, nil
+		case "tab":
 			m.setFocus((m.focus + 1) % (PlayerPanel + 1))
-		case "shift+tab", "h":
+		case "shift+tab":
 			m.setFocus((m.focus + PlayerPanel) % (PlayerPanel + 1))
 		case "1", "2", "3", "4", "5":
 			m.setFocus(Panel(key[0] - '1'))

@@ -50,10 +50,21 @@ func TestPlayerSeekKeysAreScopedAndGuarded(t *testing.T) {
 		t.Fatal("seek stole input")
 	}
 	key("esc")
+	// , and . seek backward and forward
+	key(",")
+	key(".")
+	if !reflect.DeepEqual(commands, []string{"seek-backward", "seek-forward", "seek-backward", "seek-forward"}) {
+		t.Fatalf("unexpected seek commands: %v", commands)
+	}
+
 	m = m.WithFocus(Episodes)
 	key("l")
+	if m.Focus() != Episodes || m.colOffset[Episodes] != 4 {
+		t.Fatal("l did not scroll column offset on episodes")
+	}
+	key("tab")
 	if m.Focus() != Queue {
-		t.Fatal("non-player focus navigation changed")
+		t.Fatal("tab did not move focus to Queue")
 	}
 	m = m.WithFocus(PlayerPanel)
 	key("tab")
