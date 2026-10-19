@@ -387,6 +387,117 @@ func (m Model) boxTop(title, tag, extraTag string, width int, focused bool) stri
 	return sb.String()
 }
 
+type hint struct {
+	key, action string
+}
+
+func (m Model) formatHints(hints []hint) string {
+	pal := m.Theme()
+	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.Cyan)))
+	parts := make([]string, len(hints))
+	for i, h := range hints {
+		parts[i] = keyStyle.Render(h.key) + ":" + h.action
+	}
+	return strings.Join(parts, "  ")
+}
+
+func (m Model) bottomHints() string {
+	if m.editing {
+		return m.formatHints([]hint{
+			{"Enter", "apply"},
+			{"Esc", "cancel"},
+			{"Ctrl+U", "clear"},
+		})
+	}
+
+	isDiscover := strings.HasPrefix(m.data.PodcastLabel, "Discover") || strings.HasPrefix(m.data.PodcastLabel, "RSS/")
+
+	var hints []hint
+	switch m.focus {
+	case Details:
+		hints = []hint{
+			{"j/k", "scroll"},
+			{"Ctrl-d/u", "half-page"},
+			{"g/G", "top/bottom"},
+			{"Tab", "pane"},
+			{"e", "settings"},
+			{"?", "help"},
+			{"q", "quit"},
+		}
+	case PlayerPanel:
+		hints = []hint{
+			{"Left/Right", "select"},
+			{"Enter", "activate"},
+			{",/.", "seek"},
+			{"Space", "play/pause"},
+			{"s", "stop"},
+			{"n", "next"},
+			{"Tab", "pane"},
+			{"e", "settings"},
+			{"?", "help"},
+			{"q", "quit"},
+		}
+	case Queue:
+		hints = []hint{
+			{"j/k", "select"},
+			{"Enter", "play"},
+			{"J/K", "move"},
+			{"d", "remove"},
+			{"D", "clear"},
+			{",/.", "seek"},
+			{"Tab", "pane"},
+			{"e", "settings"},
+			{"?", "help"},
+			{"q", "quit"},
+		}
+	default:
+		if isDiscover {
+			hints = []hint{
+				{"f", "search"},
+				{"U", "url"},
+				{"Tab", "pane"},
+				{"b", "library"},
+				{"t", "top25"},
+				{"Space", "play"},
+				{"a", "enqueue"},
+				{"u", "subscribe"},
+				{"R", "retry"},
+				{",/.", "seek"},
+				{"e", "settings"},
+				{"?", "help"},
+				{"q", "quit"},
+			}
+		} else {
+			hints = []hint{
+				{"f", "search"},
+				{"U", "url"},
+				{"Tab", "pane"},
+				{"b", "discover"},
+				{"N", "add"},
+				{"u", "unsub"},
+				{"v", "view"},
+				{"o", "sort"},
+				{"c", "complete"},
+				{"Space", "play"},
+				{"s", "stop"},
+				{"n", "next"},
+				{",/.", "seek"},
+				{"e", "settings"},
+				{"?", "help"},
+				{"q", "quit"},
+			}
+		}
+	}
+
+	hintText := m.formatHints(hints)
+	if m.data.Notice != "" && m.width >= 80 {
+		pal := m.Theme()
+		noticeText := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))).Render(clean(m.data.Notice, false))
+		hintText = noticeText + " · " + hintText
+	}
+	return hintText
+}
+
 func (m Model) View() tea.View {
 	var content string
 	switch {
@@ -421,34 +532,7 @@ func (m Model) View() tea.View {
 				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, left, top), m.pane(Queue, right, top)),
 				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, bottom), rightCell))
 		}
-		hints := "hjkl navigate · Tab/1-5 panes · / filter · ? help · q quit"
-		if m.compact() && m.focus >= Queue {
-			hints = "Esc return · j/k select · / filter · ? help · q quit"
-		}
-		if m.data.EpisodeLabel != "" {
-			hints = "N add · u subscribe · v New/Show · o sort · c complete · R refresh · ? help · q quit"
-		}
-		if m.data.ContextHint != "" {
-			hints = clean(m.data.ContextHint, false)
-		}
-		if m.focus == Queue {
-			hints = "j/k select · Enter play/promote · J/K move pending · d/D remove/clear pending · ? help · q quit"
-		}
-		if m.focus == PlayerPanel {
-			hints = "h/l seek ±15s · Left/Right controls · Enter activate · Space play/pause · s stop · n next · Tab panes"
-		}
-		if m.focus == Details {
-			hints = "j/k scroll · Ctrl-d/u half page · g/G top/bottom · PgUp/PgDn page · Tab panes · q quit"
-		}
-		if m.data.Notice != "" {
-			hints = clean(m.data.Notice, false) + " · " + hints
-		}
-		if m.data.PodcastHint != "" && m.compact() && m.focus <= Episodes {
-			hints = "f Search · U RSS/website · " + hints
-		}
-		if m.editing {
-			hints = fmt.Sprintf("Filter: %s · Enter apply · Esc cancel", clean(m.filters[m.focus], false))
-		}
+		hints := m.bottomHints()
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
 		if m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
 			width, height := min(72, m.width-2), min(16, m.height-2)

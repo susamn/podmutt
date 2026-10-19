@@ -401,7 +401,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.directURL {
 		label = "RSS/website · read-only preview"
 	}
-	data := ui.Data{PodcastHint: discoveryActions, PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing", ContextHint: "Space play · a/A enqueue · u subscribe · f Search podcasts · U RSS/website · t chart · b My subscriptions · q quit"}
+	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Space plays without subscribing"}
 	data.PodcastEmpty = "No matching shows · f search"
 	if m.browse.loading {
 		data.PodcastEmpty = "Loading " + m.directoryName() + "…"
