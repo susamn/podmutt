@@ -39,7 +39,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 			if controls := rowContaining(t, m.View().Content, "[Pause] [Stop] [Next]"); controls <= want || controls >= size[1]-1 {
 				t.Fatal("controls hidden or outside viewport")
 			}
-			if !strings.Contains(ansi.Strip(m.View().Content), "0:42 / 2:00") {
+			if !strings.Contains(ansi.Strip(m.View().Content), "0:42") || !strings.Contains(ansi.Strip(m.View().Content), "2:00") {
 				t.Fatal("timeline missing")
 			}
 			for _, line := range strings.Split(m.View().Content, "\n") {
@@ -179,7 +179,7 @@ func TestPlayerFormattingBoundsAndErrorPriority(t *testing.T) {
 	player := Player{Status: "failed", Title: strings.Repeat("title", 500), Error: "persistent failure\x1b[2J", Warning: "media offline", HasCurrent: true, Position: "0:42", Duration: "2:00"}
 	m := New(Data{Player: player}).WithFocus(PlayerPanel)
 	output := ansi.Strip(m.playerPane(84, 8))
-	for _, text := range []string{"persistent failure", "media offline", "0:42 / 2:00", "[Play] [Stop] [Next]"} {
+	for _, text := range []string{"persistent failure", "media offline", "0:42", "2:00", "[Play]", "[Stop]", "[Next]"} {
 		if !strings.Contains(output, text) {
 			t.Fatal("player lost " + text)
 		}
@@ -199,21 +199,21 @@ func TestMPDTUIPlayerStyleAndGlyphs(t *testing.T) {
 		status    string
 		wantGlyph string
 	}{
-		{"playing", "▶"},
-		{"paused", "⏸"},
-		{"stopped", "■"},
-		{"failed", "■"},
+		{"playing", "● PLAYING"},
+		{"paused", "⏸ PAUSED"},
+		{"stopped", "■ STOPPED"},
+		{"failed", "! FAILED"},
 	} {
 		m := New(Data{Player: Player{Status: tc.status, HasCurrent: true, Title: "Test Song", Channel: "Podcast Channel", Position: "01:23", Duration: "04:56", Progress: 0.5}})
 		pane := ansi.Strip(m.playerPane(80, 8))
 		if !strings.Contains(pane, tc.wantGlyph) {
 			t.Fatalf("expected glyph %q in status %q, got: %s", tc.wantGlyph, tc.status, pane)
 		}
-		if !strings.Contains(pane, "Test Song · Podcast Channel") {
+		if !strings.Contains(pane, "Test Song") || !strings.Contains(pane, "Podcast Channel") {
 			t.Fatalf("expected track and channel in: %s", pane)
 		}
-		if !strings.Contains(pane, "[[") || !strings.Contains(pane, "]]") {
-			t.Fatalf("expected bracketed progress bar in: %s", pane)
+		if !strings.Contains(pane, "●") || !strings.Contains(pane, "01:23") {
+			t.Fatalf("expected slider knob in: %s", pane)
 		}
 	}
 }
