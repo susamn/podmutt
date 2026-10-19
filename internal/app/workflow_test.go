@@ -176,6 +176,9 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if state := syncPlayer(t, &model); state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
 		t.Fatal("browse/pause changed episode", state)
 	}
+	if rows := model.Model.Visible(ui.Queue); len(rows) != 1 || rows[0].ID != fmt.Sprint(episodes[1].ID) || rows[0].Index != 1 {
+		t.Fatal("paused current appeared in editable Up next", rows)
+	}
 	openLibraryDestination(&model, continueDestination)
 	if len(model.rows) != 1 || model.rows[0].ID != episodes[0].ID || model.rows[0].PositionSeconds != 42 {
 		t.Fatal("paused episode unavailable in Continue", model.rows)
@@ -243,6 +246,9 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	updateLibrary(&restored, tea.WindowSizeMsg{Width: 70, Height: 20})
+	if rows := restored.Model.Visible(ui.Queue); len(rows) != 1 || rows[0].ID != fmt.Sprint(episodes[0].ID) || rows[0].Index != 1 {
+		t.Fatal("offline pending/current separation lost", rows)
+	}
 	openLibraryDestination(&restored, continueDestination)
 	if len(restored.rows) != 1 || restored.rows[0].ID != episodes[1].ID || restored.rows[0].PositionSeconds != 42 {
 		t.Fatal("offline Continue lost saved history or includes completed episode", restored.rows)

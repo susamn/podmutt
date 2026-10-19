@@ -11,7 +11,7 @@ import (
 	"podmutt/internal/ui"
 )
 
-func stackItem(episode store.Episode, status string) ui.Item {
+func queueItem(episode store.Episode) ui.Item {
 	show := library.PlainText(episode.FeedTitle)
 	if show == "" {
 		show = "Unknown show"
@@ -35,7 +35,7 @@ func stackItem(episode store.Episode, status string) ui.Item {
 	}
 	return ui.Item{
 		ID:              strconv.FormatInt(episode.ID, 10),
-		Title:           fmt.Sprintf("[%s] %s · %s · %s/%s", status, plainTitle, show, pos, duration),
+		Title:           fmt.Sprintf("%s · %s · %s/%s", plainTitle, show, pos, duration),
 		PlainTitle:      plainTitle,
 		Channel:         show,
 		Position:        pos,
@@ -43,7 +43,6 @@ func stackItem(episode store.Episode, status string) ui.Item {
 		Remains:         remains,
 		PositionSeconds: episode.PositionSeconds,
 		DurationSeconds: float64(episode.DurationSeconds),
-		State:           status,
 		Completed:       episode.Completed,
 	}
 }
@@ -66,9 +65,6 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 		item, ok := m.Model.Selected(ui.Queue)
 		if !ok {
 			return store.Episode{}, false
-		}
-		if current := m.state.Current; current != nil && strconv.FormatInt(current.ID, 10) == item.ID {
-			return *current, true
 		}
 		for _, episode := range m.state.Queue {
 			if item.ID == strconv.FormatInt(episode.ID, 10) {
@@ -133,10 +129,6 @@ func (m *libraryShell) moveQueue(step int) tea.Cmd {
 	if !ok {
 		return nil
 	}
-	if m.state.Current != nil && m.state.Current.ID == episode.ID {
-		m.notice = "Current episode stays at the front; play another row to promote it"
-		return nil
-	}
 	engine, ctx := m.s.playback, m.s.ctx
 	return func() tea.Msg { return playerEdited{engine.MoveQueued(ctx, episode.ID, step)} }
 }
@@ -155,15 +147,11 @@ func (m *libraryShell) confirmQueue(clear bool) {
 		if !ok {
 			return
 		}
-		if m.state.Current != nil && m.state.Current.ID == episode.ID {
-			m.notice = "Current episode stays at the front; d removes pending episodes only"
-			return
-		}
 		confirmation.ids = []int64{episode.ID}
-		body = "Remove from queue: " + episode.Title + "?"
+		body = "Remove from Up next: " + episode.Title + "?"
 	}
 	m.confirming = confirmation
-	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm queue edit", Body: body, Hint: "y confirm · Esc/n cancel · q quit"})
+	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm Up next edit", Body: body, Hint: "y confirm · Esc/n cancel · q quit"})
 }
 func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "q" || key.String() == "ctrl+c" {
@@ -176,7 +164,7 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 	m.confirming = nil
 	m.Model = m.Model.WithDialog(nil)
 	if key.String() != "y" {
-		m.notice = "Queue unchanged"
+		m.notice = "Up next unchanged"
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx

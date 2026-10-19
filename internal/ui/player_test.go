@@ -30,7 +30,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 		want := available/2 + bottom/2
 		for _, description := range []string{"Short description", strings.Repeat("very long paragraph words that must wrap 界\n", 2000)} {
 			m = m.WithDetails(description)
-			if got := rowContaining(t, m.View().Content, "Player"); got != want {
+			if got := rowContaining(t, m.View().Content, "Now playing"); got != want {
 				t.Fatalf("%v player row=%d want %d", size, got, want)
 			}
 			if got := rowContaining(t, m.View().Content, "Details"); got != available/2 {
@@ -58,7 +58,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 		if m.detailScroll == 0 {
 			t.Fatal("details cannot scroll")
 		}
-		if rowContaining(t, m.View().Content, "Player") != want {
+		if rowContaining(t, m.View().Content, "Now playing") != want {
 			t.Fatal("scroll moved player")
 		}
 		if strings.Contains(strings.Join(m.detailRows(60), "\n"), "Current audio") {
@@ -84,7 +84,7 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 			m := resize(New(fixture()), size[0], size[1]).WithDetails(strings.Repeat("description\n", 500)).WithFocus(panel)
 			_, _, height := m.compactHeights()
 			want := size[1] - height - 1
-			if rowContaining(t, m.View().Content, "Player") != want {
+			if rowContaining(t, m.View().Content, "Now playing") != want {
 				t.Fatal("compact player moved", size, panel)
 			}
 			if !strings.Contains(ansi.Strip(m.View().Content), "[Play] [Stop] [Next]") {

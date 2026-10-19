@@ -92,7 +92,7 @@ func (m Model) playerPane(width, height int) string {
 		}
 	}
 
-	return m.box(m.Icon(stateIcon(status), "Player"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
+	return m.box(m.Icon(stateIcon(status), "Now playing"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
 
 func (m Model) renderPlayerTopLine(player Player, width int) string {

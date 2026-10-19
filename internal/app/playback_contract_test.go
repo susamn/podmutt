@@ -81,6 +81,8 @@ func TestEnterPlaysWithoutTogglingAndDetailsReturnToOrigin(t *testing.T) {
 				t.Fatal("Enter toggled or left episodes", state)
 			}
 		}
+		finishLibrary(&m, libraryKey(&m, 'A'))
+		syncPlayer(t, &m)
 		for _, size := range [][2]int{{140, 40}, {70, 20}, {30, 12}} {
 			updateLibrary(&m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 			for _, panel := range []ui.Panel{ui.Episodes, ui.Queue} {
