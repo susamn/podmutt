@@ -14,7 +14,8 @@ import (
 	"podmutt/internal/ui"
 )
 
-func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testing.T) {
+func urlPreviewServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/site":
@@ -27,7 +28,12 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 			http.NotFound(w, r)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testing.T) {
+	server := urlPreviewServer(t)
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
 		view := ansi.Strip(m.View().Content)

@@ -220,8 +220,13 @@ preview, with explicit Enter/a/A play/enqueue and u subscribe. **N** remains the
 separate add-and-subscribe shortcut. Esc cancels requests; stale replies are ignored.
 See [entry-point policy](docs/adr/023-discovery-entry-points.md).
 
-`f` opens source-labelled search in the current view. Tab cycles **Library / Apple / Podcast Index**;
-Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names
+`f` accepts a podcast name **or a feed/website URL**. Pasting an HTTP(S) URL opens
+the same read-only preview as `U`, regardless of the selected search source; it
+never subscribes or starts playback. URL-like invalid input stays in the editor
+rather than being sent to a directory. `U` and `N` remain available.
+
+For names, `f` uses source-labelled search in the current view.
+Tab cycles **Library / Apple / Podcast Index**; Enter submits, Esc cancels, Ctrl+U clears. Library searches subscribed show names
 and cached episode titles/descriptions, including completed history. Apple searches
 shows only—not a global episode index. `/` still filters only the focused list.
 Esc clears library search or leaves a preview. An empty Apple query restores the
