@@ -104,7 +104,7 @@ func TestQueueUndoFailuresKeepLastSuccessfulRemoval(t *testing.T) {
 }
 
 func TestQueueUndoCannotResurrectPlayedOrExplicitlyChangedWork(t *testing.T) {
-	for _, action := range []string{"play-and-advance", "enqueue", "clear", "replace", "complete"} {
+	for _, action := range []string{"play-and-advance", "enqueue", "clear", "replace", "complete", "restart"} {
 		t.Run(action, func(t *testing.T) {
 			db, p, items := setup(t)
 			e, _ := engineFor(t, db, p)
@@ -131,6 +131,11 @@ func TestQueueUndoCannotResurrectPlayedOrExplicitlyChangedWork(t *testing.T) {
 				err = e.SetQueue(background, []int64{a, c})
 			case "complete":
 				err = e.MarkCompleted(background, b, true)
+			case "restart":
+				err = e.Close(background)
+				if err == nil {
+					e, _ = engineFor(t, db, p)
+				}
 			}
 			if err != nil {
 				t.Fatal(err)
