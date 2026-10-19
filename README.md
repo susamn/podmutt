@@ -210,8 +210,9 @@ In Details, **Enter plays/resumes the inspected episode, a queues it, and c togg
 completion** when supported. Direct **4** pins the shown episode too. These actions
 never follow a different underlying list row; Esc restores the inspected selection
 when it is still visible. Preview play/queue does not subscribe; preview completion
-requires subscription. Space still controls current audio. `s` stops and `n` advances to the first pending
-episode. **Up next contains only pending episodes**, numbered from 1, with show/title
+requires subscription. Space still controls current audio. `s` stops and `n` advances to the newest pending
+episode by publication time; natural completion uses the same priority, independent
+of insertion/display order. Equal or unknown dates retain queue order as a tie-breaker. **Up next contains only pending episodes**, numbered from 1, with show/title
 and resume position. **Now playing is separate and cannot be selected for queue
 edits**. The header shows pending count (or matching/total while filtering).
 Playing a different episode preserves interrupted playback in Up next; completion
@@ -228,10 +229,10 @@ replacing the queue invalidates it. `u` still subscribes/unsubscribes in Podcast
 not change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
 
-Subscribed shows automatically add their latest cached episode at startup,
+Subscribed shows consider their two latest cached releases at startup,
 on subscription and after successful refresh (including 304). Arrivals append
-behind current/pending playback without autoplay or historical backlog. Completed,
-current and already-seen heads are not re-added after removal/restart. Ad-hoc shows
+without autoplay or older historical fallback. Completed, current and already-seen
+releases are not re-added after removal/restart. Ad-hoc shows
 never auto-enqueue. Unsubscribe keeps queued work/history; resubscribe keeps these
 receipts. See [arrival policy](docs/adr/020-subscribed-latest-autoqueue.md).
 Schema migration 2 preserves listening state; older binaries cannot open it—use a
