@@ -156,13 +156,14 @@ func (e *Engine) Stop(ctx context.Context) error {
 	return err
 }
 
-// Next skips without marking completed. Only the explicit queue advances.
+// Next skips without marking completed. The newest pending episode advances;
+// insertion order and presentation sorting do not determine playback priority.
 func (e *Engine) Next(ctx context.Context) error {
 	_, err := e.submit(ctx, func(ctx context.Context) error {
 		if len(e.state.Queue) == 0 {
 			return e.stop(ctx)
 		}
-		return e.load(ctx, e.state.Queue[0].ID)
+		return e.load(ctx, e.nextPendingID())
 	})
 	return err
 }
@@ -306,7 +307,7 @@ func (e *Engine) event(ctx context.Context, event player.Event) {
 			}
 			e.state.Status = Stopped
 			if len(e.state.Queue) > 0 {
-				if err := e.load(ctx, e.state.Queue[0].ID); err != nil {
+				if err := e.load(ctx, e.nextPendingID()); err != nil {
 					e.fail(ctx, err)
 				}
 			}
