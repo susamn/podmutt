@@ -218,7 +218,8 @@ func (m *libraryShell) removeQueueItem() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	if !slices.ContainsFunc(m.state.Queue, func(item store.Episode) bool { return item.ID == episode.ID }) {
+	selected, _ := m.Model.Selected(ui.Queue)
+	if selected.Current || !slices.ContainsFunc(m.state.Queue, func(item store.Episode) bool { return item.ID == episode.ID }) {
 		m.notice = "Current audio is not a pending queue item"
 		return nil
 	}

@@ -88,16 +88,19 @@ func (m shell) withPlayback(state playback.State) shell {
 		return m
 	}
 	m.state = state
+	// Marking history complete does not itself stop current audio. Keep its
+	// read-only identity visible until transport actually stops/finishes.
+	currentVisible := state.Current != nil && (!state.Current.Completed || state.Status != playback.Stopped)
 	var queue []ui.Item
 	for _, episode := range state.Queue {
-		if state.Current != nil && !state.Current.Completed && episode.ID == state.Current.ID {
+		if currentVisible && episode.ID == state.Current.ID {
 			continue
 		}
 		queue = append(queue, queueItem(episode))
 	}
 	player := ui.Player{Status: string(state.Status), Position: "0:00", Duration: "--:--", Error: state.Error, CanNext: len(state.Queue) > 0, CanSeek: state.CanSeek}
 	if episode := state.Current; episode != nil {
-		if !episode.Completed {
+		if currentVisible {
 			item := queueItem(*episode)
 			item.Current = true
 			queue = append(queue, item)
