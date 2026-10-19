@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,15 +25,26 @@ func stackItem(episode store.Episode, status string) ui.Item {
 		plainTitle = "Untitled episode"
 	}
 	pos := clock(episode.PositionSeconds)
+	remains := "100%"
+	if episode.DurationSeconds > 0 {
+		if episode.PositionSeconds > 0 {
+			pct := int(math.Round((1.0 - (episode.PositionSeconds / float64(episode.DurationSeconds))) * 100))
+			pct = max(0, min(100, pct))
+			remains = fmt.Sprintf("%d%%", pct)
+		}
+	}
 	return ui.Item{
-		ID:         strconv.FormatInt(episode.ID, 10),
-		Title:      fmt.Sprintf("[%s] %s · %s · %s/%s", status, plainTitle, show, pos, duration),
-		PlainTitle: plainTitle,
-		Channel:    show,
-		Position:   pos,
-		Duration:   duration,
-		State:      status,
-		Completed:  episode.Completed,
+		ID:              strconv.FormatInt(episode.ID, 10),
+		Title:           fmt.Sprintf("[%s] %s · %s · %s/%s", status, plainTitle, show, pos, duration),
+		PlainTitle:      plainTitle,
+		Channel:         show,
+		Position:        pos,
+		Duration:        duration,
+		Remains:         remains,
+		PositionSeconds: episode.PositionSeconds,
+		DurationSeconds: float64(episode.DurationSeconds),
+		State:           status,
+		Completed:       episode.Completed,
 	}
 }
 
