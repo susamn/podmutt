@@ -186,7 +186,7 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		}
 		m.Model = m.Model.WithFocus(ui.Queue)
 		libraryKey(&m, 'd')
-		if m.confirming == nil || !strings.Contains(m.View().Content, "Confirm queue edit") {
+		if m.confirming == nil || !strings.Contains(m.View().Content, "Confirm Up next edit") {
 			t.Fatal("no confirmation")
 		}
 		// Ordinary keys cannot mutate or dismiss a confirmation.

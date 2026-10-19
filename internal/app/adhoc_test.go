@@ -70,9 +70,8 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		id := state.Current.ID
 		m.Model = m.Model.WithFocus(ui.Queue)
 		libraryKey(&m, 'l')
-		libraryKey(&m, 'h')
-		if m.Model.Focus() != ui.Queue || m.browse.preview == nil {
-			t.Fatal("queue details lost preview or origin")
+		if m.Model.Focus() != ui.Queue || m.browse.preview == nil || len(m.Model.Visible(ui.Queue)) != 0 {
+			t.Fatal("empty Up next inspected current or lost preview")
 		}
 		libraryKey(&m, 'h')
 		if m.Model.Focus() != ui.Episodes || m.browse.preview == nil {

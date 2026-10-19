@@ -145,7 +145,7 @@ func TestCompactOverlaysAndHelp(t *testing.T) {
 		t.Fatal("help did not dismiss")
 	}
 	m = resize(m, 120, 32)
-	if !strings.Contains(ansi.Strip(m.View().Content), "Queue") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "Up next") {
 		t.Fatal("expanding did not restore full layout")
 	}
 }
@@ -280,11 +280,11 @@ func TestUnicodeBoxHeadersAndVersion(t *testing.T) {
 		t.Fatalf("unexpected podcasts header: %s", podcastsPane)
 	}
 	queuePane := ansi.Strip(m.pane(Queue, 50, 8))
-	if !strings.Contains(queuePane, "╭──Queue") || !strings.Contains(queuePane, "[3]──v1.5.0─╮") {
+	if !strings.Contains(queuePane, "╭──Up next · 1") || !strings.Contains(queuePane, "[3]──v1.5.0─╮") {
 		t.Fatalf("unexpected queue header with version: %s", queuePane)
 	}
 	playerPane := ansi.Strip(m.pane(PlayerPanel, 40, 8))
-	if !strings.Contains(playerPane, "╭──Player") || !strings.Contains(playerPane, "[5]─╮") {
+	if !strings.Contains(playerPane, "╭──Now playing") || !strings.Contains(playerPane, "[5]─╮") {
 		t.Fatalf("unexpected player header: %s", playerPane)
 	}
 	for _, w := range []int{1, 2, 5, 10, 20} {
@@ -317,23 +317,15 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 		t.Fatalf("unexpected compact episode row: %s", compactEp)
 	}
 
-	qPlaying := Item{ID: "1", Index: 1, PlainTitle: "Track Playing", Channel: "Tech Daily", State: "playing", Position: "10:00", Duration: "40:00", Remains: "75%"}
-	qPaused := Item{ID: "2", Index: 2, PlainTitle: "Track Paused", Channel: "Tech Daily", State: "paused", Position: "05:00", Duration: "20:00", Remains: "75%"}
-	qStopped := Item{ID: "3", Index: 3, PlainTitle: "Track Stopped", Channel: "Other Show", State: "stopped", Position: "00:00", Duration: "15:00", Remains: "100%"}
-
-	qPlayRow := ansi.Strip(m.renderQueueRow(qPlaying, 100, true))
-	if !strings.Contains(qPlayRow, "> ▶") || !strings.Contains(qPlayRow, "1   ") || !strings.Contains(qPlayRow, "75%") || !strings.Contains(qPlayRow, "10:00/40:00") {
-		t.Fatalf("unexpected queue play row: %s", qPlayRow)
-	}
-
-	qPauseRow := ansi.Strip(m.renderQueueRow(qPaused, 100, false))
-	if !strings.Contains(qPauseRow, "⏸") || !strings.Contains(qPauseRow, "2   ") || !strings.Contains(qPauseRow, "75%") {
-		t.Fatalf("unexpected queue pause row: %s", qPauseRow)
-	}
-
-	qStopRow := ansi.Strip(m.renderQueueRow(qStopped, 50, false))
-	if !strings.Contains(qStopRow, "■") || !strings.Contains(qStopRow, "3   ") || !strings.Contains(qStopRow, "100%") {
-		t.Fatalf("unexpected queue stop row: %s", qStopRow)
+	queued := Item{ID: "1", Index: 1, PlainTitle: "Queued episode", Channel: "Tech Daily", Position: "10:00", Duration: "40:00", Remains: "75%"}
+	for _, width := range []int{50, 100} {
+		row := ansi.Strip(m.renderQueueRow(queued, width, true))
+		if !strings.HasPrefix(row, "> ") || !strings.Contains(row, "1   ") || !strings.Contains(row, "75%") || !strings.Contains(row, "10:00/40:00") {
+			t.Fatalf("unexpected pending row: %s", row)
+		}
+		if strings.ContainsAny(row, "▶⏸■") {
+			t.Fatal("pending row has current transport glyph", row)
+		}
 	}
 
 	epHeader := ansi.Strip(m.renderEpisodesHeader(100))

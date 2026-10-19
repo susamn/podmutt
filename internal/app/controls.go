@@ -94,17 +94,9 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = msg.state
 		var queue []ui.Item
-		idx := 1
-		if current := msg.state.Current; current != nil && !current.Completed {
-			item := stackItem(*current, string(msg.state.Status))
-			item.Index = idx
-			idx++
-			queue = append(queue, item)
-		}
-		for _, episode := range msg.state.Queue {
-			item := stackItem(episode, "queued")
-			item.Index = idx
-			idx++
+		for i, episode := range msg.state.Queue {
+			item := queueItem(episode)
+			item.Index = i + 1
 			queue = append(queue, item)
 		}
 		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0, CanSeek: msg.state.CanSeek}

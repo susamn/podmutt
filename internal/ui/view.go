@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-var titles = [4]string{"Podcasts", "Episodes", "Queue", "Details"}
+var titles = [4]string{"Podcasts", "Episodes", "Up next", "Details"}
 
 // clean removes terminal escapes and control characters from untrusted metadata.
 func clean(text string, multiline bool) string {
@@ -102,6 +102,11 @@ func (m Model) pane(panel Panel, width, height int) string {
 				empty = clean(m.data.PodcastEmpty, false)
 			} else if panel == Episodes && m.data.EpisodeEmpty != "" {
 				empty = clean(m.data.EpisodeEmpty, false)
+			} else if panel == Queue {
+				empty = "Up next is empty · a adds an episode"
+				if m.HasFilter(Queue) {
+					empty = "No matching Up next episodes"
+				}
 			}
 			rows = append(rows, empty)
 		}
@@ -120,6 +125,13 @@ func (m Model) pane(panel Panel, width, height int) string {
 	}
 	if panel == Episodes && m.data.EpisodeLabel != "" {
 		title += " · " + clean(m.data.EpisodeLabel, false)
+	}
+	if panel == Queue {
+		if m.HasFilter(Queue) {
+			title += fmt.Sprintf(" · %d/%d", len(m.items(Queue)), len(m.data.Queue))
+		} else {
+			title += fmt.Sprintf(" · %d", len(m.data.Queue))
+		}
 	}
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
@@ -287,14 +299,6 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	}
 	pal := m.Theme()
 	gutter := "  "
-	switch item.State {
-	case "playing":
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightGreen))).Render("▶ ")
-	case "paused":
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))).Render("⏸ ")
-	case "stopped":
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightRed))).Render("■ ")
-	}
 
 	idxStr := "    "
 	if item.Index > 0 {
@@ -756,13 +760,13 @@ func (m Model) View() tea.View {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",
 					"h/Left back · l/Right open · Tab lists · 1-5 focus",
-					"Player (5): ,/. seek ±15s · Left/Right select · Enter activate",
+					"Now playing (5): ,/. seek ±15s · arrows select · Enter activate",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
 					"Space pause/resume current · s stop · n next",
 					"Episodes Enter play · i details · a enqueue · A enqueue visible",
-					"Queue: Enter play/promote · j/k select",
+					"Up next (3): Enter play · j/k select",
 					"Pending: J/K move · d remove · D clear (confirm)",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",

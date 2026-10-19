@@ -32,7 +32,6 @@ type Item struct {
 	Destination     bool
 	Queued          bool
 	Completed       bool
-	State           string
 	Index           int
 }
 

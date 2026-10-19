@@ -27,7 +27,7 @@ func TestArtworkColumnKeepsDetailsScrollableAndPlayerBounded(t *testing.T) {
 	if m.detailScroll == 0 {
 		t.Fatal("details didn't scroll")
 	}
-	if !strings.Contains(m.View().Content, "Player") {
+	if !strings.Contains(m.View().Content, "Now playing") {
 		t.Fatal("player displaced")
 	}
 	m = resize(m, 80, 24)
