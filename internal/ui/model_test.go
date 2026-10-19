@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"podmutt/internal/theme"
 )
 
 func fixture() Data {
@@ -330,5 +331,35 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	qStopRow := ansi.Strip(m.renderQueueRow(qStopped, 50, false))
 	if !strings.Contains(qStopRow, "■") || !strings.Contains(qStopRow, "#3") {
 		t.Fatalf("unexpected queue stop row: %s", qStopRow)
+	}
+}
+
+func TestBottomHintsContextual(t *testing.T) {
+	m := New(Data{PodcastLabel: "My subscriptions"}).WithTheme(theme.Default())
+	subHints := ansi.Strip(m.bottomHints())
+	for _, expected := range []string{"f:search", "U:url", "b:discover", "v:view", ",/.:seek"} {
+		if !strings.Contains(subHints, expected) {
+			t.Fatalf("expected hint %q in subscriptions: %s", expected, subHints)
+		}
+	}
+
+	mDiscover := New(Data{PodcastLabel: "Discover · Apple"}).WithTheme(theme.Default())
+	discHints := ansi.Strip(mDiscover.bottomHints())
+	for _, expected := range []string{"f:search", "U:url", "b:library", "t:top25", ",/.:seek"} {
+		if !strings.Contains(discHints, expected) {
+			t.Fatalf("expected hint %q in discover: %s", expected, discHints)
+		}
+	}
+
+	mDetails := m.WithFocus(Details)
+	detHints := ansi.Strip(mDetails.bottomHints())
+	if !strings.Contains(detHints, "j/k:scroll") || !strings.Contains(detHints, "Ctrl-d/u:half-page") {
+		t.Fatalf("unexpected details hints: %s", detHints)
+	}
+
+	mPlayer := m.WithFocus(PlayerPanel)
+	playHints := ansi.Strip(mPlayer.bottomHints())
+	if !strings.Contains(playHints, "Left/Right:select") || !strings.Contains(playHints, ",/.:seek") {
+		t.Fatalf("unexpected player hints: %s", playHints)
 	}
 }
