@@ -15,6 +15,7 @@ func (e *Engine) QueueLatest(ctx context.Context, feedID int64) error {
 			return err
 		}
 		e.state.Queue = queue
+		e.invalidateRequeuedUndo()
 		return nil
 	})
 	return err

@@ -61,6 +61,8 @@ type libraryShell struct {
 	lastPlayingID            int64
 	lastCompleted            bool
 	confirming               *queueConfirmation
+	queueEditing             bool
+	queueUndoPending         bool
 	detailTarget             *store.Episode
 	detailFrom               ui.Panel
 }
@@ -266,6 +268,22 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.err != nil {
 			m.notice = msg.err.Error()
 		}
+	case queueEdited:
+		m.queueEditing = false
+		pending := m.queueUndoPending
+		m.queueUndoPending = false
+		if errors.Is(msg.err, playback.ErrNoQueueUndo) {
+			m.notice = "Nothing to undo in Up next"
+		} else if msg.err != nil {
+			m.notice = msg.err.Error()
+		} else if msg.undo {
+			m.notice = "Restored to Up next"
+		} else {
+			m.notice = "Removed from Up next · u undo"
+			if pending {
+				cmd = m.undoQueueRemoval()
+			}
+		}
 	case playerEdited:
 		if errors.Is(msg.err, playback.ErrNoEpisode) {
 			m.notice = "No current episode · Enter plays the selected episode"
@@ -407,8 +425,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				step = -1
 			}
 			cmd = m.moveQueue(step)
-		case "d", "D":
-			m.confirmQueue(msg.String() == "D")
+		case "d", "delete":
+			cmd = m.removeQueueItem()
+		case "D":
+			m.confirmClearQueue()
 		case "N":
 			if !m.mutating {
 				m.adding = true
@@ -431,7 +451,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				}
 			}
 		case "u":
-			if m.browse.active {
+			if focus == ui.Queue {
+				cmd = m.undoQueueRemoval()
+			} else if m.browse.active {
 				cmd = m.subscribePreview()
 			} else {
 				cmd = m.subscribe()

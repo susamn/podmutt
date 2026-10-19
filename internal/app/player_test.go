@@ -185,7 +185,7 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 			t.Fatal("old details target survived navigation")
 		}
 		m.Model = m.Model.WithFocus(ui.Queue)
-		libraryKey(&m, 'd')
+		libraryKey(&m, 'D')
 		if m.confirming == nil || !strings.Contains(m.View().Content, "Confirm Up next edit") {
 			t.Fatal("no confirmation")
 		}
@@ -195,9 +195,8 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		if m.confirming != nil || len(syncPlayer(t, &m).Queue) != 2 {
 			t.Fatal("cancel failed")
 		}
-		libraryKey(&m, 'd')
-		finishLibrary(&m, libraryKey(&m, 'y'))
-		if len(syncPlayer(t, &m).Queue) != 1 {
+		finishLibrary(&m, libraryKey(&m, 'd'))
+		if len(syncPlayer(t, &m).Queue) != 1 || m.confirming != nil {
 			t.Fatal("remove failed")
 		}
 		libraryKey(&m, 'D')

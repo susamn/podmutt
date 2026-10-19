@@ -49,12 +49,11 @@ func TestUpNextEditsCannotTargetCurrentAcrossLayouts(t *testing.T) {
 		if after, _ := m.Model.Selected(ui.Queue); after.ID != selected.ID || fmt.Sprint(m.state.Queue[1].ID) != selected.ID {
 			t.Fatal("reorder lost pending identity", after, m.state.Queue)
 		}
-		libraryKey(&m, 'd')
-		if m.confirming == nil || m.confirming.ids[0] == first.ID {
-			t.Fatal("remove did not target a pending entry")
+		finishLibrary(&m, libraryKey(&m, 'd'))
+		if m.confirming != nil {
+			t.Fatal("single remove requires confirmation")
 		}
-		finishLibrary(&m, libraryKey(&m, 'y'))
-		if state := syncPlayer(t, &m); len(state.Queue) != 1 || state.Current.ID != first.ID || state.Status != playback.Playing {
+		if state := syncPlayer(t, &m); len(state.Queue) != 1 || fmt.Sprint(state.Queue[0].ID) == selected.ID || state.Current.ID != first.ID || state.Status != playback.Playing {
 			t.Fatal("remove affected transport", state)
 		}
 		libraryKey(&m, 'D')

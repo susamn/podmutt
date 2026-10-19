@@ -533,12 +533,13 @@ func (m Model) bottomHints() string {
 		}
 	case Queue:
 		hints = []hint{
+			{"d/Del", "remove"},
+			{"u", "undo"},
 			{"j/k", "select"},
 			{"Enter", "play"},
 			{"Space", "pause/resume"},
 			{"i", "details"},
 			{"J/K", "move"},
-			{"d", "remove"},
 			{"D", "clear"},
 			{",/.", "seek"},
 			{"Tab", "pane"},
@@ -762,13 +763,13 @@ func (m Model) View() tea.View {
 					"e             Settings · live theme switch",
 					"Space pause/resume current · s stop · n next",
 					"Episodes Enter play · i details · a enqueue · A enqueue visible",
-					"Up next (3): Enter play · j/k select",
-					"Pending: J/K move · d remove · D clear (confirm)",
+					"Up next: d/Del remove · u undo",
+					"Pending: J/K move · Enter play · D clear (confirm)",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",
 					"U RSS/website preview · t Apple US top 25",
-					"N add/subscribe · u subscribe/unsubscribe",
-					"New / Continue / All subscriptions / a show · o sort",
+					"Podcasts: u subscribe/unsubscribe · N add",
+					"Library views / a show · o sort",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
 				}, width, height, true, "", "")
 			}

@@ -80,6 +80,7 @@ type Engine struct {
 	player       Player
 	playerCancel context.CancelFunc
 	state        State
+	removed      *queueRemoval
 	clock        positionClock
 	entryID      int64
 	seenID       int64

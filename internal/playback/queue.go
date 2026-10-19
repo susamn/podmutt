@@ -43,12 +43,14 @@ func (e *Engine) MoveQueued(ctx context.Context, id int64, step int) error {
 // RemoveQueued removes only captured identities; unrelated changes survive.
 func (e *Engine) RemoveQueued(ctx context.Context, ids ...int64) error {
 	ids = slices.Clone(ids)
-	_, err := e.submit(ctx, func(ctx context.Context) error {
-		keep := queueIDs(e.state.Queue)
-		keep = slices.DeleteFunc(keep, func(id int64) bool { return slices.Contains(ids, id) })
-		return e.setQueue(ctx, keep)
-	})
+	_, err := e.submit(ctx, func(ctx context.Context) error { return e.removeQueued(ctx, ids) })
 	return err
+}
+
+func (e *Engine) removeQueued(ctx context.Context, ids []int64) error {
+	keep := queueIDs(e.state.Queue)
+	keep = slices.DeleteFunc(keep, func(id int64) bool { return slices.Contains(ids, id) })
+	return e.setQueue(ctx, keep)
 }
 
 // ClearQueue refuses confirmation of a different queue, including a new order.
@@ -58,7 +60,11 @@ func (e *Engine) ClearQueue(ctx context.Context, expected []int64) error {
 		if !slices.Equal(queueIDs(e.state.Queue), expected) {
 			return ErrQueueChanged
 		}
-		return e.setQueue(ctx, nil)
+		if err := e.setQueue(ctx, nil); err != nil {
+			return err
+		}
+		e.removed = nil
+		return nil
 	})
 	return err
 }
