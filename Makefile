@@ -91,14 +91,16 @@ native-verify: native-preflight
 	PODMUTT_TEST_MPV='$(MPV)' CGO_ENABLED=1 $(MAKE) mpv-test
 
 native-macos: native-preflight
-	@mkdir -p bin/podmutt.app/Contents/MacOS
+	@mkdir -p bin/podmutt.app/Contents/MacOS bin/podmutt.app/Contents/Resources
 	cp packaging/macos/Info.plist bin/podmutt.app/Contents/Info.plist
+	cp packaging/macos/podmutt.icns bin/podmutt.app/Contents/Resources/podmutt.icns
 	CGO_ENABLED=1 $(GO) build -trimpath -ldflags='$(LDFLAGS)' -o bin/podmutt.app/Contents/MacOS/podmutt ./cmd/podmutt
 	codesign --force --sign - bin/podmutt.app
 
 native-media-test: native-preflight
-	@mkdir -p bin/media-test.app/Contents/MacOS
+	@mkdir -p bin/media-test.app/Contents/MacOS bin/media-test.app/Contents/Resources
 	cp packaging/macos/Info.plist bin/media-test.app/Contents/Info.plist
+	cp packaging/macos/podmutt.icns bin/media-test.app/Contents/Resources/podmutt.icns
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier io.gitlab.susamn.podmutt.media-test' bin/media-test.app/Contents/Info.plist
 	CGO_ENABLED=1 $(GO) test -tags=nativecheck -c -o bin/media-test.app/Contents/MacOS/podmutt ./internal/macmedia
 	codesign --force --sign - bin/media-test.app
@@ -118,6 +120,22 @@ dist:
 			tar -czf "dist/$$name.tar.gz" -C "dist/$$name" podmutt; \
 		done; \
 	done
+
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+DATADIR ?= $(PREFIX)/share
+
+install: build
+	install -d $(DESTDIR)$(BINDIR)
+	install -m 755 bin/podmutt $(DESTDIR)$(BINDIR)/podmutt
+
+install-linux-desktop:
+	install -d $(DESTDIR)$(DATADIR)/applications
+	install -m 644 packaging/linux/podmutt.desktop $(DESTDIR)$(DATADIR)/applications/podmutt.desktop
+	install -d $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps
+	install -m 644 assets/logo.svg $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/podmutt.svg
+	install -d $(DESTDIR)$(DATADIR)/icons/hicolor/512x512/apps
+	install -m 644 assets/logo.png $(DESTDIR)$(DATADIR)/icons/hicolor/512x512/apps/podmutt.png
 
 clean:
 	rm -rf bin dist coverage

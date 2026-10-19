@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" width="160" alt="podmutt logo">
+</p>
+
 # podmutt
 
 A Linux/macOS podcast TUI inspired by lazygit and mpdtui. Planned stack: Go,
