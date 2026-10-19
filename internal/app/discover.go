@@ -236,16 +236,9 @@ func (m *libraryShell) renderSearch() {
 	})
 }
 func (m *libraryShell) appendSearch(text string) {
-	// Treat pasted control characters as whitespace, not commands or escapes.
-	text = strings.Map(func(r rune) rune {
-		if r < ' ' || r == 127 {
-			return ' '
-		}
-		return r
-	}, text)
-	input := m.browse.input + text
-	runes := []rune(input)
-	m.browse.input = string(runes[:min(len(runes), m.searchLimit(input))])
+	ti := ui.TextInput{Value: m.browse.input, Limit: m.searchLimit(m.browse.input + text)}
+	ti.Append(text)
+	m.browse.input = ti.Value
 	m.renderSearch()
 }
 
@@ -283,12 +276,10 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 			}
 			m.renderSearch()
 		}
-	case "ctrl+u":
-		m.browse.input = ""
-		m.renderSearch()
-	case "backspace":
-		runes := []rune(m.browse.input)
-		m.browse.input = string(runes[:max(0, len(runes)-1)])
+	case "ctrl+u", "backspace":
+		ti := ui.TextInput{Value: m.browse.input, Limit: m.searchLimit(m.browse.input)}
+		ti.EditKey(key)
+		m.browse.input = ti.Value
 		m.renderSearch()
 	case "enter":
 		if m.searchingURL(m.browse.input) {

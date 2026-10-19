@@ -529,19 +529,15 @@ func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 func (m *libraryShell) appendInput(text string) {
-	runes := []rune(m.input + text)
-	m.input = string(runes[:min(len(runes), 4096)])
+	ti := ui.TextInput{Value: m.input, Limit: 4096}
+	ti.Append(text)
+	m.input = ti.Value
 }
 func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 	switch key.String() {
 	case "esc":
 		m.adding = false
 		m.input = ""
-	case "ctrl+u":
-		m.input = ""
-	case "backspace":
-		runes := []rune(m.input)
-		m.input = string(runes[:max(0, len(runes)-1)])
 	case "enter":
 		m.adding = false
 		m.mutating = true
@@ -553,7 +549,10 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 			return subscriptionEdited(ctx, engine, id, true, err)
 		}
 	default:
-		m.appendInput(key.Text)
+		ti := ui.TextInput{Value: m.input, Limit: 4096}
+		if ti.EditKey(key) {
+			m.input = ti.Value
+		}
 	}
 	return nil
 }

@@ -595,6 +595,23 @@ func (m Model) bottomHints() string {
 	return hintText
 }
 
+func renderInputBox(label, value string, width int, pal theme.Palette) string {
+	if label == "" {
+		label = "Input"
+	}
+	fieldWidth := max(16, width-6-ansi.StringWidth(label)-4)
+	valTrunc := ansi.Truncate(value, fieldWidth-1, "…")
+	inputArea := valTrunc + "▌"
+	pad := max(0, fieldWidth-ansi.StringWidth(inputArea))
+
+	inputBox := lipgloss.NewStyle().
+		Background(lipgloss.Color(string(pal.Selection))).
+		Foreground(lipgloss.Color(string(pal.BrightForeground))).
+		Render(" " + inputArea + strings.Repeat(" ", pad) + " ")
+
+	return "  " + label + ": " + inputBox
+}
+
 func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	pal := m.Theme()
 	var rows []string
@@ -609,23 +626,7 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	}
 
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
-		label := dialog.InputLabel
-		if label == "" {
-			label = "Input"
-		}
-		val := dialog.InputValue
-		fieldWidth := max(16, width-6-ansi.StringWidth(label)-4)
-		valTrunc := ansi.Truncate(val, fieldWidth-1, "…")
-		inputArea := valTrunc + "▌"
-		pad := max(0, fieldWidth-ansi.StringWidth(inputArea))
-
-		inputBox := lipgloss.NewStyle().
-			Background(lipgloss.Color(string(pal.Selection))).
-			Foreground(lipgloss.Color(string(pal.BrightForeground))).
-			Render(" " + inputArea + strings.Repeat(" ", pad) + " ")
-
-		rows = append(rows, "")
-		rows = append(rows, "  "+label+": "+inputBox)
+		rows = append(rows, "", renderInputBox(dialog.InputLabel, dialog.InputValue, width, pal))
 	}
 
 	if dialog.Hint != "" {
@@ -639,35 +640,17 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 }
 
 func (m Model) renderPromptModal(prompt string, width, height int) string {
-	pal := m.Theme()
-	label := "URL"
 	val := prompt
 	if strings.HasPrefix(val, "URL: ") {
 		val = strings.TrimPrefix(val, "URL: ")
 	}
-
-	fieldWidth := max(16, width-6-ansi.StringWidth(label)-4)
-	valTrunc := ansi.Truncate(val, fieldWidth-1, "…")
-	inputArea := valTrunc + "▌"
-	pad := max(0, fieldWidth-ansi.StringWidth(inputArea))
-
-	inputBox := lipgloss.NewStyle().
-		Background(lipgloss.Color(string(pal.Selection))).
-		Foreground(lipgloss.Color(string(pal.BrightForeground))).
-		Render(" " + inputArea + strings.Repeat(" ", pad) + " ")
-
-	hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
-
-	rows := []string{
-		"Enter a podcast RSS/Atom feed or website URL:",
-		"",
-		"  " + label + ": " + inputBox,
-		"",
-		"  " + hintStyle.Render("Enter add · Esc cancel · Ctrl+U clear"),
-	}
-
-	modalHeight := min(height, len(rows)+2)
-	return m.box("Add feed or podcast website", rows, width, modalHeight, true, "", "")
+	return m.renderDialogModal(&Dialog{
+		Title:      "Add feed or podcast website",
+		Body:       "Enter a podcast RSS/Atom feed or website URL:",
+		InputLabel: "URL",
+		InputValue: val,
+		Hint:       "Enter add · Esc cancel · Ctrl+U clear",
+	}, width, height)
 }
 
 func (m Model) View() tea.View {

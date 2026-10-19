@@ -134,7 +134,7 @@ func (m Model) Select(panel Panel, id string) Model {
 	return m
 }
 func (m Model) Busy() bool {
-	return m.editing || m.help || m.settings || m.data.Dialog != nil
+	return m.editing || m.help || m.settings || m.data.Dialog != nil || m.data.Prompt != ""
 }
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
@@ -282,7 +282,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clamp()
 	case tea.PasteMsg:
 		if m.editing {
-			m.filters[m.focus] += msg.Content
+			ti := TextInput{Value: m.filters[m.focus], Limit: 256}
+			ti.Append(msg.Content)
+			m.filters[m.focus] = ti.Value
 			m.clamp()
 		}
 	case tea.KeyPressMsg:
@@ -297,15 +299,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.editing = false
 			case "esc":
 				m.filters[m.focus], m.editing = m.previous, false
-			case "backspace":
-				runes := []rune(m.filters[m.focus])
-				if len(runes) > 0 {
-					m.filters[m.focus] = string(runes[:len(runes)-1])
-				}
-			case "ctrl+u":
-				m.filters[m.focus] = ""
 			default:
-				m.filters[m.focus] += msg.Text
+				ti := TextInput{Value: m.filters[m.focus], Limit: 256}
+				if ti.EditKey(msg) {
+					m.filters[m.focus] = ti.Value
+				}
 			}
 			m.clamp()
 			return m, nil
