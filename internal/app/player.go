@@ -48,9 +48,10 @@ func queueItem(episode store.Episode) ui.Item {
 }
 
 type playerEdited struct{ err error }
-type queueConfirmation struct {
-	ids   []int64
-	clear bool
+type queueConfirmation struct{ ids []int64 }
+type queueEdited struct {
+	undo bool
+	err  error
 }
 
 func clock(seconds float64) string {
@@ -132,26 +133,39 @@ func (m *libraryShell) moveQueue(step int) tea.Cmd {
 	engine, ctx := m.s.playback, m.s.ctx
 	return func() tea.Msg { return playerEdited{engine.MoveQueued(ctx, episode.ID, step)} }
 }
-func (m *libraryShell) confirmQueue(clear bool) {
-	if m.Model.Focus() != ui.Queue || len(m.state.Queue) == 0 {
+func (m *libraryShell) removeQueueItem() tea.Cmd {
+	if m.Model.Focus() != ui.Queue || m.queueEditing {
+		return nil
+	}
+	episode, ok := m.contextEpisode()
+	if !ok {
+		return nil
+	}
+	m.queueEditing = true
+	engine, ctx := m.s.playback, m.s.ctx
+	return func() tea.Msg { return queueEdited{err: engine.RemoveQueuedUndoable(ctx, episode.ID)} }
+}
+
+func (m *libraryShell) undoQueueRemoval() tea.Cmd {
+	if m.queueEditing {
+		m.queueUndoPending = true
+		return nil
+	}
+	m.queueEditing = true
+	engine, ctx := m.s.playback, m.s.ctx
+	return func() tea.Msg { return queueEdited{undo: true, err: engine.UndoQueueRemoval(ctx)} }
+}
+
+func (m *libraryShell) confirmClearQueue() {
+	if m.Model.Focus() != ui.Queue || len(m.state.Queue) == 0 || m.queueEditing {
 		return
 	}
-	confirmation := &queueConfirmation{clear: clear}
-	body := "Clear pending episodes? Current playback and history are unchanged."
-	if clear {
-		for _, episode := range m.state.Queue {
-			confirmation.ids = append(confirmation.ids, episode.ID)
-		}
-	} else {
-		episode, ok := m.contextEpisode()
-		if !ok {
-			return
-		}
-		confirmation.ids = []int64{episode.ID}
-		body = "Remove from Up next: " + episode.Title + "?"
+	confirmation := &queueConfirmation{}
+	for _, episode := range m.state.Queue {
+		confirmation.ids = append(confirmation.ids, episode.ID)
 	}
 	m.confirming = confirmation
-	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm Up next edit", Body: body, Hint: "y confirm · Esc/n cancel · q quit"})
+	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm Up next edit", Body: "Clear pending episodes? Current playback and history are unchanged.", Hint: "y confirm · Esc/n cancel · q quit"})
 }
 func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "q" || key.String() == "ctrl+c" {
@@ -168,10 +182,5 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg {
-		if confirmation.clear {
-			return playerEdited{engine.ClearQueue(ctx, confirmation.ids)}
-		}
-		return playerEdited{engine.RemoveQueued(ctx, confirmation.ids...)}
-	}
+	return func() tea.Msg { return playerEdited{engine.ClearQueue(ctx, confirmation.ids)} }
 }

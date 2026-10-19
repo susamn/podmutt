@@ -179,6 +179,15 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if rows := model.Model.Visible(ui.Queue); len(rows) != 1 || rows[0].ID != fmt.Sprint(episodes[1].ID) || rows[0].Index != 1 {
 		t.Fatal("paused current appeared in editable Up next", rows)
 	}
+	model.Model = model.Model.WithFocus(ui.Queue)
+	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeyDelete}))
+	if state := syncPlayer(t, &model); len(state.Queue) != 0 || state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
+		t.Fatal("queue deletion changed paused current", state)
+	}
+	finishLibrary(&model, libraryKey(&model, 'u'))
+	if state := syncPlayer(t, &model); len(state.Queue) != 1 || state.Queue[0].ID != episodes[1].ID || state.Current.PositionSeconds != 42 {
+		t.Fatal("queue undo lost pending work or progress", state)
+	}
 	openLibraryDestination(&model, continueDestination)
 	if len(model.rows) != 1 || model.rows[0].ID != episodes[0].ID || model.rows[0].PositionSeconds != 42 {
 		t.Fatal("paused episode unavailable in Continue", model.rows)

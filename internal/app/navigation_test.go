@@ -70,7 +70,7 @@ func TestNavigationStaysInsideEditorsAndOverlays(t *testing.T) {
 		finishLibrary(&m, libraryKey(&m, 'A'))
 		syncPlayer(t, &m)
 		m.Model = m.Model.WithFocus(ui.Queue)
-		libraryKey(&m, 'd')
+		libraryKey(&m, 'D')
 		libraryKey(&m, 'h')
 		libraryKey(&m, 'l')
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyLeft})

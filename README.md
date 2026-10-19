@@ -197,10 +197,15 @@ edits**. The header shows pending count (or matching/total while filtering).
 Playing a different episode preserves interrupted playback in Up next; completion
 keeps history. Restart restores stopped.
 `a` enqueues one item; `A` enqueues visible Episodes in display order. In Up next,
-`j/k` select, `J/K` move pending items, `d` removes a pending item, and `D` clears
-pending items while keeping current playback. Removal/clear require explicit `y`;
-Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do not
-change current playback/history. Status shows position, optional duration, and
+`j/k` select and `J/K` move pending items. **d or Delete removes immediately;
+u undoes the last removal**, even when Up next is empty. Undo merges that one
+episode into the live queue without rewinding playback or other edits. It lasts
+for this session; playing/re-adding/completing that episode or explicitly clearing/
+replacing the queue invalidates it. `u` still subscribes/unsubscribes in Podcasts.
+
+`D` clears pending items while keeping current playback and requires explicit
+`y`; Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do
+not change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
 
 Subscribed shows automatically add their latest cached episode at startup,

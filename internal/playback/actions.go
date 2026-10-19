@@ -82,6 +82,9 @@ func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) er
 	episode.PositionSeconds, episode.Completed = position, false
 	e.state.Current, e.state.Status, e.state.Error = &episode, Playing, ""
 	e.state.Queue = pending
+	if e.removed != nil && e.removed.id == id {
+		e.removed = nil
+	}
 	e.entryID, e.active = entryID, true
 	return nil
 }
@@ -166,7 +169,13 @@ func (e *Engine) Next(ctx context.Context) error {
 
 func (e *Engine) SetQueue(ctx context.Context, ids []int64) error {
 	ids = append([]int64(nil), ids...)
-	_, err := e.submit(ctx, func(ctx context.Context) error { return e.setQueue(ctx, ids) })
+	_, err := e.submit(ctx, func(ctx context.Context) error {
+		if err := e.setQueue(ctx, ids); err != nil {
+			return err
+		}
+		e.removed = nil
+		return nil
+	})
 	return err
 }
 
@@ -213,6 +222,7 @@ func (e *Engine) setQueue(ctx context.Context, ids []int64) error {
 		return err
 	}
 	e.state.Queue = queue
+	e.invalidateRequeuedUndo()
 	return nil
 }
 
@@ -221,6 +231,9 @@ func (e *Engine) MarkCompleted(ctx context.Context, id int64, completed bool) er
 	_, err := e.submit(ctx, func(ctx context.Context) error {
 		if err := e.repo.SetCompleted(ctx, id, completed); err != nil {
 			return err
+		}
+		if completed && e.removed != nil && e.removed.id == id {
+			e.removed = nil
 		}
 		if e.state.Current != nil && e.state.Current.ID == id {
 			e.state.Current.Completed = completed
