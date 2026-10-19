@@ -47,6 +47,11 @@ satisfy the merge gate. Online project runners accept untagged Linux jobs; share
 runners are not required. These settings live in GitLab, outside `.gitlab-ci.yml`.
 Native macOS tests will additionally need a macOS runner.
 
+Optional [SonarQube Community Build analysis](docs/sonarqube.md) runs only on
+`main` after successful verification/builds, using the LAN Docker runners and
+existing coverage artifact. Configure protected Sonar variables to enable it;
+MRs never upload analysis to the imported project's main branch.
+
 Before requesting review, run `make check` and `make race`, then push the branch
 and open an MR. Check its pipeline and downloadable coverage/build artifacts.
 `make coverage COVERAGE_MIN=101` should fail and can be used to verify rejection
