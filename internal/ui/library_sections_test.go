@@ -12,7 +12,7 @@ import (
 
 func sectionFixture() Data {
 	data := Data{Podcasts: []Item{
-		{ID: "new", Title: "New episodes", Destination: true},
+		{ID: "new", Title: "Not started", Destination: true},
 		{ID: "continue", Title: "Continue listening", Destination: true},
 		{ID: "all", Title: "All episodes", Destination: true},
 	}}
