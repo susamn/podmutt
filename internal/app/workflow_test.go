@@ -19,6 +19,7 @@ import (
 	"podmutt/internal/player"
 	"podmutt/internal/profile"
 	"podmutt/internal/store"
+	"podmutt/internal/ui"
 )
 
 type workflowPlayer struct {
@@ -164,13 +165,18 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if first.created.Load() != 0 {
 		t.Fatal("startup/preview/search autoplayed")
 	}
-	if err = s.playback.Enqueue(s.ctx, episodes[0].ID, episodes[1].ID); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.playback.Toggle(s.ctx, episodes[0].ID); err != nil {
-		t.Fatal(err)
-	}
+	model.Model = model.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(episodes[0].ID))
+	finishLibrary(&model, libraryKey(&model, 'A'))
+	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeyEnter}))
 	readyWorkflow(t, first)
+	syncPlayer(t, &model)
+	// Browsing another episode must not make Space replace current audio.
+	model.Model = model.Model.Select(ui.Episodes, fmt.Sprint(episodes[1].ID))
+	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeySpace}))
+	if state := syncPlayer(t, &model); state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
+		t.Fatal("browse/pause changed episode", state)
+	}
+	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeySpace}))
 	if _, err = control.Call(s.ctx, paths, "pause"); err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +234,15 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if err != nil || len(hits) != 1 || !hits[0].Completed {
 		t.Fatal("offline refresh lost cached history", hits, err)
 	}
-	if _, err = control.Call(s.ctx, paths, "play"); err != nil {
+	restored, err := newLibrary(s, offlineRefresher)
+	if err != nil {
 		t.Fatal(err)
+	}
+	updateLibrary(&restored, tea.WindowSizeMsg{Width: 70, Height: 20})
+	restored.Model = restored.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(episodes[0].ID))
+	finishLibrary(&restored, updateLibrary(&restored, tea.KeyPressMsg{Code: tea.KeySpace}))
+	if state := syncPlayer(t, &restored); state.Current.ID != episodes[1].ID || state.Status != playback.Playing {
+		t.Fatal("offline Space did not resume saved current", state)
 	}
 	second.p.mu.Lock()
 	resume := second.p.resume
