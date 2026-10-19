@@ -171,9 +171,11 @@ unsubscribing retains cached episodes/history for resubscription. `[+]` indicate
 subscription, `[x]` indicates completion. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
-Space plays the selected Episodes/Queue item, or toggles it if current; elsewhere
-it toggles current playback. Enter opens Details in Episodes; **Queue Enter plays
-and promotes the selected row**. `s` stops and `n` advances to the first pending
+**Space pauses/resumes current playback everywhere**, never the highlighted episode.
+With no current episode it shows guidance instead of starting the queue.
+**Enter plays the selected Episodes/Queue item** (and promotes a queued row);
+repeated Enter keeps it playing. **i opens Details; Esc returns to the originating
+list and selection**. `s` stops and `n` advances to the first pending
 episode. The Queue shows current playback plus pending episodes with show/title,
 state and resume position. Playing a different episode pushes interrupted playback
 behind it; completion removes the row but keeps history. Restart restores stopped.
@@ -205,15 +207,16 @@ arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
 1. Press `b` to switch My subscriptions / Discover (Apple initially).
 2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
    subscribed, played, or downloaded as audio at this stage.
-3. Press **Space to play without subscribing**, or `a`/`A` to enqueue the selected/
+3. Press **Enter to play without subscribing**, or `a`/`A` to enqueue the selected/
    visible preview episodes. Only explicit selections are cached; show subscription
-   and feed refresh validators are unchanged. Space toggles if that episode is
-   already current, just like stored episodes; Player Space toggles current audio.
+   and feed refresh validators are unchanged. **i** inspects details without caching
+   audio metadata; **Space** always pauses/resumes current audio, even while browsing
+   a different preview.
 4. Press `u` only if you want to subscribe. The complete preview is then cached,
    preserving ad-hoc playback identity/history. Browsing/preview alone stays read-only.
 
 **U** accepts an HTTP(S) podcast feed or website URL and opens the same read-only
-preview, with explicit Space/a/A play/enqueue and u subscribe. **N** remains the
+preview, with explicit Enter/a/A play/enqueue and u subscribe. **N** remains the
 separate add-and-subscribe shortcut. Esc cancels requests; stale replies are ignored.
 See [entry-point policy](docs/adr/023-discovery-entry-points.md).
 

@@ -38,10 +38,10 @@ artwork/visualization first as space shrinks. See ADR 014.
 
 Vim-style navigation: j/k move selection, h/l change panes, J/K reorder queue,
 / filters locally, b switches My subscriptions / Apple Discover, f opens search
-in the current scope (Tab switches Library/Apple in the dialog), ? shows help. Space starts the selected
-episode in Episodes/Queue, or toggles pause if it is already current. In other
-panes Space toggles current playback; in text input it types a space. Enter
-selects a podcast or expands episode details; a enqueues; s stops playback.
+in the current scope (Tab switches Library/Apple in the dialog), ? shows help.
+Space always pauses/resumes current playback; in text input it types a space.
+Enter opens a podcast or plays a selected episode; i opens episode details and
+Esc returns to the originating list. a enqueues; s stops playback. See ADR 037.
 1–5 focus Podcasts/Episodes/Queue/Details/Player. In Player, Left/Right selects
 Play/Pause, Stop or Next; Enter activates. The position bar is display-only.
 No configurable bindings or themes in v1. Keep contextual hints and help short.
