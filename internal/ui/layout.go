@@ -1,15 +1,28 @@
 package ui
 
-// Shared geometry is used by rendering, scrolling, artwork and decoration.
-func (m Model) rightCellHeights() (details, player int) {
+// Geometry is shared by rendering, paging, artwork, reading and animation.
+type wideGeometry struct {
+	libraryWidth, episodeWidth, queueWidth int
+	episodes, details, player, queue       int
+}
+
+func (m Model) wideLayout() wideGeometry {
 	available := max(0, m.height-1)
-	bottom := available - available/2
-	width := m.width - m.width*2/5
-	player = min(max(0, bottom-5), 6+len(m.playerNotices(width-2)))
-	if m.decoration && bottom-player >= 10 {
-		player += 2
+	g := wideGeometry{libraryWidth: min(28, m.width/5), queueWidth: m.width * 3 / 10}
+	g.episodeWidth = m.width - g.libraryWidth - g.queueWidth
+	g.episodes = available / 2
+	g.details = available - g.episodes
+	g.player = min(max(0, available-5), 6+len(m.playerNotices(g.queueWidth-2)))
+	if m.decoration && available-g.player >= 10 {
+		g.player += 2
 	}
-	return bottom - player, player
+	g.queue = available - g.player
+	return g
+}
+
+func (m Model) rightCellHeights() (details, player int) {
+	g := m.wideLayout()
+	return g.details, g.player
 }
 
 func (m Model) compactHeights() (top, middle, player int) {
@@ -19,11 +32,7 @@ func (m Model) compactHeights() (top, middle, player int) {
 		base = 5
 	}
 	player = min(max(0, available-4), base+len(m.playerNotices(m.width-2)))
-	remaining := available - player
-	if remaining >= 10 {
-		top = max(4, min(6, remaining/3))
-	}
-	return top, remaining - top, player
+	return 0, available - player, player
 }
 
 func (m Model) detailsSize() (width, height int) {
@@ -31,6 +40,6 @@ func (m Model) detailsSize() (width, height int) {
 		_, height, _ = m.compactHeights()
 		return m.width, height
 	}
-	height, _ = m.rightCellHeights()
-	return m.width - m.width*2/5, height
+	g := m.wideLayout()
+	return g.episodeWidth, g.details
 }

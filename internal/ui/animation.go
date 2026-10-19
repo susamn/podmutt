@@ -41,7 +41,7 @@ func (m Model) animationVisible() bool {
 		return false
 	}
 	_, player := m.rightCellHeights()
-	width := m.width - m.width*2/5
+	width := m.wideLayout().queueWidth
 	return player-6-len(m.playerNotices(width-2)) >= 2
 }
 

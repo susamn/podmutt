@@ -17,10 +17,10 @@ func TestLatestArrivalDoesNotInterruptOrResurrect(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := state(t, e)
-	if s.Status != Playing || s.Current.ID != items[0].ID || s.Current.PositionSeconds != 12 || len(s.Queue) != 1 || s.Queue[0].GUID != "a" {
+	if s.Status != Playing || s.Current.ID != items[0].ID || s.Current.PositionSeconds != 12 || len(s.Queue) != 2 || s.Queue[0].GUID != "a" || s.Queue[1].GUID != "b" {
 		t.Fatal("arrival changed transport", s)
 	}
-	if err := e.RemoveQueued(background, s.Queue[0].ID); err != nil {
+	if err := e.RemoveQueued(background, queueIDs(s.Queue)...); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.QueueLatest(background, 0); err != nil {
@@ -62,7 +62,7 @@ func TestLatestSerializedWithManualQueueWhileStopped(t *testing.T) {
 	}
 	wg.Wait()
 	s := state(t, e)
-	if s.Status != Stopped || s.Current != nil || len(s.Queue) != 2 {
+	if s.Status != Stopped || s.Current != nil || len(s.Queue) != 3 {
 		t.Fatal("auto/manual race", s)
 	}
 }

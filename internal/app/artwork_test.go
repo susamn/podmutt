@@ -47,7 +47,7 @@ func artModel(t *testing.T, s *session) (libraryShell, *artFake) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 56})
+	updateLibrary(&m, tea.WindowSizeMsg{Width: 180, Height: 56})
 	m.Model = m.Model.WithFocus(ui.Episodes)
 	for i := range m.rows {
 		m.rows[i].ArtworkURL = "https://example.test/art/" + strconv.Itoa(i)
@@ -89,7 +89,7 @@ func TestArtworkAsyncSelectionFallbackFailureAndResize(t *testing.T) {
 		if strings.Contains(m.View().Content, "@@@@") {
 			t.Fatal("compact art not hidden")
 		}
-		updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 56})
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 180, Height: 56})
 		if !strings.Contains(m.View().Content, "@@@@") {
 			t.Fatal("resize lost cached art")
 		}

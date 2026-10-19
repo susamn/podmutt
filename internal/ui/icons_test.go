@@ -57,7 +57,7 @@ func TestIconLayoutsPreserveLabelsSelectionAndWidths(t *testing.T) {
 			for _, label := range []string{"RSS/website · preview", "My subscriptions"} {
 				m.data.PodcastLabel = label
 				pane := m.pane(Podcasts, 40, 8)
-				if !strings.Contains(pane, "Podcasts") {
+				if !strings.Contains(pane, "Library") && !strings.Contains(pane, "RSS/website") {
 					t.Fatal("show labels lost")
 				}
 			}

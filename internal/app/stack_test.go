@@ -13,14 +13,14 @@ import (
 	"podmutt/internal/ui"
 )
 
-func TestUpNextExcludesCurrentAndPreservesInterruptedPlayback(t *testing.T) {
+func TestQueueProjectsCurrentAndPreservesInterruptedPlayback(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
 		first, _ := m.selectedEpisode()
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		syncPlayer(t, &m)
-		if rows := m.Model.Visible(ui.Queue); len(rows) != 0 {
-			t.Fatal("current leaked into Up next", rows)
+		if rows := m.Model.Visible(ui.Queue); len(rows) != 1 || !rows[0].Current {
+			t.Fatal("current is not visible in Queue", rows)
 		}
 		if !strings.Contains(m.View().Content, "Now playing") || !strings.Contains(m.View().Content, first.Title) {
 			t.Fatal("current audio is not visible separately")
@@ -42,10 +42,10 @@ func TestUpNextExcludesCurrentAndPreservesInterruptedPlayback(t *testing.T) {
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		syncPlayer(t, &m)
 		rows := m.Model.Visible(ui.Queue)
-		if m.state.Current.ID != second.ID || len(rows) != 1 || rows[0].ID != fmt.Sprint(first.ID) || rows[0].Index != 1 {
+		if m.state.Current.ID != second.ID || len(rows) != 2 || rows[0].ID != fmt.Sprint(first.ID) || rows[0].Index != 1 {
 			t.Fatal("interrupted playback not preserved in Up next", m.state, rows)
 		}
-		m.Model = m.Model.WithFocus(ui.Queue)
+		m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(first.ID))
 		finishLibrary(&m, libraryKey(&m, 'J'))
 		finishLibrary(&m, libraryKey(&m, 'K'))
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
@@ -56,10 +56,10 @@ func TestUpNextExcludesCurrentAndPreservesInterruptedPlayback(t *testing.T) {
 		libraryKey(&m, 'D')
 		finishLibrary(&m, libraryKey(&m, 'y'))
 		syncPlayer(t, &m)
-		if len(m.Model.Visible(ui.Queue)) != 0 || m.state.Current.ID != first.ID || m.state.Status != playback.Playing {
+		if len(m.Model.Visible(ui.Queue)) != 1 || m.state.Current.ID != first.ID || m.state.Status != playback.Playing {
 			t.Fatal("clear affected current audio", m.state)
 		}
-		for _, key := range []rune{'J', 'K', 'd', 'D', 'i'} {
+		for _, key := range []rune{'J', 'K', 'd', 'D'} {
 			finishLibrary(&m, libraryKey(&m, key))
 			if m.Model.Focus() != ui.Queue || m.confirming != nil {
 				t.Fatal("empty Up next targeted current", string(key))

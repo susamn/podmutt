@@ -136,7 +136,7 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 `j/k` or Up/Down select; `g/G` go first/last. **h/Left goes back; l/Right opens**
 a show or inspects an episode without starting playback. Tab/Shift+Tab cycles
-**Podcasts → Episodes → Up next**; `1-5` still focuses any pane directly.
+**Library → Episodes → Queue**; `1-5` still focuses any pane directly.
 Details and Player are no longer mandatory Tab stops. In lists, Ctrl-d/Ctrl-u
 moves half a visible page and PgUp/PgDn moves a full page. Esc clears an applied
 filter first, then goes back; h goes directly back. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
@@ -147,9 +147,10 @@ With **Details (4)** focused, `j/k` or arrows scroll one line, Ctrl-d/Ctrl-u
 scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
 a full page. These keys do not change episode selection or playback.
 
-The wide grid keeps Podcasts/Episodes on the left and **Up next (3)** above the
-bottom-right cell. **Now playing normally uses six rows**, with **Details taking
-the remaining height above it**. Long descriptions scroll without moving controls.
+The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue (3)**.
+Details sits below Episodes; the compact **Now playing** card sits above Queue and
+normally uses six rows. Long descriptions scroll without moving controls. Selection
+uses a highlighted row, never a `>` cursor; the active pane has an accented border.
 Errors/warnings may reserve a few additional player rows; compact layouts adapt
 without hiding current identity or transport.
 
@@ -176,36 +177,32 @@ pause and clears on stop; hidden, compact, modal, or disabled decoration has no
 continuing animation timer. Elapsed time appears once, with total/remaining only
 when space permits.
 
-Below 100 columns or 24 rows, lists stack above a persistent player. Up next/Details
-replace the middle list when focused; Esc returns to the last visible list.
-Very short terminals show one library pane plus controls. Below 30×12, resize
+Below 100 columns or 24 rows, the persistent player sits above the focused list.
+Queue/Details replace that list when focused; Esc returns to the originating list.
+Compact terminals show one library pane plus controls. Below 30×12, resize
 guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
 
-`N` adds a public RSS/Atom feed or podcast website URL. **My library** offers
-**Not started**, **Continue listening**, and **All episodes** at the top.
-A muted, non-selectable **Subscriptions** divider separates the individual shows
-below. The divider adds no navigation stop; short panes omit the blank spacer.
-Highlighting a show always displays that show's episodes (including completed
-history); Enter/l focuses them. `o` cycles newest, oldest, and title
-ordering. There is no hidden Show/New mode or `v` toggle.
+`N` adds a public RSS/Atom feed or podcast website URL. **Library** contains only
+**All episodes**, a muted, non-selectable **Subscriptions** heading, and subscribed
+shows. The heading adds no navigation stop; short panes omit the blank spacer.
+Highlighting All episodes or a show immediately scopes Episodes; Enter/l focuses
+them. From Library or Episodes, `o` cycles newest, oldest, and title ordering.
+There is no extra Default option, Not started/Continue destination, or `v` toggle.
 
-Not started contains subscribed episodes with no saved progress and no completion
-mark. Continue listening contains
-unfinished episodes with saved progress, including unsubscribed/explicitly played
-preview episodes; Enter resumes without subscribing. All episodes includes
-completed episodes from subscribed shows; its Episodes heading explicitly says
-**All subscribed episodes**. Opening any destination never starts audio.
-`u` toggles the selected show's subscription; `c` toggles episode completion. `R` refreshes manually. Cached content
-opens before background refresh. The show list includes subscribed shows only;
-unsubscribing retains cached episodes/history, including Continue listening. `[+]` indicates
-subscription, `[x]` indicates completion. PgUp/PgDn scroll
+All episodes includes subscribed history (including completed episodes), saved
+unfinished unsubscribed work, pending work, and current audio. Merely previewing
+a show does not add it. Browsing never starts audio; explicit Enter resumes saved
+work without subscribing. `u` toggles the selected show's subscription; `c` toggles
+episode completion. `R` refreshes manually. Cached content opens before background
+refresh; unsubscribe retains cached episodes/history and queued work. Episode rows
+distinguish pending membership, completion, and current playback. PgUp/PgDn scroll
 details. See [library UI policy](docs/adr/009-library-ui.md).
 
 **Space pauses/resumes current playback everywhere**, never the highlighted episode.
 With no current episode it shows guidance instead of starting the queue.
-**Enter plays the selected Episodes/Up next item** (and promotes a queued row);
+**Enter plays the selected Episodes/Queue item** (and promotes a queued row);
 repeated Enter keeps it playing. **i opens Details; Esc returns to the originating
-list and selection**. Library, Up next, and RSS previews share one episode card:
+list and selection**. Library, Queue, and RSS previews share one episode card:
 title/show, known date/duration, listening state, relevant progress/queue membership,
 then a plain-text description. Identity stays visible while the description
 scrolls; long metadata remains accessible in the reading area. Playback/refresh
@@ -214,28 +211,36 @@ In Details, **Enter plays/resumes the inspected episode, a queues it, and c togg
 completion** when supported. Direct **4** pins the shown episode too. These actions
 never follow a different underlying list row; Esc restores the inspected selection
 when it is still visible. Preview play/queue does not subscribe; preview completion
-requires subscription. Space still controls current audio. `s` stops and `n` advances to the first pending
-episode. **Up next contains only pending episodes**, numbered from 1, with show/title
-and resume position. **Now playing is separate and cannot be selected for queue
-edits**. The header shows pending count (or matching/total while filtering).
-Playing a different episode preserves interrupted playback in Up next; completion
-keeps history. Restart restores stopped.
-`a` enqueues one item; `A` enqueues visible Episodes in display order. In Up next,
-`j/k` select and `J/K` move pending items. **d or Delete removes immediately;
-u undoes the last removal**, even when Up next is empty. Undo merges that one
+requires subscription. Space still controls current audio. `s` stops and `n` advances to the newest pending
+episode by publication time; natural completion uses the same priority, independent
+of insertion/display order. Equal or unknown dates retain queue order as a tie-breaker.
+**Queue projects current audio alongside pending work**, with a current-status label,
+row number, title and show—not duplicate clocks or percentages. Current audio is
+not duplicated in the actor's pending queue and cannot be removed by pending edits.
+The header shows visible count (or matching/total while filtering).
+Playing a different episode preserves interrupted playback; completion keeps history.
+
+Queue `o` toggles newest-first and channel alphabetically + newest-first. Sorting is
+presentation-only: it preserves selected identity and never changes persisted order,
+playback priority, or current audio. There are no manual J/K moves. `a` enqueues one
+item; `A` enqueues visible Episodes. Explicit additions append to the display tail,
+become selected, and focus Queue without autoplay. A sort toggle resets manual-tail
+overrides. Filters and modal input are not interrupted; Queue focus waits until they close.
+**d or Delete removes pending work immediately; u undoes the last removal**, even
+when no pending work remains. Undo merges that one
 episode into the live queue without rewinding playback or other edits. It lasts
 for this session; playing/re-adding/completing that episode or explicitly clearing/
-replacing the queue invalidates it. `u` still subscribes/unsubscribes in Podcasts.
+replacing the queue invalidates it. `u` still subscribes/unsubscribes in Library.
 
 `D` clears pending items while keeping current playback and requires explicit
 `y`; Esc/n cancels. A changed queue invalidates clear confirmation. Queue edits do
 not change current playback/history. Status shows position, optional duration, and
 persistent playback failures. See [player/queue policy](docs/adr/011-player-queue-ui.md).
 
-Subscribed shows automatically add their latest cached episode at startup,
+Subscribed shows consider their two latest cached releases at startup,
 on subscription and after successful refresh (including 304). Arrivals append
-behind current/pending playback without autoplay or historical backlog. Completed,
-current and already-seen heads are not re-added after removal/restart. Ad-hoc shows
+without autoplay or older historical fallback. Completed, current and already-seen
+releases are not re-added after removal/restart. Ad-hoc shows
 never auto-enqueue. Unsubscribe keeps queued work/history; resubscribe keeps these
 receipts. See [arrival policy](docs/adr/020-subscribed-latest-autoqueue.md).
 Schema migration 2 preserves listening state; older binaries cannot open it—use a
@@ -244,18 +249,20 @@ consistent backup before upgrading, not a forced downgrade.
 ## Discover and subscribe
 
 An empty profile opens **Discover**, automatically loading Apple's **US top-25**
-shows. With existing subscriptions, startup stays local-first in **My library →
-Not started**. With unfinished history but no subscriptions, startup shows
-**Continue listening**, stopped, instead of hiding that history behind Discover.
+shows. Otherwise startup stays cached/local-first. With an unfinished saved current
+episode, the application explicitly resumes at its saved position and aligns the
+show, Episodes and Queue selections once. Unsubscribed saved audio remains available
+through All episodes without subscribing. Progress does not snap browsing back.
+Without saved current audio, opening Library does not start pending work.
 
-The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview**
-and **t Apple US top 25**. The chart is not the whole catalog; search accepts
-arbitrary show terms. Narrow layouts prioritize Search/RSS in the footer.
+`/` searches the focused list; **f Find podcast** opens the shared name/feed/website
+entry dialog. Advanced `U` RSS/website preview and `t` Apple US top 25 remain available.
+The chart is not the whole catalog; search accepts arbitrary show terms.
 
 1. Press `b` to switch My library / Discover (Apple initially).
-2. Select an Apple show and press Enter to preview its RSS episodes. Nothing is
-   subscribed, played, or downloaded as audio at this stage.
-3. Press **Enter to play without subscribing**, or `a`/`A` to enqueue the selected/
+2. Select an Apple show and press Enter to preview its RSS episodes. Focus stays in
+   Library; nothing is subscribed, played, or downloaded as audio at this stage.
+3. Press **Tab/2 to reach Episodes, then Enter to play without subscribing**, or `a`/`A` to enqueue the selected/
    visible preview episodes. Only explicit selections are cached; show subscription
    and feed refresh validators are unchanged. **i** inspects details without caching
    audio metadata; **Space** always pauses/resumes current audio, even while browsing

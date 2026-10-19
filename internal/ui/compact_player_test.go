@@ -42,7 +42,7 @@ func TestCompactPlayerGeometrySingleTimelineAndFailurePriority(t *testing.T) {
 				if !m.compact() && !notices {
 					details, height := m.rightCellHeights()
 					bottom := (size[1] - 1) - (size[1]-1)/2
-					if height != 6 || details != bottom-6 {
+					if height != 6 || details != bottom {
 						t.Fatal("player grows with terminal", size, height, details)
 					}
 				}

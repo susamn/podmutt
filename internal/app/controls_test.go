@@ -34,7 +34,7 @@ func TestForegroundServicesAndKeyboardShareActions(t *testing.T) {
 			if cmd == nil {
 				t.Fatal("not subscribed to player updates")
 			}
-			updated, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
+			updated, _ = m.Update(tea.WindowSizeMsg{Width: 160, Height: 24})
 			m = updated.(shell)
 			for _, key := range []rune{'s', 'n'} {
 				updated, cmd = m.Update(tea.KeyPressMsg{Code: key, Text: string(key)})
@@ -87,7 +87,7 @@ func TestPlaybackRenderingPreservesQueueProgressAndMediaWarnings(t *testing.T) {
 		t.Fatal("lost playback subscription")
 	}
 	queued, ok := m.Model.Selected(ui.Queue)
-	if !ok || queued.ID != "7" || queued.Index != 1 || len(m.Model.Visible(ui.Queue)) != 1 || !strings.Contains(queued.Title, "Queued episode") {
+	if !ok || queued.ID != "7" || queued.Index != 1 || len(m.Model.Visible(ui.Queue)) != 2 || !strings.Contains(queued.Title, "Queued episode") {
 		t.Fatalf("queue lost: %+v", queued)
 	}
 	for _, text := range []string{"0:42", "2:00", "stream failed", "session bus unavailable"} {

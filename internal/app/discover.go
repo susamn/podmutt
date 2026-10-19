@@ -370,8 +370,8 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		m.browse.preview = &msg.preview
 		m.browse.previewKey = msg.key
 		m.browse.source = msg.source
-		m.Model = m.Model.Reset(ui.Episodes).WithFocus(ui.Episodes)
-		m.notice = "Enter play · i details · a enqueue · u subscribe · browsing fetched no audio"
+		m.Model = m.Model.Reset(ui.Episodes)
+		m.notice = "Tab/2 episodes · Enter play · a queue · u subscribe · browsing fetched no audio"
 	}
 	m.renderLibrary()
 }
@@ -417,7 +417,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.directURL {
 		label = "RSS/website · read-only preview"
 	}
-	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · Enter plays without subscribing"}
+	data := ui.Data{PodcastLabel: label, EpisodeLabel: "Preview · " + m.order.String() + " · Enter plays without subscribing"}
 	data.PodcastEmpty = "No matching shows · f search"
 	if m.browse.loading {
 		data.PodcastEmpty = "Loading " + m.directoryName() + "…"
@@ -437,8 +437,24 @@ func (m *libraryShell) renderDiscovery() {
 	}
 	if m.browse.preview != nil {
 		previewShowTitle := library.PlainText(m.browse.preview.Fetched.Document.Title)
-		for i, episode := range m.browse.preview.Fetched.Document.Episodes {
-			data.Episodes = append(data.Episodes, previewEpisodeItem(i, episode, previewShowTitle))
+		// Reuse library sorting on a position-tagged copy; row IDs still address
+		// the original preview document, never its transient display positions.
+		positions := append([]store.Episode(nil), m.browse.preview.Fetched.Document.Episodes...)
+		for i := range positions {
+			positions[i].ID = int64(i)
+		}
+		for _, position := range library.Episodes(library.Snapshot{Show: positions}, library.ShowView, m.order) {
+			i := int(position.ID)
+			episode := m.browse.preview.Fetched.Document.Episodes[i]
+			item := previewEpisodeItem(i, episode, previewShowTitle)
+			saved := m.detailHistory(episode)
+			item.Current = saved.ID > 0 && m.state.Current != nil && m.state.Current.ID == saved.ID
+			for _, pending := range m.state.Queue {
+				if saved.ID > 0 && pending.ID == saved.ID {
+					item.Queued = true
+				}
+			}
+			data.Episodes = append(data.Episodes, item)
 		}
 	}
 	m.Model = m.Model.WithLibrary(data)

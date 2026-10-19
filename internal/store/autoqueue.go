@@ -6,8 +6,8 @@ import (
 	"fmt"
 )
 
-// EnqueueLatest atomically appends at most the newest cached episode of each
-// subscribed feed and consumes a durable receipt even for current/completed or
+// EnqueueLatest atomically considers the two newest cached releases of each
+// subscribed feed and consumes durable receipts even for current/completed or
 // already-queued episodes. No older fallback or autoplay. feedID=0 means all.
 func (s *Store) EnqueueLatest(ctx context.Context, currentID, feedID int64) ([]Episode, error) {
 	if feedID < 0 {
@@ -16,10 +16,11 @@ func (s *Store) EnqueueLatest(ctx context.Context, currentID, feedID int64) ([]E
 	var pending []Episode
 	err := transaction(ctx, s.db, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `SELECT e.id,COALESCE(p.completed,0) FROM feeds f
-   JOIN episodes e ON e.id=(SELECT newest.id FROM episodes newest
-    WHERE newest.feed_id=f.id ORDER BY newest.published_at DESC,newest.identity ASC LIMIT 1)
+   JOIN episodes e ON e.id IN (SELECT newest.id FROM episodes newest
+    WHERE newest.feed_id=f.id ORDER BY newest.published_at DESC,newest.identity ASC LIMIT 2)
    LEFT JOIN playback p ON p.episode_id=e.id
-   WHERE f.subscribed=1 AND (?=0 OR f.id=?) ORDER BY f.id`, feedID, feedID)
+   WHERE f.subscribed=1 AND (?=0 OR f.id=?)
+   ORDER BY f.id,e.published_at DESC,e.identity ASC`, feedID, feedID)
 		if err != nil {
 			return err
 		}

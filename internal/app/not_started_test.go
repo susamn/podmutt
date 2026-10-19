@@ -6,10 +6,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/player"
-	"podmutt/internal/ui"
 )
 
-func TestNotStartedMovesToContinueOnLiveProgressAndSurvivesStaleRead(t *testing.T) {
+func TestAllRetainsCurrentProgressAcrossCachedRead(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
 		cached := m.snapshot
@@ -22,35 +21,17 @@ func TestNotStartedMovesToContinueOnLiveProgressAndSurvivesStaleRead(t *testing.
 		deadline := time.Now().Add(time.Second)
 		for syncPlayer(t, &m).Current.PositionSeconds != 42 {
 			if time.Now().After(deadline) {
-				t.Fatal("progress was not received")
+				t.Fatal("progress missing")
 			}
 			time.Sleep(time.Millisecond)
 		}
-		if len(m.rows) != 1 || m.rows[0].ID == first.ID {
-			t.Fatal("started episode remained in Not started", m.rows)
-		}
 		updateLibrary(&m, libraryLoaded{version: m.version, snapshot: cached})
-		if len(m.rows) != 1 || m.rows[0].ID == first.ID {
-			t.Fatal("cached read reintroduced current into Not started")
+		if len(m.rows) != 2 || m.rows[0].ID != first.ID || m.rows[0].PositionSeconds != 42 {
+			t.Fatal("progress moved current out of All or stale cache won", m.rows)
 		}
-		openLibraryDestination(&m, continueDestination)
-		if len(m.rows) != 1 || m.rows[0].ID != first.ID || m.rows[0].PositionSeconds != 42 {
-			t.Fatal("live progress missing from Continue", m.rows)
-		}
-		openLibraryDestination(&m, allDestination)
-		if len(m.rows) != 2 {
-			t.Fatal("All subscribed episodes lost started history")
-		}
-		m.Model = m.Model.WithFocus(ui.Episodes)
 		finishLibrary(&m, libraryKey(&m, 'c'))
-		syncPlayer(t, &m)
-		openLibraryDestination(&m, newDestination)
-		if len(m.rows) != 1 || m.rows[0].ID == first.ID {
-			t.Fatal("completed history entered Not started")
-		}
-		openLibraryDestination(&m, continueDestination)
-		if len(m.rows) != 0 {
-			t.Fatal("completed history remained in Continue")
+		if len(m.rows) != 2 || !m.rows[0].Completed {
+			t.Fatal("completion hid All history", m.rows)
 		}
 	})
 }

@@ -169,7 +169,7 @@ func TestAutoqueueReadditionInvalidatesEarlierManualRemoval(t *testing.T) {
 	if err := e.QueueLatest(background, 0); err != nil {
 		t.Fatal(err)
 	}
-	if got := queueIDs(state(t, e).Queue); !slices.Equal(got, []int64{latest}) {
+	if got := queueIDs(state(t, e).Queue); len(got) != 2 || got[0] != latest {
 		t.Fatal("fixture not readded by policy", got)
 	}
 	if err := e.RemoveQueued(background, latest); err != nil {

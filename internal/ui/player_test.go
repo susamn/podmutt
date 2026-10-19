@@ -26,7 +26,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 		data.Player = Player{Status: "playing", HasCurrent: true, Title: "Current audio", Position: "0:42", Duration: "2:00", Progress: .35}
 		m := resize(New(data), size[0], size[1]).WithFocus(Details)
 		available := size[1] - 1
-		want := available - 6
+		want := 0
 		for _, description := range []string{"Short description", strings.Repeat("very long paragraph words that must wrap 界\n", 2000)} {
 			m = m.WithDetails(description)
 			if got := rowContaining(t, m.View().Content, "Now playing"); got != want {
@@ -81,8 +81,7 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 	for _, size := range [][2]int{{30, 12}, {80, 24}, {99, 40}} {
 		for _, panel := range []Panel{Podcasts, Episodes, Queue, Details, PlayerPanel} {
 			m := resize(New(fixture()), size[0], size[1]).WithDetails(strings.Repeat("description\n", 500)).WithFocus(panel)
-			_, _, height := m.compactHeights()
-			want := size[1] - height - 1
+			want := 0
 			if rowContaining(t, m.View().Content, "Now playing") != want {
 				t.Fatal("compact player moved", size, panel)
 			}

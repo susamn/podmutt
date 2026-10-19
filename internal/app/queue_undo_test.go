@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -20,6 +21,7 @@ func TestQueueDeleteAndUndoAcrossLayouts(t *testing.T) {
 			updateLibrary(&m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 			m.Model = m.Model.WithFocus(ui.Queue)
 			for _, key := range []tea.KeyPressMsg{{Code: 'd', Text: "d"}, {Code: tea.KeyDelete}} {
+				m.Model = m.Model.Select(ui.Queue, fmt.Sprint(pending))
 				finishLibrary(&m, updateLibrary(&m, key))
 				if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current.ID != current || state.Status != playback.Playing || m.confirming != nil || m.Model.Busy() {
 					t.Fatal("single delete was not immediate/pending-only", state)
@@ -91,9 +93,11 @@ func TestStaleRemovalCannotDeleteCurrentOrUndoADifferentItem(t *testing.T) {
 		syncPlayer(t, &m)
 		m.Model = m.Model.WithFocus(ui.Queue)
 		first := m.state.Queue[0].ID
+		m.Model = m.Model.Select(ui.Queue, fmt.Sprint(first))
 		finishLibrary(&m, libraryKey(&m, 'd'))
 		syncPlayer(t, &m)
 		second := m.state.Queue[0].ID
+		m.Model = m.Model.Select(ui.Queue, fmt.Sprint(second))
 		remove := libraryKey(&m, 'd')
 		if err := s.playback.PlayEpisode(s.ctx, second); err != nil {
 			t.Fatal(err)

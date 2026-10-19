@@ -46,10 +46,18 @@ func (m Model) renderList(panel Panel, items []Item, width, capacity int) []stri
 			line := label + strings.Repeat("─", max(0, width-2-ansi.StringWidth(label)))
 			rows = append(rows, lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Muted))).Render(line))
 		default:
-			rows = append(rows, m.renderRow(panel, items[index], width, index == m.selected[panel]))
+			row := m.renderRow(panel, items[index], width, index == m.selected[panel])
+			if index == m.selected[panel] {
+				row = m.highlightRow(row, width-2)
+			}
+			rows = append(rows, row)
 		}
 	}
 	return rows
+}
+
+func (m Model) highlightRow(row string, width int) string {
+	return lipgloss.NewStyle().Background(lipgloss.Color(string(m.Theme().Selection))).Foreground(lipgloss.Color(string(m.Theme().BrightForeground))).Bold(true).Render(padRight(ansi.Strip(row), max(0, width)))
 }
 
 func (m *Model) pageList(delta int) {
