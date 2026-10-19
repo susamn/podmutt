@@ -339,6 +339,30 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	}
 }
 
+func TestRenderRowCharacterization(t *testing.T) {
+	m := New(Data{}).WithIcons("plain")
+	ep := Item{ID: "1", PlainTitle: "My Episode", Channel: "My Show", Date: "2026-04-12", Duration: "45:00", Queued: false}
+	q := Item{ID: "2", Index: 1, PlainTitle: "Queued Title", Channel: "My Show", Position: "05:00", Duration: "50:00", Remains: "90%"}
+
+	for _, width := range []int{60, 80, 120} {
+		epRow := ansi.Strip(m.renderEpisodeRow(ep, width, false))
+		if !strings.Contains(epRow, "[ ]") || !strings.Contains(epRow, "45:00") {
+			t.Fatalf("width %d: unexpected episode row: %q", width, epRow)
+		}
+		if width >= 70 && (!strings.Contains(epRow, "My Show") || !strings.Contains(epRow, "2026-04-12")) {
+			t.Fatalf("width %d: expected columns in episode row: %q", width, epRow)
+		}
+
+		qRow := ansi.Strip(m.renderQueueRow(q, width, true))
+		if !strings.HasPrefix(qRow, "> ") || !strings.Contains(qRow, "90%") {
+			t.Fatalf("width %d: unexpected queue row: %q", width, qRow)
+		}
+		if width >= 70 && !strings.Contains(qRow, "My Show") {
+			t.Fatalf("width %d: expected channel in queue row: %q", width, qRow)
+		}
+	}
+}
+
 func TestBottomHintsContextual(t *testing.T) {
 	m := New(Data{PodcastLabel: "My subscriptions"}).WithTheme(theme.Default())
 	subHints := ansi.Strip(m.bottomHints())

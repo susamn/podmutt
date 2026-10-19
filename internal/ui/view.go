@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"podmutt/internal/theme"
 )
 
 var titles = [4]string{"Podcasts", "Episodes", "Up next", "Details"}
@@ -224,6 +225,21 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 	}
 }
 
+func formatTitleAndChannel(title, channel string, slack int, pal theme.Palette) string {
+	titleBudget := max(8, (slack*60)/100)
+	chanBudget := max(6, slack-titleBudget)
+
+	titleCol := ansi.Truncate(title, titleBudget, "…")
+	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
+
+	chanColor := lipgloss.Color(string(pal.ChannelColor(channel)))
+	chanTrunc := ansi.Truncate(channel, chanBudget, "…")
+	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
+	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
+
+	return titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol
+}
+
 func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 	prefix := "  "
 	if selected {
@@ -267,17 +283,7 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 
 	fixedWidths := dateWidth + durWidth + 4
 	slack := max(16, avail-fixedWidths)
-
-	titleBudget := max(8, (slack*60)/100)
-	chanBudget := max(6, slack-titleBudget)
-
-	titleCol := ansi.Truncate(titleText, titleBudget, "…")
-	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
-
-	chanColor := lipgloss.Color(string(pal.ChannelColor(item.Channel)))
-	chanTrunc := ansi.Truncate(item.Channel, chanBudget, "…")
-	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
-	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
+	titleAndChan := formatTitleAndChannel(titleText, item.Channel, slack, pal)
 
 	datePad := max(0, dateWidth-ansi.StringWidth(dateStr))
 	dateCol := dateStr + strings.Repeat(" ", datePad)
@@ -285,7 +291,7 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 	durPad := max(0, durWidth-ansi.StringWidth(durStr))
 	durCol := strings.Repeat(" ", durPad) + durStr
 
-	return prefix + gutter + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + dateCol + " " + durCol
+	return prefix + gutter + titleAndChan + "  " + dateCol + " " + durCol
 }
 
 func (m Model) renderQueueRow(item Item, width int, selected bool) string {
@@ -337,21 +343,12 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	}
 
 	slack := max(16, avail-timeWidth-3)
-	titleBudget := max(8, (slack*60)/100)
-	chanBudget := max(6, slack-titleBudget)
-
-	titleCol := ansi.Truncate(titleText, titleBudget, "…")
-	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
-
-	chanColor := lipgloss.Color(string(pal.ChannelColor(item.Channel)))
-	chanTrunc := ansi.Truncate(item.Channel, chanBudget, "…")
-	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
-	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
+	titleAndChan := formatTitleAndChannel(titleText, item.Channel, slack, pal)
 
 	timePad := max(0, timeWidth-ansi.StringWidth(timeStr))
 	timeCol := strings.Repeat(" ", timePad) + timeStr
 
-	return prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol + "  " + timeCol
+	return prefix + gutter + idxStr + remCol + titleAndChan + "  " + timeCol
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {
