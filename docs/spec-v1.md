@@ -12,8 +12,9 @@ Status: core v1 scope agreed; remaining engineering details listed below.
   add RSS/ordinary podcast website URLs. My subscriptions lists subscribed shows
   only; library search covers their names and cached episode titles/descriptions
   (including completed history), never a remote episode index.
-- Newest episodes first; explicit New episodes, Continue listening, All
-  subscriptions, and show destinations. Highlighting a show always scopes its
+- Newest episodes first; explicit New episodes, Continue listening, All episodes
+  (subscribed), and show destinations. A quiet, non-selectable Subscriptions
+  divider separates views from shows (ADR 042). Highlighting a show always scopes its
   episodes. Continue includes saved unfinished history even after unsubscribe.
   Sort by newest, oldest, or title; preserve episode identity on refresh (ADR 040).
 - Refresh at startup, every 30 minutes while running, and manually with R.
