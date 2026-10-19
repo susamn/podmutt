@@ -127,8 +127,8 @@ func TestLibrarySearchShowsAndCompletedEpisodesWithExplicitScope(t *testing.T) {
 		}
 		d := &fixtureDirectory{shows: []discovery.Show{{Title: "Directory hit", FeedURL: "https://example.test/directory"}}}
 		m := browserLibrary(t, s, d)
-		if m.browse.active || len(m.Model.Visible(ui.Podcasts)) != 1 {
-			t.Fatal("library not subscription-scoped")
+		if m.browse.active || len(m.Model.Visible(ui.Podcasts)) != len(libraryDestinations)+1 {
+			t.Fatal("library destinations/subscriptions missing")
 		}
 		libraryKey(&m, 'f')
 		updateLibrary(&m, tea.PasteMsg{Content: "Alpha"})
@@ -152,7 +152,7 @@ func TestLibrarySearchShowsAndCompletedEpisodesWithExplicitScope(t *testing.T) {
 		updateLibrary(&m, tea.PasteMsg{Content: "Alpha"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if m.browse.localResults || m.newOnly || m.feedID != id || len(m.rows) != 2 {
+		if m.browse.localResults || m.libraryFeedID() != id || len(m.rows) != 2 {
 			t.Fatal("show selection didn't open its episodes")
 		}
 		m.Model = m.Model.WithFocus(ui.Podcasts)
@@ -281,7 +281,7 @@ func TestLeavingDiscoverCancelsWorkWithoutBlockingLibrary(t *testing.T) {
 			t.Fatal("directory not started")
 		}
 		libraryKey(&m, 'b')
-		if m.browse.active || !strings.Contains(m.View().Content, "My subscriptions") {
+		if m.browse.active || !strings.Contains(m.View().Content, "My library") {
 			t.Fatal("online request blocked local view")
 		}
 		select {

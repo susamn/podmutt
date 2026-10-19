@@ -350,7 +350,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 func TestBottomHintsContextual(t *testing.T) {
 	m := New(Data{PodcastLabel: "My subscriptions"}).WithTheme(theme.Default())
 	subHints := ansi.Strip(m.bottomHints())
-	for _, expected := range []string{"f:search", "U:url", "b:discover", "v:view", ",/.:seek"} {
+	for _, expected := range []string{"f:search", "U:url", "b:discover", "o:sort", ",/.:seek"} {
 		if !strings.Contains(subHints, expected) {
 			t.Fatalf("expected hint %q in subscriptions: %s", expected, subHints)
 		}

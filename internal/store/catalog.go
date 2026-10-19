@@ -120,6 +120,18 @@ func (s *Store) Episodes(ctx context.Context, feedID int64) ([]Episode, error) {
 	return readEpisodes(rows)
 }
 
+// InProgress returns unfinished listening history, including unsubscribed and
+// explicitly played preview episodes. Merely queued/unplayed episodes stay out.
+func (s *Store) InProgress(ctx context.Context) ([]Episode, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+episodeColumns+` FROM `+episodeTables+`
+		WHERE p.completed=0 AND p.position_seconds>0
+		ORDER BY e.published_at DESC,e.id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	return readEpisodes(rows)
+}
+
 // Episode looks up a stable local ID, including unsubscribed preview episodes.
 func (s *Store) Episode(ctx context.Context, id int64) (Episode, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+episodeColumns+` FROM `+episodeTables+` WHERE e.id=?`, id)

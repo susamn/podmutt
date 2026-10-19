@@ -45,25 +45,24 @@ type libraryShell struct {
 	art    artState
 	browse browseState
 	shell
-	signals            chan os.Signal
-	service            *library.Service
-	refresher          *feed.Refresher
-	results            <-chan feed.Result
-	snapshot           library.Snapshot
-	rows               []store.Episode
-	feedID, wantFeedID int64
-	newOnly            bool
-	order              library.Order
-	version            uint64
-	loadCancel         context.CancelFunc
-	notice, input      string
-	adding, mutating   bool
-	refreshErrors      map[int64]string
-	lastPlayingID      int64
-	lastCompleted      bool
-	confirming         *queueConfirmation
-	detailTarget       *store.Episode
-	detailFrom         ui.Panel
+	signals                  chan os.Signal
+	service                  *library.Service
+	refresher                *feed.Refresher
+	results                  <-chan feed.Result
+	snapshot                 library.Snapshot
+	rows                     []store.Episode
+	libraryID, wantLibraryID string
+	order                    library.Order
+	version                  uint64
+	loadCancel               context.CancelFunc
+	notice, input            string
+	adding, mutating         bool
+	refreshErrors            map[int64]string
+	lastPlayingID            int64
+	lastCompleted            bool
+	confirming               *queueConfirmation
+	detailTarget             *store.Episode
+	detailFrom               ui.Panel
 }
 
 func runLibrary(s *session, input io.Reader, output io.Writer) error {
@@ -103,11 +102,14 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	if err != nil {
 		return libraryShell{}, err
 	}
-	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, newOnly: true,
+	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: newDestination,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.browse.directory = discovery.NewApple(nil)
 	model.browse.indexDirectory = discovery.NewIndex(os.Getenv(discovery.IndexKeyEnv), os.Getenv(discovery.IndexSecretEnv), nil)
-	model.browse.active = model.subscribedCount() == 0
+	model.browse.active = model.subscribedCount() == 0 && len(snapshot.Continue) == 0
+	if model.subscribedCount() == 0 && len(snapshot.Continue) > 0 {
+		model.libraryID, model.wantLibraryID = continueDestination, continueDestination
+	}
 	model.renderLibrary()
 	state, err := s.playback.Snapshot(s.ctx)
 	if err != nil {
@@ -118,7 +120,6 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	// Constructor discards commands; arm presentation timers from Init messages,
 	// not from the synthetic initial snapshot.
 	model.Model = model.Model.WithProgress(s.ctx, nil, nil)
-	model.feedID = model.selectedFeed()
 	signals := make(chan os.Signal, 1)
 	theme.NotifyReload(signals)
 	model.signals = signals
@@ -158,7 +159,7 @@ func (m *libraryShell) reload() tea.Cmd {
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.loadCancel = cancel
 	m.version++
-	version, id, service := m.version, m.feedID, m.service
+	version, id, service := m.version, m.libraryFeedID(), m.service
 	return func() tea.Msg { snapshot, err := service.Read(ctx, id); return libraryLoaded{version, snapshot, err} }
 }
 func (m libraryShell) selectedFeed() int64 {
@@ -286,8 +287,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.cancelPreview()
 			m.browse.active, m.browse.localResults = false, false
 			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).WithFocus(ui.Episodes)
-			m.feedID, m.wantFeedID = msg.id, msg.id
-			m.newOnly = false
+			m.libraryID = strconv.FormatInt(msg.id, 10)
+			m.wantLibraryID = m.libraryID
 			m.snapshot.Show = nil
 			rebuild = true
 			m.refresher.RefreshNow()
@@ -313,7 +314,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			if msg.state.Current != nil {
 				id, completed = msg.state.Current.ID, msg.state.Current.Completed
 			}
-			if m.lastPlayingID != id || m.lastCompleted != completed {
+			if m.lastPlayingID != id || m.lastCompleted != completed ||
+				(m.libraryID == continueDestination && m.state.Status != msg.state.Status) {
 				cmd = m.reload()
 			}
 			m.lastPlayingID, m.lastCompleted = id, completed
@@ -412,10 +414,6 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				m.adding = true
 				m.input = ""
 			}
-		case "v":
-			m.newOnly = !m.newOnly
-			rebuild = true
-			cmd = m.reload()
 		case "o":
 			m.order = (m.order + 1) % 3
 			rebuild = true
@@ -457,10 +455,12 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				if m.browse.localResults {
 					m.selectLibraryShow()
 				}
-				m.newOnly = false
+				cmd = m.syncLibrarySelection()
 				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
-				cmd = m.reload()
+				if cmd == nil {
+					cmd = m.reload()
+				}
 			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes {
 				cmd = m.playSelected()
 			}
@@ -472,16 +472,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	}
 	if rebuild {
 		m.renderLibrary()
-		if !m.browse.active && !m.browse.localResults && m.wantFeedID == 0 {
-			if id := m.selectedFeed(); id != m.feedID {
-				m.feedID = id
-				m.snapshot.Show = nil
-				if !m.newOnly {
-					m.renderLibrary()
-					cmd = tea.Batch(cmd, m.reload())
-				}
-			}
-		}
+		cmd = tea.Batch(cmd, m.syncLibrarySelection())
 	} else {
 		m.renderStatus()
 	}
@@ -505,17 +496,8 @@ func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.renderDetails()
 		return m, cmd
 	}
-	if id := m.selectedFeed(); m.wantFeedID == 0 && id != m.feedID {
-		m.feedID = id
-		m.snapshot.Show = nil
-		if !m.newOnly {
-			m.Model = m.Model.Reset(ui.Episodes)
-		}
-		cmd = tea.Batch(cmd, m.reload())
-		m.renderLibrary()
-	} else {
-		m.renderDetails()
-	}
+	cmd = tea.Batch(cmd, m.syncLibrarySelection())
+	m.renderDetails()
 	return m, cmd
 }
 func (m *libraryShell) appendInput(text string) {
@@ -586,14 +568,36 @@ func (m *libraryShell) renderLibrary() {
 		m.renderDiscovery()
 		return
 	}
-	label := "Show"
-	if m.newOnly {
-		label = "New (uncompleted)"
+	view := m.libraryView()
+	label := view.String()
+	if view == library.ShowView {
+		for _, source := range m.snapshot.Feeds {
+			if source.ID == m.libraryFeedID() {
+				label = "Show: " + library.PlainText(source.Title)
+				break
+			}
+		}
 	}
 	if m.browse.localResults {
 		label = "Library search: " + m.browse.localQuery
 	}
-	data := ui.Data{PodcastLabel: "My subscriptions · cached", EpisodeLabel: label + " · " + m.order.String()}
+	data := ui.Data{PodcastLabel: "My library · cached", EpisodeLabel: label + " · " + m.order.String()}
+	switch view {
+	case library.NewView:
+		data.EpisodeEmpty = "No unfinished subscribed episodes"
+	case library.ContinueView:
+		data.EpisodeEmpty = "Nothing to resume · play an episode first"
+	case library.AllView:
+		data.EpisodeEmpty = "No subscribed episodes · f find a podcast"
+	}
+	if m.browse.localResults {
+		data.EpisodeEmpty = "No matching cached episodes"
+	}
+	if !m.browse.localResults {
+		for _, destination := range libraryDestinations {
+			data.Podcasts = append(data.Podcasts, ui.Item{ID: destination.id, Title: destination.view.String(), Destination: true})
+		}
+	}
 	for _, source := range m.snapshot.Feeds {
 		if !source.Subscribed || !m.matchesShow(source) {
 			continue
@@ -611,8 +615,9 @@ func (m *libraryShell) renderLibrary() {
 	episodes := m.snapshot
 	if m.browse.localResults {
 		episodes.Show = m.browse.hits
+		view = library.ShowView
 	}
-	m.rows = library.Episodes(episodes, m.newOnly && !m.browse.localResults, m.order)
+	m.rows = library.Episodes(episodes, view, m.order)
 	queuedSet := make(map[int64]bool)
 	if m.state.Current != nil {
 		queuedSet[m.state.Current.ID] = true
@@ -650,10 +655,17 @@ func (m *libraryShell) renderLibrary() {
 		})
 	}
 	m.Model = m.Model.WithLibrary(data)
-	if m.wantFeedID != 0 {
-		m.Model = m.Model.Select(ui.Podcasts, strconv.FormatInt(m.wantFeedID, 10))
-		if m.selectedFeed() == m.wantFeedID {
-			m.wantFeedID = 0
+	if m.wantLibraryID != "" {
+		m.Model = m.Model.Select(ui.Podcasts, m.wantLibraryID)
+		if item, _ := m.Model.Selected(ui.Podcasts); item.ID == m.wantLibraryID {
+			m.wantLibraryID = ""
+		} else {
+			for _, source := range m.snapshot.Feeds {
+				if strconv.FormatInt(source.ID, 10) == m.wantLibraryID && !source.Subscribed {
+					m.wantLibraryID = ""
+					break
+				}
+			}
 		}
 	}
 	m.renderDetails()
