@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=podmutt
+GenericName=Podcast Player
+Comment=Terminal podcast client inspired by lazygit and mpdtui
+Exec=podmutt
+Icon=podmutt
+Terminal=true
+Categories=AudioVideo;Audio;Player;
+Keywords=podcast;tui;audio;player;
