@@ -49,6 +49,27 @@ func TestExplicitDestinationsTrackSidebarWithoutModeToggle(t *testing.T) {
 	})
 }
 
+func TestLibrarySectionLabelsDoNotBecomeActions(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, p := playerLibrary(t, s)
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 160, Height: 44})
+		openLibraryDestination(&m, allDestination)
+		items := m.Model.Visible(ui.Podcasts)
+		if items[2].Title != "All episodes" || len(items) != len(libraryDestinations)+1 {
+			t.Fatal("short view label or selectable rows changed", items)
+		}
+		if view := m.View().Content; !strings.Contains(view, "All subscribed episodes") || !strings.Contains(view, "Subscriptions") {
+			t.Fatal("scope or section label missing", view)
+		}
+		m.Model = m.Model.WithFocus(ui.Podcasts)
+		libraryKey(&m, 'u')
+		finishLibrary(&m, libraryKey(&m, 'j'))
+		if m.libraryFeedID() != m.snapshot.Feeds[0].ID || len(m.rows) != 2 || p.loads != 0 {
+			t.Fatal("heading became an action or disrupted show navigation")
+		}
+	})
+}
+
 func TestContinueListeningResumesUnsubscribedHistoryAndRemovesFinished(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
