@@ -570,6 +570,9 @@ func (m *libraryShell) renderLibrary() {
 	}
 	view := m.libraryView()
 	label := view.String()
+	if view == library.AllView {
+		label = "All subscribed episodes"
+	}
 	if view == library.ShowView {
 		for _, source := range m.snapshot.Feeds {
 			if source.ID == m.libraryFeedID() {

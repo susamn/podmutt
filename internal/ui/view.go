@@ -91,11 +91,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 		} else if panel == Queue {
 			rows = append(rows, m.renderQueueHeader(width))
 		}
-		visible := listCapacity(panel, height)
-		start := max(0, m.selected[panel]-visible+1)
-		for i := start; i < min(len(items), start+visible); i++ {
-			rows = append(rows, m.renderRow(panel, items[i], width, i == m.selected[panel]))
-		}
+		rows = append(rows, m.renderList(panel, items, width, listCapacity(panel, height))...)
 		if len(items) == 0 {
 			empty := "No items"
 			if panel == Podcasts && m.data.PodcastEmpty != "" {

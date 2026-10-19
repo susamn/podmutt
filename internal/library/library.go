@@ -44,7 +44,7 @@ const (
 )
 
 func (v View) String() string {
-	return [...]string{"Show", "New episodes", "Continue listening", "All subscriptions"}[v]
+	return [...]string{"Show", "New episodes", "Continue listening", "All episodes"}[v]
 }
 
 func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
