@@ -148,7 +148,7 @@ scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
 a full page. These keys do not change episode selection or playback.
 
 The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue (3)**.
-Details sits below Episodes; the compact **Now playing** card sits above Queue and
+Details sits below Episodes; the compact **Now playing** card sits below Queue and
 normally uses six rows. Long descriptions scroll without moving controls. Selection
 uses a highlighted row, never a `>` cursor; the active pane has an accented border.
 Errors/warnings may reserve a few additional player rows; compact layouts adapt

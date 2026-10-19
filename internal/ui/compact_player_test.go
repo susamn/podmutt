@@ -39,6 +39,12 @@ func TestCompactPlayerGeometrySingleTimelineAndFailurePriority(t *testing.T) {
 						t.Fatal("width overflow", size)
 					}
 				}
+				if !m.compact() {
+					_, playerHeight := m.rightCellHeights()
+					if rowContaining(t, text, "Queue") != 0 || rowContaining(t, text, "Now playing") != size[1]-1-playerHeight {
+						t.Fatal("wide Queue must sit above bottom-anchored Player", size, status, notices, text)
+					}
+				}
 				if !m.compact() && !notices {
 					details, height := m.rightCellHeights()
 					bottom := (size[1] - 1) - (size[1]-1)/2
