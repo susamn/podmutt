@@ -11,7 +11,7 @@ import (
 	"podmutt/internal/theme"
 )
 
-var titles = [4]string{"Podcasts", "Episodes", "Up next", "Details"}
+var titles = [4]string{"Library", "Episodes", "Queue", "Details"}
 
 // clean removes terminal escapes and control characters from untrusted metadata.
 func clean(text string, multiline bool) string {
@@ -28,7 +28,7 @@ func clean(text string, multiline bool) string {
 
 func listCapacity(panel Panel, height int) int {
 	rows := height - 3
-	if panel == Episodes || panel == Queue {
+	if panel == Episodes {
 		rows-- // pinned table header
 	}
 	return max(0, rows)
@@ -36,9 +36,12 @@ func listCapacity(panel Panel, height int) int {
 
 func (m Model) listPageSize() int {
 	available := max(0, m.height-1)
-	height := available / 2
+	height := available
+	g := m.wideLayout()
 	if m.focus == Episodes {
-		height = available - height
+		height = g.episodes
+	} else if m.focus == Queue {
+		height = g.queue
 	}
 	if m.compact() {
 		top, middle, _ := m.compactHeights()
@@ -76,8 +79,6 @@ func (m Model) pane(panel Panel, width, height int) string {
 		items := m.items(panel)
 		if panel == Episodes {
 			rows = append(rows, m.renderEpisodesHeader(width))
-		} else if panel == Queue {
-			rows = append(rows, m.renderQueueHeader(width))
 		}
 		rows = append(rows, m.renderList(panel, items, width, listCapacity(panel, height))...)
 		if len(items) == 0 {
@@ -87,9 +88,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 			} else if panel == Episodes && m.data.EpisodeEmpty != "" {
 				empty = clean(m.data.EpisodeEmpty, false)
 			} else if panel == Queue {
-				empty = "Up next is empty · a adds an episode"
+				empty = "Queue is empty · a adds an episode"
 				if m.HasFilter(Queue) {
-					empty = "No matching Up next episodes"
+					empty = "No matching queue episodes"
 				}
 			}
 			rows = append(rows, empty)
@@ -104,8 +105,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	}
 	title := m.Icon(icon, titles[panel])
-	if panel == Podcasts && m.data.PodcastLabel != "" {
-		title += " · " + clean(m.data.PodcastLabel, false)
+	if panel == Podcasts && (strings.HasPrefix(m.data.PodcastLabel, "Discover") || strings.HasPrefix(m.data.PodcastLabel, "RSS/")) {
+		title = clean(m.data.PodcastLabel, false)
 	}
 	if panel == Details && m.data.EpisodeDetails != nil {
 		context := "Selected"
@@ -123,6 +124,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 		} else {
 			title += fmt.Sprintf(" · %d", len(m.data.Queue))
 		}
+	}
+	if panel == Queue {
+		title += " · " + m.queueOrderLabel()
 	}
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
@@ -157,29 +161,6 @@ func (m Model) renderEpisodesHeader(width int) string {
 	return headerStyle.Render("      " + hdrText)
 }
 
-func (m Model) renderQueueHeader(width int) string {
-	pal := m.Theme()
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.LightForeground)))
-	remWidth := 8
-	timeWidth := 13
-	idxWidth := 4
-	gutterWidth := 4
-	innerWidth := max(0, width-2)
-	avail := max(0, innerWidth-gutterWidth-idxWidth-remWidth)
-
-	if width < 70 {
-		availText := max(8, avail-timeWidth-1)
-		return headerStyle.Render("    #   Remains " + padRight("Title", availText) + " " + padLeft("Time", timeWidth))
-	}
-
-	slack := max(16, avail-timeWidth-3)
-	titleBudget := max(8, (slack*60)/100)
-	chanBudget := max(6, slack-titleBudget)
-
-	hdrText := "Remains " + padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padLeft("Time", timeWidth)
-	return headerStyle.Render("    #   " + hdrText)
-}
-
 func padRight(s string, width int) string {
 	s = ansi.Truncate(s, width, "…")
 	pad := max(0, width-ansi.StringWidth(s))
@@ -194,9 +175,6 @@ func padLeft(s string, width int) string {
 
 func (m Model) renderRow(panel Panel, item Item, width int, selected bool) string {
 	prefix := "  "
-	if selected {
-		prefix = "> "
-	}
 	switch panel {
 	case Podcasts:
 		if item.Destination {
@@ -235,9 +213,6 @@ func formatTitleAndChannel(title, channel string, slack int, pal theme.Palette) 
 
 func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 	prefix := "  "
-	if selected {
-		prefix = "> "
-	}
 	pal := m.Theme()
 	gutter := "[ ] "
 	if item.Queued {
@@ -251,6 +226,9 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 		titleText = clean(item.Title, false)
 	}
 
+	if item.Current {
+		titleText = playerStatus(m.data.Player) + " · " + titleText
+	}
 	if item.Channel == "" && item.Date == "" && item.Duration == "" {
 		return prefix + m.Icon(EpisodeIcon, clean(item.Title, false))
 	}
@@ -289,59 +267,22 @@ func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
 
 func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	prefix := "  "
-	if selected {
-		prefix = "> "
-	}
-	pal := m.Theme()
-	gutter := "  "
-
-	idxStr := "    "
 	if item.Index > 0 {
-		idxStr = fmt.Sprintf("%-3d ", item.Index)
+		prefix += fmt.Sprintf("%d. ", item.Index)
 	}
-
-	remainsStr := item.Remains
-	if remainsStr == "" {
-		remainsStr = "100%"
+	title := item.PlainTitle
+	if title == "" {
+		title = clean(item.Title, false)
 	}
-	remCol := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(padRight(remainsStr, 7)) + " "
-
-	titleText := item.PlainTitle
-	if titleText == "" {
-		titleText = clean(item.Title, false)
+	if item.Current {
+		title = playerStatus(m.data.Player) + " · " + title
 	}
-
-	if item.Channel == "" && item.Position == "" && item.Duration == "" {
-		return prefix + m.Icon(QueueIcon, clean(item.Title, false))
+	// Spend the narrow queue column on identity, not percentages/duplicate clocks.
+	text := title
+	if item.Channel != "" {
+		text = formatTitleAndChannel(title, clean(item.Channel, false), max(0, width-4-ansi.StringWidth(prefix)), m.Theme())
 	}
-
-	timeStr := item.Position + "/" + item.Duration
-	if item.Position == "" {
-		timeStr = item.Duration
-	}
-	if timeStr == "" || timeStr == "/" {
-		timeStr = "--:--"
-	}
-
-	timeWidth := 13
-	gutterWidth := 2 + ansi.StringWidth(idxStr) + ansi.StringWidth(remCol)
-	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
-	avail := max(0, innerWidth-gutterWidth)
-
-	if width < 70 {
-		availText := max(8, avail-timeWidth-1)
-		titleCol := ansi.Truncate(titleText, availText, "…")
-		pad := max(0, availText-ansi.StringWidth(titleCol))
-		return prefix + gutter + idxStr + remCol + titleCol + strings.Repeat(" ", pad) + " " + timeStr
-	}
-
-	slack := max(16, avail-timeWidth-3)
-	titleAndChan := formatTitleAndChannel(titleText, item.Channel, slack, pal)
-
-	timePad := max(0, timeWidth-ansi.StringWidth(timeStr))
-	timeCol := strings.Repeat(" ", timePad) + timeStr
-
-	return prefix + gutter + idxStr + remCol + titleAndChan + "  " + timeCol
+	return ansi.Truncate(prefix+text, max(0, width-2), "…")
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {
@@ -530,7 +471,8 @@ func (m Model) bottomHints() string {
 			{"Enter", "play"},
 			{"Space", "pause/resume"},
 			{"i", "details"},
-			{"J/K", "move"},
+			{"o", "sort view"},
+			{"/", "search"},
 			{"D", "clear"},
 			{",/.", "seek"},
 			{"Tab", "pane"},
@@ -539,11 +481,13 @@ func (m Model) bottomHints() string {
 			{"q", "quit"},
 		}
 	default:
-		if isDiscover {
+		if m.focus == Podcasts && !isDiscover {
+			hints = []hint{{"j/k", "show"}, {"/", "search"}, {"o", "sort episodes"}, {"Tab/2", "episodes"}, {"f", "find podcast"}, {"Space", "pause/resume"}, {"?", "help"}, {"q", "quit"}}
+		} else if isDiscover {
 			hints = []hint{
-				{"f", "search"},
-				{"U", "url"},
-				{"Tab", "pane"},
+				{"/", "search list"},
+				{"f", "find podcast"},
+				{"Tab", "episodes"},
 				{"b", "library"},
 				{"t", "top25"},
 				{"Enter", "open/play"},
@@ -559,9 +503,9 @@ func (m Model) bottomHints() string {
 			}
 		} else {
 			hints = []hint{
-				{"f", "search"},
-				{"U", "url"},
+				{"/", "search"},
 				{"Tab", "pane"},
+				{"f", "find podcast"},
 				{"b", "discover"},
 				{"N", "add"},
 				{"u", "unsub"},
@@ -687,17 +631,13 @@ func (m Model) View() tea.View {
 			if top > 0 {
 				parts = append(parts, m.pane(Podcasts, m.width, top))
 			}
-			parts = append(parts, m.pane(panel, m.width, middle), m.playerPane(m.width, player))
+			parts = append(parts, m.playerPane(m.width, player), m.pane(panel, m.width, middle))
 			content = lipgloss.JoinVertical(lipgloss.Left, parts...)
 		} else {
-			left, top := m.width*2/5, available/2
-			right, bottom := m.width-left, available-top
-			details, player := m.rightCellHeights()
-			rightCell := lipgloss.JoinVertical(lipgloss.Left,
-				m.pane(Details, right, details), m.playerPane(right, player))
-			content = lipgloss.JoinVertical(lipgloss.Left,
-				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, left, top), m.pane(Queue, right, top)),
-				lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Episodes, left, bottom), rightCell))
+			g := m.wideLayout()
+			middle := lipgloss.JoinVertical(lipgloss.Left, m.pane(Episodes, g.episodeWidth, g.episodes), m.pane(Details, g.episodeWidth, g.details))
+			right := lipgloss.JoinVertical(lipgloss.Left, m.playerPane(g.queueWidth, g.player), m.pane(Queue, g.queueWidth, g.queue))
+			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), middle, right)
 		}
 		hints := m.bottomHints()
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
@@ -717,15 +657,15 @@ func (m Model) View() tea.View {
 				var rows []string
 				rows = append(rows, "Themes (j/k select, Enter apply):")
 				for i, t := range m.settingsData.Themes {
-					prefix := "  "
-					if i == m.settingsData.Selected {
-						prefix = "> "
-					}
 					mark := " "
 					if t == m.settingsData.ActiveTheme {
 						mark = "●"
 					}
-					rows = append(rows, fmt.Sprintf("%s[%s] %s", prefix, mark, t))
+					row := fmt.Sprintf("  [%s] %s", mark, t)
+					if i == m.settingsData.Selected {
+						row = m.highlightRow(row, width-2)
+					}
+					rows = append(rows, row)
 				}
 				rows = append(rows, "")
 				rows = append(rows, "Configuration:")
@@ -757,8 +697,8 @@ func (m Model) View() tea.View {
 					"e             Settings · live theme switch",
 					"Space pause/resume current · s stop · n next",
 					"Episodes Enter play · i details · a enqueue · A enqueue visible",
-					"Up next: d/Del remove · u undo",
-					"Pending: J/K move · Enter play · D clear (confirm)",
+					"Queue: o visual sort · d/Del remove pending · u undo",
+					"Pending: Enter play · D clear (confirm)",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",
 					"U RSS/website preview · t Apple US top 25",

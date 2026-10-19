@@ -100,6 +100,7 @@ func TestSelectedPlayToggleQueueEOFAndQuitCheckpoint(t *testing.T) {
 		if len(state.Queue) != 2 {
 			t.Fatal("batch enqueue", state)
 		}
+		m.Model = m.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(first.ID))
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state = syncPlayer(t, &m)
 		if state.Current.ID != first.ID || state.Status != playback.Playing || len(state.Queue) != 1 {
@@ -331,7 +332,7 @@ func TestPlayerInputGuardsBatchFilterAndFailures(t *testing.T) {
 		}
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
 		libraryKey(&m, '/')
-		updateLibrary(&m, tea.PasteMsg{Content: "Alpha"})
+		updateLibrary(&m, tea.PasteMsg{Content: "Zulu"})
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter})
 		finishLibrary(&m, libraryKey(&m, 'A'))
 		if len(syncPlayer(t, &m).Queue) != 1 {

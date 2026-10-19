@@ -8,18 +8,12 @@ import (
 	"podmutt/internal/ui"
 )
 
-const (
-	newDestination      = "library:new"
-	continueDestination = "library:continue"
-	allDestination      = "library:all"
-)
+const allDestination = "library:all"
 
 var libraryDestinations = []struct {
 	id   string
 	view library.View
 }{
-	{newDestination, library.NewView},
-	{continueDestination, library.ContinueView},
 	{allDestination, library.AllView},
 }
 

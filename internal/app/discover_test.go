@@ -75,7 +75,7 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 		}
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes || len(m.Model.Visible(ui.Episodes)) != 1 {
+		if m.browse.preview == nil || m.Model.Focus() != ui.Podcasts || len(m.Model.Visible(ui.Episodes)) != 1 {
 			t.Fatal("preview not shown")
 		}
 		feeds, err := s.store.Feeds(s.ctx, false)
@@ -85,6 +85,8 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 		if cmd := libraryKey(&m, 'c'); cmd != nil {
 			t.Fatal("preview completion mutated history")
 		}
+		// Preview loading leaves focus in Library; move deliberately to Episodes.
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		// Inspecting remains read-only. Explicit Enter/a/A are covered separately.
 		finishLibrary(&m, libraryKey(&m, 'i'))
 		if !strings.Contains(m.View().Content, "Inspect before subscribing") || !strings.Contains(m.View().Content, "Science Hour") || strings.Contains(m.View().Content, "https://podcasts.apple.com/show") {

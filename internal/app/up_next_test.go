@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -10,7 +11,7 @@ import (
 	"podmutt/internal/ui"
 )
 
-func TestUpNextEditsCannotTargetCurrentAcrossLayouts(t *testing.T) {
+func TestVisibleCurrentIsProtectedFromPendingEditsAcrossLayouts(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
 		if err := s.store.UpsertEpisodes(s.ctx, m.snapshot.Feeds[0].ID, []store.Episode{{GUID: "third", Title: "Third pending", AudioURL: "https://example.test/third.mp3"}}); err != nil {
@@ -22,7 +23,7 @@ func TestUpNextEditsCannotTargetCurrentAcrossLayouts(t *testing.T) {
 		finishLibrary(&m, libraryKey(&m, 'A'))
 		syncPlayer(t, &m)
 		if len(m.state.Queue) != 2 {
-			t.Fatal("fixture needs two pending episodes")
+			t.Fatal("fixture needs two pending")
 		}
 		for _, size := range [][2]int{{140, 40}, {70, 20}, {30, 12}} {
 			updateLibrary(&m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
@@ -31,41 +32,55 @@ func TestUpNextEditsCannotTargetCurrentAcrossLayouts(t *testing.T) {
 				state.Status = status
 				updateLibrary(&m, playbackUpdate{state: state, ok: true})
 				rows := m.Model.Visible(ui.Queue)
-				if len(rows) != 2 {
-					t.Fatal("transport changed pending rows", status, rows)
+				current := 0
+				if len(rows) != 3 {
+					t.Fatal("current not projected exactly once", rows)
 				}
 				for i, row := range rows {
-					if row.ID == fmt.Sprint(first.ID) || row.Index != i+1 {
-						t.Fatal("current is editable or pending numbering wrong", status, row)
+					if row.Current {
+						current++
+						if row.ID != fmt.Sprint(first.ID) {
+							t.Fatal("wrong current", row)
+						}
 					}
+					if row.Index != i+1 {
+						t.Fatal("bad numbering", row)
+					}
+				}
+				if current != 1 {
+					t.Fatal("current duplicated")
+				}
+				m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(first.ID))
+				if libraryKey(&m, 'd') != nil || m.queueEditing {
+					t.Fatal("current is editable")
 				}
 			}
 		}
 		syncPlayer(t, &m)
-		m.Model = m.Model.WithFocus(ui.Queue)
-		selected, _ := m.Model.Selected(ui.Queue)
-		finishLibrary(&m, libraryKey(&m, 'J'))
+		before := append([]store.Episode(nil), m.state.Queue...)
+		pending := before[0].ID
+		m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(pending))
+		libraryKey(&m, 'J')
+		libraryKey(&m, 'K')
+		libraryKey(&m, 'o')
 		syncPlayer(t, &m)
-		if after, _ := m.Model.Selected(ui.Queue); after.ID != selected.ID || fmt.Sprint(m.state.Queue[1].ID) != selected.ID {
-			t.Fatal("reorder lost pending identity", after, m.state.Queue)
+		if !slices.EqualFunc(before, m.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID }) {
+			t.Fatal("view operations mutated actor queue")
 		}
 		finishLibrary(&m, libraryKey(&m, 'd'))
-		if m.confirming != nil {
-			t.Fatal("single remove requires confirmation")
-		}
-		if state := syncPlayer(t, &m); len(state.Queue) != 1 || fmt.Sprint(state.Queue[0].ID) == selected.ID || state.Current.ID != first.ID || state.Status != playback.Playing {
-			t.Fatal("remove affected transport", state)
+		if state := syncPlayer(t, &m); len(state.Queue) != 1 || state.Current.ID != first.ID || state.Status != playback.Playing {
+			t.Fatal("pending deletion changed transport", state)
 		}
 		libraryKey(&m, 'D')
 		finishLibrary(&m, libraryKey(&m, 'y'))
-		if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current.ID != first.ID || state.Status != playback.Playing {
-			t.Fatal("clear affected transport", state)
+		if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current.ID != first.ID || len(m.Model.Visible(ui.Queue)) != 1 {
+			t.Fatal("clear removed current", state)
 		}
 		p.mu.Lock()
 		loads := p.loads
 		p.mu.Unlock()
 		if loads != 1 {
-			t.Fatal("queue edits reloaded current audio", loads)
+			t.Fatal("edits reloaded audio", loads)
 		}
 	})
 }

@@ -14,9 +14,9 @@ func TestListPagingMatchesVisibleRowsAndClamps(t *testing.T) {
 		width, height int
 		pages         [3]int
 	}{
-		{140, 44, [3]int{18, 18, 17}},
-		{70, 20, [3]int{1, 5, 5}},
-		{30, 12, [3]int{3, 2, 2}},
+		{140, 44, [3]int{40, 17, 34}},
+		{70, 20, [3]int{10, 9, 10}},
+		{30, 12, [3]int{3, 2, 3}},
 	} {
 		for panel := Podcasts; panel <= Queue; panel++ {
 			m := resize(New(Data{Podcasts: items, Episodes: items, Queue: items}), layout.width, layout.height).WithFocus(panel)

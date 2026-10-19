@@ -145,7 +145,7 @@ func TestCompactOverlaysAndHelp(t *testing.T) {
 		t.Fatal("help did not dismiss")
 	}
 	m = resize(m, 120, 32)
-	if !strings.Contains(ansi.Strip(m.View().Content), "Up next") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "Queue") {
 		t.Fatal("expanding did not restore full layout")
 	}
 }
@@ -276,11 +276,11 @@ func TestSettingsOverlay(t *testing.T) {
 func TestUnicodeBoxHeadersAndVersion(t *testing.T) {
 	m := New(fixture()).WithIcons("plain").WithVersion("v1.5.0")
 	podcastsPane := ansi.Strip(m.pane(Podcasts, 40, 8))
-	if !strings.Contains(podcastsPane, "╭──Podcasts") || !strings.Contains(podcastsPane, "[1]─╮") {
+	if !strings.Contains(podcastsPane, "╭──Library") || !strings.Contains(podcastsPane, "[1]─╮") {
 		t.Fatalf("unexpected podcasts header: %s", podcastsPane)
 	}
 	queuePane := ansi.Strip(m.pane(Queue, 50, 8))
-	if !strings.Contains(queuePane, "╭──Up next · 1") || !strings.Contains(queuePane, "[3]──v1.5.0─╮") {
+	if !strings.Contains(queuePane, "╭──Queue · 1") || !strings.Contains(queuePane, "[3]──v1.5.0─╮") {
 		t.Fatalf("unexpected queue header with version: %s", queuePane)
 	}
 	playerPane := ansi.Strip(m.pane(PlayerPanel, 40, 8))
@@ -308,7 +308,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	}
 
 	doneEp := ansi.Strip(m.renderEpisodeRow(epDone, 100, true))
-	if !strings.Contains(doneEp, "> [✓]") || !strings.Contains(doneEp, "35:10") {
+	if !strings.Contains(doneEp, "[✓]") || strings.Contains(doneEp, "> ") || !strings.Contains(doneEp, "35:10") {
 		t.Fatalf("unexpected done episode row: %s", doneEp)
 	}
 
@@ -320,7 +320,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	queued := Item{ID: "1", Index: 1, PlainTitle: "Queued episode", Channel: "Tech Daily", Position: "10:00", Duration: "40:00", Remains: "75%"}
 	for _, width := range []int{50, 100} {
 		row := ansi.Strip(m.renderQueueRow(queued, width, true))
-		if !strings.HasPrefix(row, "> ") || !strings.Contains(row, "1   ") || !strings.Contains(row, "75%") || !strings.Contains(row, "10:00/40:00") {
+		if strings.Contains(row, "> ") || !strings.Contains(row, "1. ") || strings.Contains(row, "75%") || strings.Contains(row, "10:00/40:00") || !strings.Contains(row, "Queued episode") || !strings.Contains(row, "Tech Daily") {
 			t.Fatalf("unexpected pending row: %s", row)
 		}
 		if strings.ContainsAny(row, "▶⏸■") {
@@ -333,9 +333,8 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 		t.Fatalf("unexpected episodes header: %s", epHeader)
 	}
 
-	qHeader := ansi.Strip(m.renderQueueHeader(100))
-	if !strings.Contains(qHeader, "#") || !strings.Contains(qHeader, "Remains") || !strings.Contains(qHeader, "Title") || !strings.Contains(qHeader, "Time") {
-		t.Fatalf("unexpected queue header: %s", qHeader)
+	if pane := ansi.Strip(m.pane(Queue, 100, 10)); strings.Contains(pane, "Remains") {
+		t.Fatal("redundant queue table header", pane)
 	}
 }
 
@@ -354,7 +353,7 @@ func TestRenderRowCharacterization(t *testing.T) {
 		}
 
 		qRow := ansi.Strip(m.renderQueueRow(q, width, true))
-		if !strings.HasPrefix(qRow, "> ") || !strings.Contains(qRow, "90%") {
+		if strings.Contains(qRow, "> ") || strings.Contains(qRow, "90%") || !strings.Contains(qRow, "Queued Title") {
 			t.Fatalf("width %d: unexpected queue row: %q", width, qRow)
 		}
 		if width >= 70 && !strings.Contains(qRow, "My Show") {
@@ -366,7 +365,7 @@ func TestRenderRowCharacterization(t *testing.T) {
 func TestBottomHintsContextual(t *testing.T) {
 	m := New(Data{PodcastLabel: "My subscriptions"}).WithTheme(theme.Default())
 	subHints := ansi.Strip(m.bottomHints())
-	for _, expected := range []string{"f:search", "U:url", "b:discover", "o:sort", ",/.:seek"} {
+	for _, expected := range []string{"/:search", "o:sort episodes", "Tab/2:episodes", "f:find podcast"} {
 		if !strings.Contains(subHints, expected) {
 			t.Fatalf("expected hint %q in subscriptions: %s", expected, subHints)
 		}
@@ -374,7 +373,7 @@ func TestBottomHintsContextual(t *testing.T) {
 
 	mDiscover := New(Data{PodcastLabel: "Discover · Apple"}).WithTheme(theme.Default())
 	discHints := ansi.Strip(mDiscover.bottomHints())
-	for _, expected := range []string{"f:search", "U:url", "b:library", "t:top25", ",/.:seek"} {
+	for _, expected := range []string{"/:search list", "f:find podcast", "b:library", "t:top25", ",/.:seek"} {
 		if !strings.Contains(discHints, expected) {
 			t.Fatalf("expected hint %q in discover: %s", expected, discHints)
 		}

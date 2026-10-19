@@ -50,6 +50,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		if sources, err := s.store.Feeds(s.ctx, false); err != nil || len(sources) != 0 {
 			t.Fatal("Space wrote preview cache", sources, err)
 		}
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		libraryKey(&m, 'l')
 		libraryKey(&m, 'h')
 		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes {
@@ -70,8 +71,12 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		id := state.Current.ID
 		m.Model = m.Model.WithFocus(ui.Queue)
 		libraryKey(&m, 'l')
-		if m.Model.Focus() != ui.Queue || m.browse.preview == nil || len(m.Model.Visible(ui.Queue)) != 0 {
-			t.Fatal("empty Up next inspected current or lost preview")
+		if m.Model.Focus() != ui.Details || m.browse.preview == nil || len(m.Model.Visible(ui.Queue)) != 1 {
+			t.Fatal("current Queue row was not inspectable or lost preview")
+		}
+		libraryKey(&m, 'h')
+		if m.Model.Focus() != ui.Queue {
+			t.Fatal("inspection lost Queue origin")
 		}
 		libraryKey(&m, 'h')
 		if m.Model.Focus() != ui.Episodes || m.browse.preview == nil {
@@ -93,6 +98,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("ad-hoc replay lost identity/resume", state)
 		}
 		finishLibrary(&m, libraryKey(&m, 'a'))
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		libraryKey(&m, '/')
 		updateLibrary(&m, tea.PasteMsg{Content: "Second"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
@@ -116,6 +122,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		if err != nil || len(sources) != 0 {
 			t.Fatal("enqueue subscribed", sources, err)
 		}
+		m.Model = m.Model.WithFocus(ui.Podcasts)
 		finishLibrary(&m, libraryKey(&m, 'u'))
 		sources, err = s.store.Feeds(s.ctx, true)
 		if err != nil || len(sources) != 1 {

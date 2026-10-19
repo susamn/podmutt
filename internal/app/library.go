@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -69,6 +70,8 @@ type libraryShell struct {
 	queueUndoPending         bool
 	detailTarget             *store.Episode
 	detailFrom               ui.Panel
+	startupDone              bool
+	queueSelectID            string
 }
 
 func runLibrary(s *session, input io.Reader, output io.Writer) error {
@@ -108,21 +111,24 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	if err != nil {
 		return libraryShell{}, err
 	}
-	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: newDestination,
+	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: allDestination, wantLibraryID: allDestination,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
 	model.browse.directory = discovery.NewApple(nil)
 	model.browse.indexDirectory = discovery.NewIndex(os.Getenv(discovery.IndexKeyEnv), os.Getenv(discovery.IndexSecretEnv), nil)
-	model.browse.active = model.subscribedCount() == 0 && len(snapshot.Continue) == 0
-	if model.subscribedCount() == 0 && len(snapshot.Continue) > 0 {
-		model.libraryID, model.wantLibraryID = continueDestination, continueDestination
-	}
-	model.renderLibrary()
 	state, err := s.playback.Snapshot(s.ctx)
 	if err != nil {
 		return libraryShell{}, err
 	}
-	updated, _ := model.shell.Update(playbackUpdate{state, true})
-	model.shell = updated.(shell)
+	model.shell = model.shell.withPlayback(state)
+	model.lastPlayingID, model.lastCompleted = 0, false
+	model.browse.active = model.subscribedCount() == 0 && len(model.allEpisodes()) == 0
+	if model.browse.active {
+		model.Model = model.Model.WithFocus(ui.Podcasts)
+	} else {
+		model.Model = model.Model.WithFocus(ui.Episodes)
+	}
+	model.renderLibrary()
+	model.alignStartup()
 	model.renderDetails()
 	// Constructor discards commands; arm presentation timers from Init messages,
 	// not from the synthetic initial snapshot.
@@ -133,7 +139,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	return model, nil
 }
 func (m libraryShell) Init() tea.Cmd {
-	return tea.Batch(m.shell.Init(), m.waitRefresh(), m.waitSignal(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return artProbe{} })
+	return tea.Batch(m.shell.Init(), m.waitRefresh(), m.waitSignal(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return libraryStartup{} }, func() tea.Msg { return artProbe{} })
 }
 func (m libraryShell) waitSignal() tea.Cmd {
 	if m.signals == nil {
@@ -209,16 +215,19 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	defer func() {
 		if updated, ok := result.(libraryShell); ok {
+			updated.applyQueueFocus()
 			var cmd tea.Cmd
 			updated, cmd = updated.syncArt()
 			var progress tea.Cmd
 			updated.Model, progress = updated.Model.SyncProgress()
+			var animation tea.Cmd
+			updated.Model, animation = updated.Model.SyncAnimation()
 			result = updated
-			command = tea.Batch(command, cmd, progress)
+			command = tea.Batch(command, cmd, progress, animation)
 		}
 	}()
 	var cmd tea.Cmd
-	rebuild := false
+	rebuild, alignCurrent := false, false
 	switch msg := msg.(type) {
 	case themeReloadMsg:
 		m.s.theme = msg.palette
@@ -260,6 +269,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.err != nil {
 			m.art.image = nil
 		}
+	case libraryStartup:
+		cmd = m.resumeStartup()
 	case discoverStartup:
 		if m.browse.active && !m.browse.loaded && !m.browse.loading {
 			cmd = m.searchDirectory("")
@@ -309,6 +320,18 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		}
 	case playerEdited:
+		if msg.state != nil {
+			m.shell = m.shell.withPlayback(*msg.state)
+			rebuild = true
+		}
+		if msg.err == nil && len(msg.enqueued) > 0 {
+			var ids []string
+			for _, id := range msg.enqueued {
+				ids = append(ids, strconv.FormatInt(id, 10))
+			}
+			m.Model = m.Model.WithQueueTail(ids)
+			m.queueSelectID = ids[len(ids)-1]
+		}
 		if msg.cached {
 			cmd = m.reload()
 		}
@@ -327,7 +350,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		m.notice = "Library updated"
 		if msg.state != nil {
-			m.state = *msg.state
+			m.shell = m.shell.withPlayback(*msg.state)
 		}
 		if msg.episode != nil && m.detailTarget != nil && m.detailTarget.ID == msg.episode.ID {
 			m.detailTarget.Completed = msg.episode.Completed
@@ -360,21 +383,26 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
 		}
 	case playbackUpdate:
+		if msg.ok && msg.state.Revision != 0 && msg.state.Revision < m.state.Revision {
+			return m, m.shell.wait()
+		}
+		changed := msg.ok && msg.state.Current != nil && (m.state.Current == nil || m.state.Current.ID != msg.state.Current.ID)
 		if msg.ok {
 			id, completed := int64(0), false
 			if msg.state.Current != nil {
 				id, completed = msg.state.Current.ID, msg.state.Current.Completed
 			}
-			if m.lastPlayingID != id || m.lastCompleted != completed ||
-				(m.libraryID == continueDestination && m.state.Status != msg.state.Status) {
+			if m.lastPlayingID != id || m.lastCompleted != completed {
 				cmd = m.reload()
 			}
 			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
-			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current)
+			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
+				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
 			m.lastPlayingID, m.lastCompleted = id, completed
 		}
 		updated, wait := m.shell.Update(msg)
 		m.shell = updated.(shell)
+		alignCurrent = changed
 		m.renderDetails()
 		cmd = tea.Batch(wait, cmd)
 	case tea.PasteMsg:
@@ -454,11 +482,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		case "a", "A":
 			cmd = m.enqueue(msg.String() == "A")
 		case "J", "K":
-			step := 1
-			if msg.String() == "K" {
-				step = -1
-			}
-			cmd = m.moveQueue(step)
+			// Queue order is presentation-only; manual moves are no longer supported.
 		case "d", "delete":
 			cmd = m.removeQueueItem()
 		case "D":
@@ -469,8 +493,12 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				m.input = ""
 			}
 		case "o":
-			m.order = (m.order + 1) % 3
-			rebuild = true
+			if focus == ui.Queue {
+				m.Model = m.Model.ToggleQueueOrder()
+			} else if focus == ui.Podcasts || focus == ui.Episodes {
+				m.order = (m.order + 1) % 3
+				rebuild = true
+			}
 		case "R":
 			if m.browse.active {
 				cmd = m.searchDirectory(m.browse.query)
@@ -531,6 +559,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		cmd = tea.Batch(cmd, m.syncLibrarySelection())
 	} else {
 		m.renderStatus()
+	}
+	if alignCurrent {
+		m.selectCurrent()
+		m.renderDetails()
 	}
 	return m, cmd
 }
@@ -639,7 +671,7 @@ func (m *libraryShell) renderLibrary() {
 	view := m.libraryView()
 	label := view.String()
 	if view == library.AllView {
-		label = "All subscribed episodes"
+		label = "All episodes"
 	}
 	if view == library.ShowView {
 		for _, source := range m.snapshot.Feeds {
@@ -673,31 +705,29 @@ func (m *libraryShell) renderLibrary() {
 		if !source.Subscribed || !m.matchesShow(source) {
 			continue
 		}
-		marker := "[-] "
-		if source.Subscribed {
-			marker = "[+] "
-		}
 		title := library.PlainText(source.Title)
 		if title == "" {
 			title = source.URL
 		}
-		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: marker + title, Channel: title})
+		data.Podcasts = append(data.Podcasts, ui.Item{ID: strconv.FormatInt(source.ID, 10), Title: title, Channel: title})
 	}
 	episodes := m.snapshot
+	if view == library.AllView {
+		episodes.All = m.allEpisodes()
+	}
 	if m.browse.localResults {
 		episodes.Show = m.browse.hits
 		view = library.ShowView
 	}
 	m.rows = library.Episodes(episodes, view, m.order)
 	queuedSet := make(map[int64]bool)
-	if m.state.Current != nil {
-		queuedSet[m.state.Current.ID] = true
-	}
 	for _, qItem := range m.state.Queue {
 		queuedSet[qItem.ID] = true
 	}
 	for _, episode := range m.rows {
-		data.Episodes = append(data.Episodes, episodeItem(episode, queuedSet[episode.ID]))
+		item := episodeItem(episode, queuedSet[episode.ID])
+		item.Current = m.state.Current != nil && m.state.Current.ID == episode.ID
+		data.Episodes = append(data.Episodes, item)
 	}
 	m.Model = m.Model.WithLibrary(data)
 	if m.wantLibraryID != "" {
