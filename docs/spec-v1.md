@@ -12,8 +12,10 @@ Status: core v1 scope agreed; remaining engineering details listed below.
   add RSS/ordinary podcast website URLs. My subscriptions lists subscribed shows
   only; library search covers their names and cached episode titles/descriptions
   (including completed history), never a remote episode index.
-- Newest episodes first; aggregate new-episode tab; sort by newest, oldest, or
-  title. Preserve selection by episode identity as feeds refresh.
+- Newest episodes first; explicit New episodes, Continue listening, All
+  subscriptions, and show destinations. Highlighting a show always scopes its
+  episodes. Continue includes saved unfinished history even after unsubscribe.
+  Sort by newest, oldest, or title; preserve episode identity on refresh (ADR 040).
 - Refresh at startup, every 30 minutes while running, and manually with R.
 - Priorities: ease of use, clean visuals, podcast artwork via Kitty graphics
   with an image-derived ASCII fallback. Design reference: sibling mpdtui.
