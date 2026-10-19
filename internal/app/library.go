@@ -578,7 +578,7 @@ func (m *libraryShell) renderLibrary() {
 	if m.browse.localResults {
 		label = "Library search: " + m.browse.localQuery
 	}
-	data := ui.Data{PodcastHint: discoveryActions, PodcastLabel: "My subscriptions · cached", EpisodeLabel: label + " · " + m.order.String(), ContextHint: "f Search · U RSS/website · b Discover · / filter · N add/subscribe · u subscribe · ? help · q quit"}
+	data := ui.Data{PodcastLabel: "My subscriptions · cached", EpisodeLabel: label + " · " + m.order.String()}
 	for _, source := range m.snapshot.Feeds {
 		if !source.Subscribed || !m.matchesShow(source) {
 			continue

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"podmutt/internal/discovery"
 	"podmutt/internal/ui"
 )
@@ -29,7 +30,8 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 	defer server.Close()
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
-		if !strings.Contains(m.View().Content, "Search podcasts") || !strings.Contains(m.View().Content, "RSS/website preview") {
+		view := ansi.Strip(m.View().Content)
+		if !strings.Contains(view, "f:search") || !strings.Contains(view, "U:url") {
 			t.Fatal("entry points hidden")
 		}
 		libraryKey(&m, 'U')
@@ -136,7 +138,7 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 		for _, size := range [][2]int{{70, 20}, {30, 12}} {
 			updateLibrary(&m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 			m.Model = m.Model.WithFocus(ui.Episodes)
-			if !strings.Contains(m.View().Content, "f Search · U RSS/website") {
+			if !strings.Contains(ansi.Strip(m.View().Content), "f:search") {
 				t.Fatal("compact entry hidden", size, m.View().Content)
 			}
 		}
