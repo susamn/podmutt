@@ -200,7 +200,12 @@ list and selection**. Library, Up next, and RSS previews share one episode card:
 title/show, known date/duration, listening state, relevant progress/queue membership,
 then a plain-text description. Identity stays visible while the description
 scrolls; long metadata remains accessible in the reading area. Playback/refresh
-does not replace an inspected episode or reset its reading position. `s` stops and `n` advances to the first pending
+does not replace an inspected episode or reset its reading position.
+In Details, **Enter plays/resumes the inspected episode, a queues it, and c toggles
+completion** when supported. Direct **4** pins the shown episode too. These actions
+never follow a different underlying list row; Esc restores the inspected selection
+when it is still visible. Preview play/queue does not subscribe; preview completion
+requires subscription. Space still controls current audio. `s` stops and `n` advances to the first pending
 episode. **Up next contains only pending episodes**, numbered from 1, with show/title
 and resume position. **Now playing is separate and cannot be selected for queue
 edits**. The header shows pending count (or matching/total while filtering).
