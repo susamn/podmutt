@@ -190,7 +190,11 @@ details. See [library UI policy](docs/adr/009-library-ui.md).
 With no current episode it shows guidance instead of starting the queue.
 **Enter plays the selected Episodes/Up next item** (and promotes a queued row);
 repeated Enter keeps it playing. **i opens Details; Esc returns to the originating
-list and selection**. `s` stops and `n` advances to the first pending
+list and selection**. Library, Up next, and RSS previews share one episode card:
+title/show, known date/duration, listening state, relevant progress/queue membership,
+then a plain-text description. Identity stays visible while the description
+scrolls; long metadata remains accessible in the reading area. Playback/refresh
+does not replace an inspected episode or reset its reading position. `s` stops and `n` advances to the first pending
 episode. **Up next contains only pending episodes**, numbered from 1, with show/title
 and resume position. **Now playing is separate and cannot be selected for queue
 edits**. The header shows pending count (or matching/total while filtering).
