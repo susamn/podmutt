@@ -48,7 +48,7 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 		if len(sources) != 2 || state.Current != nil || len(state.Queue) != 0 {
 			t.Fatal("preview mutated library or playback")
 		}
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state = syncPlayer(t, &m)
 		sources, _ = s.store.Feeds(s.ctx, true)
 		if state.Current == nil || state.Current.Title != "URL episode" || len(sources) != 1 {

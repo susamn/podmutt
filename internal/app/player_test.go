@@ -100,7 +100,7 @@ func TestSelectedPlayToggleQueueEOFAndQuitCheckpoint(t *testing.T) {
 		if len(state.Queue) != 2 {
 			t.Fatal("batch enqueue", state)
 		}
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state = syncPlayer(t, &m)
 		if state.Current.ID != first.ID || state.Status != playback.Playing || len(state.Queue) != 1 {
 			t.Fatal(state)
@@ -172,9 +172,9 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		}
 		finishLibrary(&m, libraryKey(&m, 'K'))
 		syncPlayer(t, &m)
-		// Episodes still open details; Queue Enter now promotes playback.
+		// Details are explicit; Enter is reserved for playback.
 		m.Model = m.Model.WithFocus(ui.Episodes)
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		finishLibrary(&m, libraryKey(&m, 'i'))
 		if m.Model.Focus() != ui.Details || m.detailTarget == nil || !strings.Contains(m.View().Content, m.detailTarget.Title) {
 			t.Fatal("details not opened")
 		}
@@ -224,7 +224,7 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 		}
 	})
 }
-func TestQueueSelectedSpaceAndQuitPersistence(t *testing.T) {
+func TestQueueSelectedEnterAndQuitPersistence(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
 		finishLibrary(&m, libraryKey(&m, 'A'))
@@ -232,7 +232,7 @@ func TestQueueSelectedSpaceAndQuitPersistence(t *testing.T) {
 		m.Model = m.Model.WithFocus(ui.Queue)
 		wanted := m.state.Queue[1]
 		m.Model = m.Model.Select(ui.Queue, fmt.Sprint(wanted.ID))
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state := syncPlayer(t, &m)
 		if state.Current.ID != wanted.ID || len(state.Queue) != 1 {
 			t.Fatal(state)
@@ -267,7 +267,7 @@ func TestFocusedPlayerControlsTransportNotSelectedLibraryEpisode(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
 		first, _ := m.selectedEpisode()
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		syncPlayer(t, &m)
 		var other store.Episode
 		for _, episode := range m.rows {
@@ -355,9 +355,9 @@ func TestPlayerInputGuardsBatchFilterAndFailures(t *testing.T) {
 			t.Fatal("reordered outside queue")
 		}
 		m.Model = m.Model.WithFocus(ui.Episodes)
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		finishLibrary(&m, libraryKey(&m, 'i'))
 		if m.Model.Focus() != ui.Details {
-			t.Fatal("Enter didn't open details")
+			t.Fatal("i didn't open details")
 		}
 		updateLibrary(&m, playbackUpdate{playback.State{Status: playback.Failed, Error: "persistent offline", Current: &store.Episode{DurationSeconds: 3700}}, true})
 		if !strings.Contains(m.View().Content, "persistent offline") || clock(3700) != "1:01:40" {

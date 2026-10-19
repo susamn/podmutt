@@ -16,7 +16,7 @@ func TestQueueCurrentRowNavigationPromotionAndCompletion(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, p := playerLibrary(t, s)
 		first, _ := m.selectedEpisode()
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		syncPlayer(t, &m)
 		if rows := m.Model.Visible(ui.Queue); len(rows) != 1 || !strings.Contains(rows[0].Title, "Alpha show") || !strings.Contains(rows[0].Title, "[playing]") {
 			t.Fatal("current not visible", rows)
@@ -35,7 +35,7 @@ func TestQueueCurrentRowNavigationPromotionAndCompletion(t *testing.T) {
 		if second.ID == first.ID {
 			t.Fatal("episode navigation failed")
 		}
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeySpace}))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		syncPlayer(t, &m)
 		if m.state.Current.ID != second.ID || len(m.Model.Visible(ui.Queue)) != 2 {
 			t.Fatal("interrupted episode missing")

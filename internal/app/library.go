@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/library"
+	"podmutt/internal/playback"
 	"podmutt/internal/store"
 	"podmutt/internal/theme"
 	"podmutt/internal/ui"
@@ -61,6 +63,7 @@ type libraryShell struct {
 	lastCompleted      bool
 	confirming         *queueConfirmation
 	detailTarget       *store.Episode
+	detailFrom         ui.Panel
 }
 
 func runLibrary(s *session, input io.Reader, output io.Writer) error {
@@ -263,7 +266,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.notice = msg.err.Error()
 		}
 	case playerEdited:
-		if msg.err != nil {
+		if errors.Is(msg.err, playback.ErrNoEpisode) {
+			m.notice = "No current episode · Enter plays the selected episode"
+		} else if msg.err != nil {
 			m.notice = msg.err.Error()
 		} else {
 			m.notice = "Playback/queue updated"
@@ -362,6 +367,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				m.cancelPreview()
 				m.notice = "Discovery request canceled"
 				m.renderLibrary()
+			} else if m.Model.Focus() == ui.Details && m.detailTarget != nil {
+				m.Model = m.Model.WithFocus(m.detailFrom)
+				m.renderDetails()
 			} else if m.browse.active && m.browse.preview != nil {
 				m.cancelPreview()
 				m.Model = m.Model.WithFocus(ui.Podcasts)
@@ -372,7 +380,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				return m.delegate(msg)
 			}
 		case "space":
-			cmd = m.playSelected()
+			engine, ctx := m.s.playback, m.s.ctx
+			cmd = func() tea.Msg { return playerEdited{engine.Toggle(ctx, 0)} }
+		case "i":
+			m.openDetails()
 		case "a", "A":
 			cmd = m.enqueue(msg.String() == "A")
 		case "J", "K":
@@ -437,17 +448,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				rebuild = true
 				m.Model = m.Model.WithFocus(ui.Episodes)
 				cmd = m.reload()
-			} else if m.Model.Focus() == ui.Queue {
-				if episode, ok := m.contextEpisode(); ok {
-					engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
-					cmd = func() tea.Msg { return playerEdited{engine.PlayEpisode(ctx, id)} }
-				}
-			} else if m.Model.Focus() == ui.Episodes {
-				if episode, ok := m.contextEpisode(); ok {
-					m.detailTarget = &episode
-					m.Model = m.Model.WithFocus(ui.Details)
-					m.renderDetails()
-				}
+			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes {
+				cmd = m.playSelected()
 			}
 		default:
 			return m.delegate(msg)

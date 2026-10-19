@@ -85,8 +85,8 @@ func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 		if cmd := libraryKey(&m, 'c'); cmd != nil {
 			t.Fatal("preview completion mutated history")
 		}
-		// Browsing remains read-only. Explicit Space/a/A are covered separately.
-		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		// Inspecting remains read-only. Explicit Enter/a/A are covered separately.
+		finishLibrary(&m, libraryKey(&m, 'i'))
 		if !strings.Contains(m.View().Content, "Inspect before subscribing") || !strings.Contains(m.View().Content, "https://podcasts.apple.com/show") {
 			t.Fatal("preview details/source hidden")
 		}
