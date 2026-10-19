@@ -124,8 +124,12 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 ## Shell controls
 
-`j/k` or arrows select; `g/G` go first/last. `h/l` scroll columns horizontally;
-Tab/Shift+Tab or `1-5` switch panes everywhere. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
+`j/k` or Up/Down select; `g/G` go first/last. **h/Left goes back; l/Right opens**
+a show or inspects an episode without starting playback. Tab/Shift+Tab cycles
+**Podcasts → Episodes → Queue**; `1-5` still focuses any pane directly.
+Details and Player are no longer mandatory Tab stops. In lists, Ctrl-d/Ctrl-u
+moves half a visible page and PgUp/PgDn moves a full page. Esc clears an applied
+filter first, then goes back; h goes directly back. `/` filters the focused list; Enter applies, Esc cancels, Ctrl+U
 clears input. `?` opens help; `e` opens settings; `q` or Ctrl+C quits. Printable keys stay literal
 while typing a filter.
 
@@ -137,14 +141,14 @@ The wide grid keeps Podcasts/Episodes on the left and Queue above the bottom-rig
 cell. That cell is split evenly: **Details above, Player below**. Long descriptions
 scroll with PgUp/PgDn inside their half; they never push the player/controls down.
 
-Press **5** for Player. **,/. (or h/l) seek backward/forward 15 seconds** after an episode
-loads, preserving pause state and resume position. Seek hints appear when space
+**,/. seeks backward/forward 15 seconds from any pane** after an episode
+loads, preserving pause state and resume position. h/l never seeks. Seek hints appear when space
 permits; Tab always leaves Player. Native macOS builds expose matching 15-second
 Control Center skip commands; absolute system scrubbing remains disabled. Linux
 TUI seeking works independently of MPRIS (which still advertises no seek support).
 See [seeking policy](docs/adr/021-shared-seeking.md).
 
-Left/Right chooses **Play/Pause, Stop, Next**; Enter
+Press **5** for Player. Here Left/Right chooses **Play/Pause, Stop, Next**; Enter
 activates. Space/s/n still work as shortcuts. The player shows current title,
 status, real-time elapsed/total/remaining and a fractional read-only progress bar;
 unavailable buttons are dimmed. The presentation clock updates at 4Hz without

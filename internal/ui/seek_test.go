@@ -7,9 +7,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func TestPlayerSeekKeysAreScopedAndGuarded(t *testing.T) {
+func TestGlobalSeekKeysAreGuardedAndIndependentOfNavigation(t *testing.T) {
 	var commands []string
-	m := resize(New(fixture()), 140, 44).WithFocus(PlayerPanel).WithActions(func(command string) tea.Cmd {
+	m := resize(New(fixture()), 140, 44).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg { commands = append(commands, command); return nil }
 	})
 	key := func(value string) {
@@ -20,51 +20,47 @@ func TestPlayerSeekKeysAreScopedAndGuarded(t *testing.T) {
 			cmd()
 		}
 	}
-	key("h")
-	key("l")
-	if len(commands) != 0 || m.Focus() != PlayerPanel {
-		t.Fatal("disabled seek dispatched or moved focus")
+	key(",")
+	key(".")
+	if len(commands) != 0 {
+		t.Fatal("disabled seek dispatched")
 	}
 	m = m.WithPlayback(m.data.Queue, Player{Status: "paused", HasCurrent: true, CanSeek: true})
-	key("h")
-	key("l")
-	if !reflect.DeepEqual(commands, []string{"seek-backward", "seek-forward"}) {
+	for _, panel := range []Panel{Podcasts, Episodes, Queue, Details, PlayerPanel} {
+		m = m.WithFocus(panel)
+		key(",")
+		key(".")
+		if m.Focus() != panel {
+			t.Fatal("seek changed focus")
+		}
+	}
+	if len(commands) != 10 || !reflect.DeepEqual(commands[:2], []string{"seek-backward", "seek-forward"}) {
 		t.Fatal(commands)
 	}
 	key("?")
-	key("h")
-	key("l")
-	key("esc")
-	m = m.WithDialog(&Dialog{Title: "Confirm"})
-	key("h")
-	key("l")
-	m = m.WithDialog(nil)
-	if len(commands) != 2 {
-		t.Fatal("busy seek dispatched")
-	}
-	m = m.WithFocus(Episodes)
-	key("/")
-	key("h")
-	key("l")
-	if m.filters[Episodes] != "hl" || len(commands) != 2 {
-		t.Fatal("seek stole input")
-	}
-	key("esc")
-	// , and . seek backward and forward
 	key(",")
 	key(".")
-	if !reflect.DeepEqual(commands, []string{"seek-backward", "seek-forward", "seek-backward", "seek-forward"}) {
-		t.Fatalf("unexpected seek commands: %v", commands)
+	key("esc")
+	key("e")
+	key(",")
+	key(".")
+	key("esc")
+	m = m.WithDialog(&Dialog{Title: "Confirm"})
+	key(",")
+	key(".")
+	m = m.WithDialog(nil).WithFocus(Episodes)
+	key("/")
+	key(",")
+	key(".")
+	if m.filters[Episodes] != ",." || len(commands) != 10 {
+		t.Fatal("seek stole input or escaped overlay")
 	}
-
-	m = m.WithFocus(Episodes)
+	key("esc")
+	m = m.WithFocus(PlayerPanel)
+	key("h")
 	key("l")
-	if m.Focus() != Episodes || m.colOffset[Episodes] != 4 {
-		t.Fatal("l did not scroll column offset on episodes")
-	}
-	key("tab")
-	if m.Focus() != Queue {
-		t.Fatal("tab did not move focus to Queue")
+	if len(commands) != 10 || m.Focus() != Episodes {
+		t.Fatal("navigation sought audio or did not leave player")
 	}
 	m = m.WithFocus(PlayerPanel)
 	key("tab")

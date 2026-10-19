@@ -36,7 +36,9 @@ Compact layouts retain bottom player controls; Queue/Details replace the middle
 list while focused. Very short layouts show one library pane plus Player. Hide
 artwork/visualization first as space shrinks. See ADR 014.
 
-Vim-style navigation: j/k move selection, h/l change panes, J/K reorder queue,
+Vim-friendly navigation: j/k move selection, h/Left goes back, l/Right opens shows
+or inspects episodes without playback; J/K reorders queue. Tab cycles the three
+lists; 1–5 directly focuses any pane. Ctrl-d/u and PgUp/PgDn page lists. See ADR 039.
 / filters locally, b switches My subscriptions / Apple Discover, f opens search
 in the current scope (Tab switches Library/Apple in the dialog), ? shows help.
 Space always pauses/resumes current playback; in text input it types a space.

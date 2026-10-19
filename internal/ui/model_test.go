@@ -29,6 +29,9 @@ func keyMsg(key string) tea.KeyPressMsg {
 		"esc": {Code: tea.KeyEscape}, "enter": {Code: tea.KeyEnter},
 		"backspace": {Code: tea.KeyBackspace}, "down": {Code: tea.KeyDown}, "up": {Code: tea.KeyUp},
 		"home": {Code: tea.KeyHome}, "end": {Code: tea.KeyEnd},
+		"left": {Code: tea.KeyLeft}, "right": {Code: tea.KeyRight},
+		"pgdown": {Code: tea.KeyPgDown}, "pgup": {Code: tea.KeyPgUp},
+		"ctrl+d": {Code: 'd', Mod: tea.ModCtrl},
 		"ctrl+u": {Code: 'u', Mod: tea.ModCtrl}, "ctrl+c": {Code: 'c', Mod: tea.ModCtrl},
 	}
 	if k, ok := keys[key]; ok {
@@ -58,15 +61,15 @@ func TestNavigationAndBounds(t *testing.T) {
 	if m.selected[Podcasts] != 1 {
 		t.Fatal("first/last navigation failed")
 	}
-	m = press(m, "tab", "tab", "tab", "tab")
-	if m.focus != PlayerPanel {
-		t.Fatalf("focus = %v", m.focus)
+	m = press(m, "tab", "tab", "tab")
+	if m.focus != Podcasts {
+		t.Fatalf("Tab did not skip supporting panes: %v", m.focus)
 	}
-	m = press(m, "j", "G", "/", "4", "1", "2", "3")
+	m = press(m, "5", "j", "G", "/", "4", "1", "2", "3")
 	if m.focus != Queue {
 		t.Fatal("numbered pane navigation failed")
 	}
-	m = press(m, "tab", "tab", "tab")
+	m = press(m, "tab")
 	if m.focus != Podcasts {
 		t.Fatal("focus did not wrap")
 	}

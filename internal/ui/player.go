@@ -12,7 +12,7 @@ import (
 )
 
 // Player contains presentation-only transport data, independent of the selected
-// episode's description. Progress is display-only; h/l dispatch explicit seeks.
+// episode's description. Progress is display-only; ,/. dispatch explicit seeks.
 type Player struct {
 	Status, Title, Channel, Position, Duration string
 	Error, Warning                             string
