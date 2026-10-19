@@ -207,20 +207,32 @@ func (m *libraryShell) openURL() {
 func (m *libraryShell) renderSearch() {
 	if m.browse.urlInput {
 		input := m.browse.input
-		if runes := []rune(input); len(runes) > 96 {
-			input = "…" + string(runes[len(runes)-96:])
-		}
-		m.Model = m.Model.WithDialog(&ui.Dialog{Title: "RSS/feed or website preview", Body: "HTTP(S) podcast feed or website URL:\n" + input + "\n\nRead-only preview. Space plays; u explicitly subscribes.\nN is the separate add-and-subscribe shortcut.", Hint: "Enter preview · Esc cancel · Ctrl+U clear"})
+		m.Model = m.Model.WithDialog(&ui.Dialog{
+			Title:      "RSS or Website Preview",
+			Body:       "HTTP(S) podcast feed or website URL.\nRead-only preview. Space plays; u subscribes.",
+			InputLabel: "URL",
+			InputValue: input,
+			Hint:       "Enter preview · Esc cancel · Ctrl+U clear",
+		})
 		return
 	}
-	scope := "My subscriptions (offline): show names + cached episode titles/descriptions"
+	title := "Search: My Subscriptions"
+	scope := "Offline search: show names and cached episode titles/descriptions"
 	if m.browse.searchApple {
-		scope = "Apple Podcasts: online shows (no remote episode search)"
+		title = "Search: Apple Podcasts"
+		scope = "Online shows directory (no remote episode search)"
 		if m.browse.searchIndex {
-			scope = "Podcast Index: online shows · your own API credentials required\nSource: https://podcastindex.org · see docs/podcast-index.md"
+			title = "Search: Podcast Index"
+			scope = "Online shows directory (Podcast Index credentials)"
 		}
 	}
-	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Search podcasts · beyond the top 25", Body: scope + "\n\nQuery: " + m.browse.input, Hint: "Enter search · Tab switch scope · Esc cancel · Ctrl+U clear"})
+	m.Model = m.Model.WithDialog(&ui.Dialog{
+		Title:      title,
+		Body:       scope,
+		InputLabel: "Query",
+		InputValue: m.browse.input,
+		Hint:       "Enter search · Tab switch source · Esc cancel · Ctrl+U clear",
+	})
 }
 func (m *libraryShell) appendSearch(text string) {
 	// Treat pasted control characters as whitespace, not commands or escapes.
