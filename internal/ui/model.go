@@ -35,7 +35,13 @@ type Item struct {
 	Index           int
 }
 
-type Dialog struct{ Title, Body, Hint string }
+type Dialog struct {
+	Title      string
+	Body       string
+	InputLabel string
+	InputValue string
+	Hint       string
+}
 
 type Data struct {
 	Dialog                       *Dialog

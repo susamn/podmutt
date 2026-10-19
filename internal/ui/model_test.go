@@ -373,3 +373,25 @@ func TestBottomHintsContextual(t *testing.T) {
 		t.Fatalf("unexpected player hints: %s", playHints)
 	}
 }
+
+func TestPopupInputBoxStyling(t *testing.T) {
+	m := New(Data{}).WithTheme(theme.Default())
+
+	dlg := m.renderDialogModal(&Dialog{
+		Title:      "Search: Subscriptions",
+		Body:       "Offline search",
+		InputLabel: "Query",
+		InputValue: "tech news",
+		Hint:       "Enter submit",
+	}, 60, 15)
+	strippedDlg := ansi.Strip(dlg)
+	if !strings.Contains(strippedDlg, "Search: Subscriptions") || !strings.Contains(strippedDlg, "Query:  tech news▌") {
+		t.Fatalf("unexpected dialog output: %s", strippedDlg)
+	}
+
+	prm := m.renderPromptModal("https://example.com/feed.xml", 60, 15)
+	strippedPrm := ansi.Strip(prm)
+	if !strings.Contains(strippedPrm, "Add feed or podcast website") || !strings.Contains(strippedPrm, "URL:  https://example.com/feed.xml▌") {
+		t.Fatalf("unexpected prompt output: %s", strippedPrm)
+	}
+}
