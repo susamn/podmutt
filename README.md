@@ -167,14 +167,15 @@ Very short terminals show one library pane plus controls. Below 30×12, resize
 guidance replaces the panes. See [fixed player layout](docs/adr/014-fixed-player-pane.md).
 
 `N` adds a public RSS/Atom feed or podcast website URL. **My library** offers
-**New episodes**, **Continue listening**, and **All episodes** at the top.
+**Not started**, **Continue listening**, and **All episodes** at the top.
 A muted, non-selectable **Subscriptions** divider separates the individual shows
 below. The divider adds no navigation stop; short panes omit the blank spacer.
 Highlighting a show always displays that show's episodes (including completed
 history); Enter/l focuses them. `o` cycles newest, oldest, and title
 ordering. There is no hidden Show/New mode or `v` toggle.
 
-New episodes contains uncompleted subscribed episodes. Continue listening contains
+Not started contains subscribed episodes with no saved progress and no completion
+mark. Continue listening contains
 unfinished episodes with saved progress, including unsubscribed/explicitly played
 preview episodes; Enter resumes without subscribing. All episodes includes
 completed episodes from subscribed shows; its Episodes heading explicitly says
@@ -215,7 +216,7 @@ consistent backup before upgrading, not a forced downgrade.
 
 An empty profile opens **Discover**, automatically loading Apple's **US top-25**
 shows. With existing subscriptions, startup stays local-first in **My library →
-New episodes**. With unfinished history but no subscriptions, startup shows
+Not started**. With unfinished history but no subscriptions, startup shows
 **Continue listening**, stopped, instead of hiding that history behind Discover.
 
 The Podcasts pane visibly offers **f Search podcasts**, **U RSS/website preview**

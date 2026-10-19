@@ -3,6 +3,7 @@ package library
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 
@@ -44,7 +45,7 @@ const (
 )
 
 func (v View) String() string {
-	return [...]string{"Show", "New episodes", "Continue listening", "All episodes"}[v]
+	return [...]string{"Show", "Not started", "Continue listening", "All episodes"}[v]
 }
 
 func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
@@ -63,16 +64,47 @@ func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
 	if err != nil {
 		return result, err
 	}
-	for _, episode := range all {
-		if !episode.Completed {
-			result.New = append(result.New, episode)
-		}
-	}
+	result.New = notStarted(all)
 	if feedID > 0 {
 		result.Show, err = s.repo.Episodes(ctx, feedID)
 	}
 	return result, err
 }
+func notStarted(episodes []store.Episode) []store.Episode {
+	var result []store.Episode
+	for _, episode := range episodes {
+		if !episode.Completed && episode.PositionSeconds == 0 {
+			result = append(result, episode)
+		}
+	}
+	return result
+}
+
+// WithCurrent overlays live progress before the next saved checkpoint. Copies
+// keep cached snapshots immutable; unsubscribed current audio belongs only in
+// Continue, never in the subscribed All/Not started collections.
+func (snapshot Snapshot) WithCurrent(current *store.Episode) Snapshot {
+	if current == nil {
+		return snapshot
+	}
+	replace := func(episodes []store.Episode) []store.Episode {
+		result := slices.Clone(episodes)
+		for i := range result {
+			if result[i].ID == current.ID {
+				result[i] = *current
+			}
+		}
+		return result
+	}
+	snapshot.All, snapshot.Show = replace(snapshot.All), replace(snapshot.Show)
+	snapshot.New = notStarted(snapshot.All)
+	snapshot.Continue = slices.DeleteFunc(slices.Clone(snapshot.Continue), func(episode store.Episode) bool { return episode.ID == current.ID })
+	if !current.Completed && current.PositionSeconds > 0 {
+		snapshot.Continue = append(snapshot.Continue, *current)
+	}
+	return snapshot
+}
+
 func (s *Service) Subscribe(ctx context.Context, id int64, subscribed bool) error {
 	return s.repo.SetSubscribed(ctx, id, subscribed)
 }

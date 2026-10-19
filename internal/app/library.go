@@ -35,6 +35,7 @@ type libraryLoaded struct {
 type libraryEdited struct {
 	id    int64
 	added bool
+	state *playback.State
 	err   error
 }
 type refreshUpdate struct {
@@ -281,6 +282,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			break
 		}
 		m.notice = "Library updated"
+		if msg.state != nil {
+			m.state = *msg.state
+		}
 		if msg.added {
 			m.discardIndexResults()
 			m.cancelDirectory()
@@ -318,6 +322,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				(m.libraryID == continueDestination && m.state.Status != msg.state.Status) {
 				cmd = m.reload()
 			}
+			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
+			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current)
 			m.lastPlayingID, m.lastCompleted = id, completed
 		}
 		updated, wait := m.shell.Update(msg)
@@ -560,7 +566,13 @@ func (m *libraryShell) complete() tea.Cmd {
 	}
 	m.mutating = true
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return libraryEdited{err: engine.MarkCompleted(ctx, episode.ID, !episode.Completed)} }
+	return func() tea.Msg {
+		if err := engine.MarkCompleted(ctx, episode.ID, !episode.Completed); err != nil {
+			return libraryEdited{err: err}
+		}
+		state, err := engine.Snapshot(ctx)
+		return libraryEdited{state: &state, err: err}
+	}
 }
 
 func (m *libraryShell) renderLibrary() {
@@ -568,6 +580,7 @@ func (m *libraryShell) renderLibrary() {
 		m.renderDiscovery()
 		return
 	}
+	m.snapshot = m.snapshot.WithCurrent(m.state.Current)
 	view := m.libraryView()
 	label := view.String()
 	if view == library.AllView {
@@ -587,7 +600,7 @@ func (m *libraryShell) renderLibrary() {
 	data := ui.Data{PodcastLabel: "My library · cached", EpisodeLabel: label + " · " + m.order.String()}
 	switch view {
 	case library.NewView:
-		data.EpisodeEmpty = "No unfinished subscribed episodes"
+		data.EpisodeEmpty = "No unstarted subscribed episodes"
 	case library.ContinueView:
 		data.EpisodeEmpty = "Nothing to resume · play an episode first"
 	case library.AllView:

@@ -83,7 +83,7 @@ func TestCachedDestinationsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 32})
-		if len(m.rows) != 2 || m.libraryID != newDestination || !strings.Contains(m.View().Content, "New episodes") {
+		if len(m.rows) != 2 || m.libraryID != newDestination || !strings.Contains(m.View().Content, "Not started") {
 			t.Fatal("cached content missing")
 		}
 		selected, _ := m.Model.Selected(ui.Episodes)

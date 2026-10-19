@@ -88,11 +88,14 @@ func TestLibraryDestinationsHaveDistinctSources(t *testing.T) {
 	if err := db.SetCompleted(ctx, snapshot.Show[1].ID, true); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.UpsertEpisodes(ctx, id, []store.Episode{{GUID: "c", Title: "Unstarted", AudioURL: "https://example.test/c"}}); err != nil {
+		t.Fatal(err)
+	}
 	snapshot, err = s.Read(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for view, count := range map[View]int{ShowView: 2, NewView: 1, ContinueView: 1, AllView: 2} {
+	for view, count := range map[View]int{ShowView: 3, NewView: 1, ContinueView: 1, AllView: 3} {
 		if rows := Episodes(snapshot, view, Newest); len(rows) != count || view.String() == "" {
 			t.Fatal("wrong destination source", view, rows)
 		}
