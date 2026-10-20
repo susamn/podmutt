@@ -72,6 +72,7 @@ type libraryShell struct {
 	detailFrom               ui.Panel
 	startupDone              bool
 	queueSelectID            string
+	onboarding               bool
 }
 
 func runLibrary(s *session, input io.Reader, output io.Writer) error {
@@ -130,6 +131,10 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	model.renderLibrary()
 	model.alignStartup()
 	model.renderDetails()
+	model.onboarding = !s.paths.Onboarded()
+	if model.onboarding {
+		model.renderOnboarding()
+	}
 	// Constructor discards commands; arm presentation timers from Init messages,
 	// not from the synthetic initial snapshot.
 	model.Model = model.Model.WithProgress(s.ctx, nil, nil)
@@ -417,6 +422,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		return m.delegate(msg)
 	case tea.KeyPressMsg:
+		if m.onboarding {
+			return m, m.onboardingKey(msg)
+		}
 		if m.confirming != nil {
 			cmd = m.confirmationKey(msg)
 			break
@@ -767,4 +775,35 @@ func (m *libraryShell) renderStatus() {
 		prompt = "URL: " + m.input
 	}
 	m.Model = m.Model.WithStatus(notice, prompt)
+}
+
+func (m *libraryShell) renderOnboarding() {
+	m.Model = m.Model.WithDialog(&ui.Dialog{
+		Title: "Welcome to podmutt",
+		Body: "A keyboard-driven podcast client for Linux and macOS.\n\n" +
+			"Quick Start:\n" +
+			"  • f         Find podcasts by name or paste an RSS/web URL\n" +
+			"  • b         Toggle between My Library and Discover (Top 25)\n" +
+			"  • Enter     Play selected episode (or preview show)\n" +
+			"  • Space     Pause / Resume playback from any pane\n" +
+			"  • , / .     Seek backward / forward 15 seconds\n" +
+			"  • a / d / u Enqueue episode / remove / undo removal\n" +
+			"  • Tab / 1-5 Switch panels (Podcasts, Episodes, Queue, Details, Player)\n" +
+			"  • ?         Open full keybinding cheat sheet",
+		Hint: "Enter or Esc to start · q quit",
+	})
+}
+
+func (m *libraryShell) onboardingKey(key tea.KeyPressMsg) tea.Cmd {
+	switch key.String() {
+	case "q", "ctrl+c":
+		return tea.Quit
+	case "enter", "esc", "space":
+		m.onboarding = false
+		m.Model = m.Model.WithDialog(nil)
+		_ = m.s.paths.SetOnboarded()
+		return nil
+	default:
+		return nil
+	}
 }

@@ -554,8 +554,8 @@ func (m Model) View() tea.View {
 		content += "\n" + ansi.Truncate(hints, m.width, "…")
 		if m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
 			width, height := min(72, m.width-2), min(16, m.height-2)
-			if m.help || m.settings {
-				height = min(20, m.height-2)
+			if m.help || m.settings || m.data.Dialog != nil {
+				height = min(22, m.height-2)
 			}
 			var modal string
 			if m.data.Dialog != nil {

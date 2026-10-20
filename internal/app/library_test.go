@@ -27,6 +27,7 @@ func librarySession(t *testing.T, run func(*session)) {
 	if err := paths.Prepare(); err != nil {
 		t.Fatal(err)
 	}
+	_ = paths.SetOnboarded()
 	if err := withSession(profile.Defaults(), paths, func(s *session) error { run(s); return nil }); err != nil {
 		t.Fatal(err)
 	}

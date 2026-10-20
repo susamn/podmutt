@@ -23,6 +23,29 @@ func testPaths(t *testing.T) Paths {
 	return p
 }
 
+func TestOnboardedPersistence(t *testing.T) {
+	p := testPaths(t)
+	if p.Onboarded() {
+		t.Fatal("expected onboarded to be false initially")
+	}
+	if err := p.SetOnboarded(); err != nil {
+		t.Fatal(err)
+	}
+	if !p.Onboarded() {
+		t.Fatal("expected onboarded to be true after SetOnboarded")
+	}
+	info, err := os.Stat(filepath.Join(p.State, "onboarded"))
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("unexpected onboarded file mode: %v %v", info, err)
+	}
+	if (Paths{}).Onboarded() {
+		t.Fatal("empty paths should not be onboarded")
+	}
+	if err := (Paths{}).SetOnboarded(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPrepare(t *testing.T) {
 	p := testPaths(t)
 	if err := p.Prepare(); err != nil {

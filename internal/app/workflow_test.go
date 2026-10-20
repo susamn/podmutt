@@ -124,6 +124,7 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if err := paths.Prepare(); err != nil {
 		t.Fatal(err)
 	}
+	_ = paths.SetOnboarded()
 	first := openWorkflow(t, paths)
 	s := first.s
 	refresher := feed.New(s.store, server.Client(), 0)
