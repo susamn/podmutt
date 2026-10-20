@@ -55,6 +55,12 @@ brew tap susamn/tap
 brew install --cask podmutt
 ```
 
+> **macOS First Run Note**: Because `podmutt` is an open-source terminal application not signed with an Apple Developer ID, macOS Gatekeeper may show a one-time verification warning on first run (*"Apple could not verify..."*). Run this command once in your terminal to allow it:
+> ```sh
+> xattr -d com.apple.quarantine $(which podmutt)
+> ```
+> *(Or click **Open Anyway** in **System Settings > Privacy & Security**).*
+
 Runtime playback streams audio through `mpv`:
 - macOS: `brew install mpv`
 - Ubuntu/Debian: `sudo apt install mpv`
@@ -74,6 +80,50 @@ git clone https://github.com/susamn/podmutt.git
 cd podmutt
 make build        # bin/podmutt
 ```
+
+---
+
+## Getting Started
+
+### 1. Launching
+Start the application from your terminal:
+```sh
+podmutt
+```
+On first run, a Quick Start overlay appears with essential hotkeys. Press **Enter** or **Esc** to begin.
+
+### 2. Discovering & Browsing Shows
+- Press **`b`** to switch between **My Library** and **Discover** (Apple Top 100).
+- Use **`j` / `k`** (or `↑` / `↓`) to scroll through the Top 100 podcasts in your region.
+- Press **`Enter`** on any show to fetch its RSS feed and preview its episodes.
+- Press **`i`** to inspect the podcast's description and customer star ratings in **Details (4)**.
+- Press **`u`** to subscribe to the podcast and save it into your permanent Library.
+
+### 3. Searching for Podcasts or RSS Feeds
+- Press **`f`** from anywhere:
+  - **By Name**: Type any podcast title (e.g. `The Daily`, `Zeit Verbrechen`) and press **Enter** to search.
+  - **By URL**: Paste any direct RSS/Atom feed or podcast website URL (e.g. `https://feeds.simplecast.com/...`).
+- `podmutt` searches your local SQLite cache first (**0ms**), then queries remote directories automatically.
+
+### 4. Playing & Queuing Episodes
+- Move to the **Episodes (2)** list with **`Tab`** or press **`2`**.
+- Press **`Enter`** on any episode to stream it instantly.
+- **`Space`** pauses/resumes current audio from **any** panel.
+- **`,`** and **`.`** seek backward and forward **15 seconds**.
+- Press **`a`** to add an episode to your **Up next (3)** queue.
+- In **Up next (3)**, press **`d`** to remove a pending item, and **`u`** to undo the removal.
+
+### 5. Switching Panels & Horizontal Panning
+- **`Tab`** cycles forward through the main lists: **Podcasts (1) → Episodes (2) → Up next (3)**.
+- **`Shift+Tab`** cycles backward.
+- **`1`**, **`2`**, **`3`**, **`4`**, **`5`** jump directly to any panel.
+- **`h` / `l`** (or `←` / `→`) scroll wide titles horizontally on compact screens.
+
+### 6. Personalizing
+- Press **`e`** to open Settings:
+  - Use **`j` / `k`** to pick a theme (*Catppuccin*, *Solarized Dark*, *Cyberpunk*) and press **Enter** to apply.
+  - Use **`Left` / `Right`** to cycle your discovery storefront country (`US`, `DE`, `GB`, `FR`, `CA`, `JP`, etc.).
+- Press **`?`** anytime for the full keybinding cheat sheet.
 
 ---
 

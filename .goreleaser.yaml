@@ -67,9 +67,12 @@ homebrew_casks:
     caveats: |
       podmutt streams podcast audio through mpv:
 
-        brew      brew install mpv
-        Arch      sudo pacman -S mpv
-        Debian    sudo apt install mpv
+        brew install mpv
+
+      macOS first launch:
+        If macOS warns that the developer cannot be verified, allow it with:
+          xattr -d com.apple.quarantine $(which podmutt)
+        (or click "Open Anyway" in System Settings > Privacy & Security).
 
       Icons use standard Unicode by default (no patched font required).
       To use Nerd Fonts, set `icons = "nerd"` in config.toml.
