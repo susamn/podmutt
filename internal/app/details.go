@@ -132,5 +132,9 @@ func (m *libraryShell) renderDetails() {
 			break
 		}
 	}
-	m.Model = m.Model.WithEpisodeDetails(episodeDetails(episode, show, key, queued, inspecting))
+	card := episodeDetails(episode, show, key, queued, inspecting)
+	if s, ok := m.selectedShow(); ok && s.Rating > 0 {
+		card.Rating = fmt.Sprintf("★ %.1f (%d reviews)", s.Rating, s.ReviewCount)
+	}
+	m.Model = m.Model.WithEpisodeDetails(card)
 }

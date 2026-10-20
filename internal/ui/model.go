@@ -68,6 +68,7 @@ type SettingsData struct {
 	MPVPath     string
 	RefreshMin  int
 	Icons       string
+	Country     string
 }
 
 type Model struct {
@@ -353,6 +354,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					chosen := m.settingsData.Themes[m.settingsData.Selected]
 					m.settingsData.ActiveTheme = chosen
 					return m, m.actions("theme:" + chosen)
+				}
+			case "right", "left", "C":
+				if m.actions != nil {
+					return m, m.actions("country:cycle")
 				}
 			case "esc", "e":
 				m.settings = false
