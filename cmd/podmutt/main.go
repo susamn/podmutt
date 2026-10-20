@@ -14,6 +14,9 @@ import (
 
 var version = "dev"
 
+// importOPML is replaceable so tests need not touch the real profile.
+var importOPML = app.ImportOPML
+
 func main() {
 	app.SetVersion(version)
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, func() error {
@@ -26,7 +29,7 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error, command 
 	flags.SetOutput(stderr)
 	showVersion := flags.Bool("version", false, "print version and exit")
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: podmutt [--version | --help | play | pause | stop | next | status]")
+		fmt.Fprintln(stderr, "Usage: podmutt [--version | --help | play | pause | stop | next | status | import-opml FILE]")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -34,6 +37,13 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error, command 
 			return 0
 		}
 		return 2
+	}
+	if flags.NArg() == 2 && flags.Arg(0) == "import-opml" && !*showVersion {
+		if err := importOPML(flags.Arg(1), stdout); err != nil {
+			fmt.Fprintln(stderr, "podmutt:", err)
+			return 1
+		}
+		return 0
 	}
 	if flags.NArg() != 0 {
 		if flags.NArg() != 1 || *showVersion || !control.Valid(flags.Arg(0)) {
