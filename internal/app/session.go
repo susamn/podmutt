@@ -70,5 +70,6 @@ func (s *session) settingsData() ui.SettingsData {
 		MPVPath:     s.config.MPVPath,
 		RefreshMin:  s.config.RefreshMinutes,
 		Icons:       s.config.Icons,
+		Country:     s.config.Country,
 	}
 }

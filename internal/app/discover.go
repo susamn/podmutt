@@ -119,11 +119,23 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	m.browse.localResults = false
 	m.browse.query = query
 	m.browse.loading = true
-	m.notice = "Loading " + m.directoryName() + "…"
+	if query == "" {
+		m.notice = "Loading " + m.directoryName() + "…"
+	} else if m.browse.usingIndex {
+		m.notice = "Searching Podcast Index…"
+	} else {
+		country := strings.ToUpper(m.s.config.Country)
+		if country == "" {
+			country = "US"
+		}
+		m.notice = fmt.Sprintf("Searching Apple Podcasts (%s)…", country)
+	}
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.cancel = cancel
 	generation, directory := m.browse.generation, m.browse.directory
 	index, provider := m.browse.usingIndex, m.browse.indexDirectory
+	country := m.s.config.Country
+	store := m.s.store
 	m.renderLibrary()
 	return func() tea.Msg {
 		var shows []discovery.Show
@@ -135,9 +147,45 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 				shows, err = provider.Search(ctx, query)
 			}
 		} else if query == "" {
-			shows, err = directory.Top(ctx)
+			// First check locally cached discovery shows for this country
+			if store != nil {
+				cached, dbErr := store.DiscoveredShows(ctx, country, "", 100)
+				if dbErr == nil && len(cached) > 0 {
+					for _, cs := range cached {
+						shows = append(shows, discovery.Show{
+							Title:       cs.Title,
+							FeedURL:     cs.FeedURL,
+							SourceURL:   cs.ArtworkURL,
+							ExternalID:  cs.SourceExternalID,
+							Rating:      cs.Rating,
+							ReviewCount: cs.ReviewCount,
+						})
+					}
+				}
+			}
+			if len(shows) == 0 {
+				shows, err = directory.Top(ctx)
+			}
 		} else {
-			shows, err = directory.Search(ctx, query)
+			// Search query: check local discovery database first
+			if store != nil {
+				cached, dbErr := store.DiscoveredShows(ctx, country, query, 25)
+				if dbErr == nil && len(cached) > 0 {
+					for _, cs := range cached {
+						shows = append(shows, discovery.Show{
+							Title:       cs.Title,
+							FeedURL:     cs.FeedURL,
+							SourceURL:   cs.ArtworkURL,
+							ExternalID:  cs.SourceExternalID,
+							Rating:      cs.Rating,
+							ReviewCount: cs.ReviewCount,
+						})
+					}
+				}
+			}
+			if len(shows) == 0 {
+				shows, err = directory.Search(ctx, query)
+			}
 		}
 		return directoryLoaded{generation: generation, shows: shows, err: err}
 	}
@@ -185,7 +233,31 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 	} else {
 		m.browse.shows = msg.shows
 		m.browse.loaded = true
-		m.notice = fmt.Sprintf("%s · %d shows · Enter preview · u subscribe", m.directoryName(), len(msg.shows))
+		source := m.directoryName()
+		if !m.browse.usingIndex && m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
+			source += " (" + strings.ToUpper(m.s.config.Country) + ")"
+		}
+		m.notice = fmt.Sprintf("%s · %d shows · Enter preview · u subscribe", source, len(msg.shows))
+		if m.s.store != nil && len(msg.shows) > 0 {
+			sourceName := "apple"
+			if m.browse.usingIndex {
+				sourceName = "podcast_index"
+			}
+			if sourceID, err := m.s.store.SourceID(m.s.ctx, sourceName); err == nil && sourceID > 0 {
+				var toStore []store.DiscoveredShow
+				for _, show := range msg.shows {
+					toStore = append(toStore, store.DiscoveredShow{
+						Title:            show.Title,
+						FeedURL:          show.FeedURL,
+						ArtworkURL:       show.SourceURL,
+						Country:          m.s.config.Country,
+						SourceID:         sourceID,
+						SourceExternalID: show.ExternalID,
+					})
+				}
+				_ = m.s.store.UpsertDiscoveredShows(m.s.ctx, m.s.config.Country, sourceID, toStore)
+			}
+		}
 	}
 	m.renderLibrary()
 	if msg.local && msg.err == nil && len(m.Model.Visible(ui.Podcasts)) == 0 && len(m.Model.Visible(ui.Episodes)) > 0 {
@@ -407,7 +479,11 @@ func (m libraryShell) previewEpisode() (store.Episode, bool) {
 	return store.Episode{}, false
 }
 func (m *libraryShell) renderDiscovery() {
-	label := "Discover · Apple Podcasts · US top 25"
+	topTag := "US top 25"
+	if m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
+		topTag = strings.ToUpper(m.s.config.Country) + " top"
+	}
+	label := "Discover · Apple Podcasts · " + topTag
 	if m.browse.query != "" {
 		label = "Discover · Apple search: " + m.browse.query
 		if m.browse.usingIndex {
@@ -470,6 +546,9 @@ func (m *libraryShell) renderPreviewDetails() {
 			details += "\nSource: https://podcastindex.org"
 		}
 	}
+	if show, ok := m.selectedShow(); ok && show.Rating > 0 {
+		details += fmt.Sprintf("\nRating: ★ %.1f/5 (%d reviews)", show.Rating, show.ReviewCount)
+	}
 	if m.browse.directURL {
 		details = "RSS/website · Enter preview · u explicitly subscribes"
 	}
@@ -485,6 +564,9 @@ func (m *libraryShell) renderPreviewDetails() {
 	}
 	if m.browse.preview != nil {
 		details = library.PlainText(m.browse.preview.Fetched.Document.Title) + "\nEnter play · i details · a enqueue · u subscribe"
+		if show, ok := m.selectedShow(); ok && show.Rating > 0 {
+			details += fmt.Sprintf("\nCustomer rating: ★ %.1f/5 (%d reviews)", show.Rating, show.ReviewCount)
+		}
 		if m.browse.source != "" {
 			details += "\nDirectory source: " + m.browse.source
 		} else if m.browse.directURL {

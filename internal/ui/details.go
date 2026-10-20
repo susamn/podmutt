@@ -13,6 +13,7 @@ import (
 type EpisodeDetails struct {
 	Key, Title, Show, Date, Duration string
 	State, Position, Description     string
+	Rating                           string
 	Queued, Inspecting               bool
 }
 
@@ -73,6 +74,9 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 		if field != "" {
 			metadata = append(metadata, field)
 		}
+	}
+	if card.Rating != "" {
+		metadata = append(metadata, card.Rating)
 	}
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
 	add(strings.Join(metadata, " · "), muted)

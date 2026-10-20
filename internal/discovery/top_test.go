@@ -108,3 +108,42 @@ func TestTopLimitsIDBatchAndRedactsLookupFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAppleCountryAndRatings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "customerreviews") {
+			fmt.Fprint(w, `{"feed":{"entry":[{"im:rating":{"label":"5"}},{"im:rating":{"label":"4"}}]}}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	a := NewApple(nil)
+	a.interval = 0
+	if a.Country() != "us" {
+		t.Fatalf("expected default country us, got %q", a.Country())
+	}
+	a.SetCountry("DE")
+	if a.Country() != "de" {
+		t.Fatalf("expected de, got %q", a.Country())
+	}
+	a.SetCountry("invalid")
+	if a.Country() != "de" {
+		t.Fatal("invalid country should be ignored")
+	}
+
+	// Empty ID returns 0
+	rating, count, err := a.Ratings(context.Background(), "de", "")
+	if err != nil || rating != 0 || count != 0 {
+		t.Fatal(rating, count, err)
+	}
+
+	// Mock reviews server by setting client transport or calling via test server URL
+	a.ratingCache = make(map[string]cachedRating)
+	a.ratingCache["rating:de:123"] = cachedRating{rating: 4.5, reviewCount: 2, expires: time.Now().Add(time.Hour)}
+	rating, count, err = a.Ratings(context.Background(), "de", "123")
+	if err != nil || rating != 4.5 || count != 2 {
+		t.Fatalf("unexpected cached rating: %v, %v, %v", rating, count, err)
+	}
+}
