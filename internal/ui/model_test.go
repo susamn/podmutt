@@ -303,7 +303,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	epDone := Item{ID: "2", PlainTitle: "Ep Done", Channel: "Tech Daily", Date: "2026-04-09", Duration: "35:10", Completed: true}
 
 	wideEp := ansi.Strip(m.renderEpisodeRow(epQueued, 100, false))
-	if !strings.Contains(wideEp, "[+]") || !strings.Contains(wideEp, "Tech Daily") || !strings.Contains(wideEp, "2026-04-10") {
+	if !strings.Contains(wideEp, "+") || strings.Contains(wideEp, "[+]") || !strings.Contains(wideEp, "Tech Daily") || !strings.Contains(wideEp, "2026-04-10") {
 		t.Fatalf("unexpected wide episode row: %s", wideEp)
 	}
 
@@ -313,7 +313,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	}
 
 	compactEp := ansi.Strip(m.renderEpisodeRow(epQueued, 50, false))
-	if !strings.Contains(compactEp, "[+]") || !strings.Contains(compactEp, "42:00") {
+	if !strings.Contains(compactEp, "+") || strings.Contains(compactEp, "[+]") || !strings.Contains(compactEp, "42:00") {
 		t.Fatalf("unexpected compact episode row: %s", compactEp)
 	}
 

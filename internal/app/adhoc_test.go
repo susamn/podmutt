@@ -64,6 +64,9 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("Esc exited preview before clearing its filter")
 		}
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		if selected, ok := m.Model.Selected(ui.Episodes); !ok || !selected.Queued || !selected.Current {
+			t.Fatal("preview current marker waited for navigation/stream", selected)
+		}
 		state := syncPlayer(t, &m)
 		if state.Status != playback.Playing || state.Current == nil || state.Current.ID <= 0 || !m.browse.active {
 			t.Fatal("ad-hoc playback blocked", state, m.notice)

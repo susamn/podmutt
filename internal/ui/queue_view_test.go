@@ -91,7 +91,7 @@ func TestSelectedRowsUseBackgroundNotCursorsAndQueueHasNoSecondClock(t *testing.
 				}
 			}
 			queue := ansi.Strip(m.pane(Queue, 60, 8))
-			if !strings.Contains(queue, "Paused") || !strings.Contains(queue, "Audio identity") || strings.Contains(queue, "12:34") || !strings.Contains(queue, "74%") || !strings.Contains(queue, "Remains") {
+			if strings.Contains(queue, "Paused ·") || strings.Contains(queue, "Playing ·") || !strings.Contains(queue, "Audio identity") || strings.Contains(queue, "12:34") || !strings.Contains(queue, "74%") || !strings.Contains(queue, "Remains") {
 				t.Fatal("queue identity/status or simplified rows", queue)
 			}
 			for _, size := range [][2]int{{30, 12}, {70, 20}, {100, 24}, {160, 44}} {

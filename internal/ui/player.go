@@ -105,13 +105,20 @@ func (m Model) playerPane(width, height int) string {
 		rows = []string{title}
 		rows = append(rows, notices[:min(len(notices), budget)]...)
 		spare := innerHeight - len(rows) - 2
-		if m.decoration && !m.Busy() && spare >= 2 {
+		padding := min(2, spare) // surrender whitespace before any core content
+		if padding > 0 {
+			rows = append([]string{""}, rows...)
+		}
+		if m.decoration && !m.Busy() && spare-padding >= 2 {
 			if frame := m.animationFrame(max(0, innerWidth-15)); frame != "" {
 				rows = append(rows, "  "+frame)
 				rows = append(rows, globalVisualizer.Render(innerWidth, 1, float64(m.animation.frame), player.Status, m.Theme())...)
 			}
 		}
 		rows = append(rows, slider, transport)
+		if padding > 1 {
+			rows = append(rows, "")
+		}
 	}
 	return m.box(m.Icon(stateIcon(player.Status), "Now playing · "+playerStatus(player)), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
@@ -122,17 +129,22 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 		title = "No current episode"
 	}
 	show := clean(player.Channel, false)
-	available := max(0, width-2)
-	titleBudget, showBudget := min(50, available), min(20, ansi.StringWidth(show))
-	if show != "" {
-		showBudget = min(showBudget, max(0, available/3))
-		titleBudget = min(titleBudget, max(0, available-3-showBudget))
+	available := max(0, width-4) // two cells of padding at each side
+	titleBudget, showBudget := available, 0
+	if show != "" && available > 3 {
+		// Prefer the full channel, but retain a small readable title when a
+		// pathological channel cannot fit. The title gets all remaining width.
+		minimumTitle := min(8, ansi.StringWidth(title), available-3)
+		showBudget = min(ansi.StringWidth(show), max(0, available-3-minimumTitle))
+		if showBudget > 0 {
+			titleBudget = available - 3 - showBudget
+		}
 	}
-	line := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, titleBudget, "…"))
-	if show != "" && showBudget > 0 {
+	line := lipgloss.NewStyle().Bold(true).Render(padRight(title, titleBudget))
+	if showBudget > 0 {
 		line += " · " + m.channelCell(ansi.Truncate(show, showBudget, "…"))
 	}
-	return ansi.Truncate("  "+line, max(0, width), "…")
+	return ansi.Truncate("  "+line+"  ", max(0, width), "…")
 }
 
 func (m Model) renderSliderLine(player Player, width int) string {

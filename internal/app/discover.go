@@ -449,6 +449,7 @@ func (m *libraryShell) renderDiscovery() {
 			item := previewEpisodeItem(i, episode, previewShowTitle)
 			saved := m.detailHistory(episode)
 			item.Current = saved.ID > 0 && m.state.Current != nil && m.state.Current.ID == saved.ID
+			item.Queued = item.Current && currentInQueue(m.state)
 			for _, pending := range m.state.Queue {
 				if saved.ID > 0 && pending.ID == saved.ID {
 					item.Queued = true

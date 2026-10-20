@@ -9,18 +9,18 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestPlayerIdentityIsOneCappedLineAndKeepsStateAndTransport(t *testing.T) {
+func TestPlayerIdentityUsesFullChannelAndRemainingWidthWithPadding(t *testing.T) {
 	for _, names := range [][2]string{{strings.Repeat("A", 80), strings.Repeat("B", 40)}, {strings.Repeat("界", 60), strings.Repeat("語", 30)}} {
 		player := Player{HasCurrent: true, Status: "paused", Title: names[0], Channel: names[1], Position: "0:42", Duration: "48:00"}
 		m := New(Data{Player: player})
-		line := strings.TrimSpace(ansi.Strip(m.renderPlayerTopLine(player, 100)))
-		parts := strings.Split(line, " · ")
-		if len(parts) != 2 || ansi.StringWidth(parts[0]) > 50 || ansi.StringWidth(parts[1]) > 20 || !utf8.ValidString(line) {
-			t.Fatal("identity caps/separator", line)
+		line := ansi.Strip(m.renderPlayerTopLine(player, 100))
+		parts := strings.Split(strings.TrimSpace(line), " · ")
+		if len(parts) != 2 || parts[1] != names[1] || ansi.StringWidth(line) != 100 || !strings.HasPrefix(line, "  ") || !strings.HasSuffix(line, "  ") || !utf8.ValidString(line) {
+			t.Fatal("full channel/remaining width/padding", line)
 		}
-		pane := ansi.Strip(m.playerPane(100, 5))
+		pane := ansi.Strip(m.playerPane(100, 7))
 		rows := strings.Split(pane, "\n")
-		if len(rows) != 5 || !strings.Contains(rows[1], " · ") || !strings.Contains(rows[0], "Paused") || !strings.Contains(rows[2], "0:42") || !strings.Contains(rows[3], "[Play] [Stop] [Next]") {
+		if len(rows) != 7 || !strings.Contains(rows[2], " · ") || !strings.Contains(rows[0], "Paused") || !strings.Contains(rows[3], "0:42") || !strings.Contains(rows[4], "[Play] [Stop] [Next]") || strings.Trim(rows[1], "│ ") != "" || strings.Trim(rows[5], "│ ") != "" {
 			t.Fatal("extra identity line or lost state/transport", pane)
 		}
 		if m.data.Player.Title != names[0] || m.data.Player.Channel != names[1] {

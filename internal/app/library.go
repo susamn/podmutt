@@ -397,6 +397,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
 			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
+				currentInQueue(m.state) != currentInQueue(msg.state) ||
 				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
 			m.lastPlayingID, m.lastCompleted = id, completed
 		}
@@ -723,6 +724,9 @@ func (m *libraryShell) renderLibrary() {
 	queuedSet := make(map[int64]bool)
 	for _, qItem := range m.state.Queue {
 		queuedSet[qItem.ID] = true
+	}
+	if currentInQueue(m.state) {
+		queuedSet[m.state.Current.ID] = true
 	}
 	for _, episode := range m.rows {
 		item := episodeItem(episode, queuedSet[episode.ID])

@@ -125,7 +125,7 @@ func (m *libraryShell) renderDetails() {
 		}
 	}
 	episode = m.detailHistory(episode)
-	queued := false
+	queued := currentInQueue(m.state) && m.state.Current.ID == episode.ID
 	for _, item := range m.state.Queue {
 		if episode.ID > 0 && item.ID == episode.ID {
 			queued = true

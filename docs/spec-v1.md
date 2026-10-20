@@ -30,7 +30,7 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 | All episodes   +----------------------+                      |
 | Subscriptions  | Details (4)          |                      |
 | shows          +----------------------+----------------------+
-|                | Now playing (~5 rows, spanning both columns) |
+|                | Now playing (~7 rows, spanning both columns) |
 +----------------+---------------------------------------------+
 ```
 
@@ -38,14 +38,17 @@ Player spans the bottom of Details and Queue, borrowing height from Details whil
 Episodes retains its height. Queue takes 35% of the viewport; Episodes and Details
 share an equally reduced width. Queue rows include percentage remaining (unknown
 is --); current percentage uses Player's clock and pending work uses saved progress.
-Player identity uses one line: title capped at 50 cells, middle dot, channel capped
-at 20; state is in the border. Episodes headers/rows reserve Duration first and bound
+Player identity uses one full-width line: remaining-width title, middle dot, and
+preferably the full channel, with two-cell side padding. Top/bottom blank rows yield
+before notices/core content or compact pinned identity. State stays in the border,
+not as Episodes/Queue title prefixes. An accented + marks pending and visible current
+queue membership immediately, including the authoritative Enter action reply. Episodes headers/rows reserve Duration first and bound
 Channel padding. Queue has pinned Title, Channel, Remains headers. Missing covers
 use the bundled application PNG after episode/show art; no runtime asset dependency.
 Descriptions never enlarge or displace the player. Compact
 layouts retain Player above one focused list; Queue/Details replace that list.
 Hide artwork/visualization first as space shrinks. Shared geometry governs rendering,
-paging, description reading and animation (ADRs 048–050).
+paging, description reading and animation (ADRs 048–051).
 
 Vim-friendly navigation: j/k move selection, h/Left goes back, l/Right opens shows
 or inspects episodes without playback. Queue o toggles newest vs channel/newest

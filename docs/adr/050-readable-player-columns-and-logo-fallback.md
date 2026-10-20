@@ -1,6 +1,6 @@
 # ADR 050: One-line player identity, aligned tables and bundled cover fallback
 
-Status: accepted; implemented for #53.
+Status: implemented in !61 / #53; identity budgets, padding and markers amended by ADR 051.
 
 Player identity is a single line: episode title (at most 50 display cells), ` · `,
 and channel (at most 20). Narrow layouts shrink both budgets without splitting

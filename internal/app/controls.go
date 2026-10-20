@@ -82,6 +82,11 @@ func newShell(s *session) shell {
 	}), s: s}
 }
 
+// Current audio is projected into visible Queue, but never actor pending storage.
+func currentInQueue(state playback.State) bool {
+	return state.Current != nil && (!state.Current.Completed || state.Status != playback.Stopped)
+}
+
 // Project an authoritative snapshot without arming/discarding subscription commands.
 func (m shell) withPlayback(state playback.State) shell {
 	if state.Revision != 0 && state.Revision < m.state.Revision {
@@ -90,7 +95,7 @@ func (m shell) withPlayback(state playback.State) shell {
 	m.state = state
 	// Marking history complete does not itself stop current audio. Keep its
 	// read-only identity visible until transport actually stops/finishes.
-	currentVisible := state.Current != nil && (!state.Current.Completed || state.Status != playback.Stopped)
+	currentVisible := currentInQueue(state)
 	var queue []ui.Item
 	for _, episode := range state.Queue {
 		if currentVisible && episode.ID == state.Current.ID {

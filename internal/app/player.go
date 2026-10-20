@@ -145,7 +145,20 @@ func (m *libraryShell) playSelected() tea.Cmd {
 		return nil
 	}
 	engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
-	return func() tea.Msg { return playerEdited{err: engine.PlayEpisode(ctx, id)} }
+	return func() tea.Msg { return playEpisode(ctx, engine, id, false) }
+}
+
+// Return the actor's authoritative membership with the action, not only on a
+// later streamed update. Failed loads can also leave visible current audio.
+func playEpisode(ctx context.Context, engine *playback.Engine, id int64, cached bool) playerEdited {
+	reply := playerEdited{err: engine.PlayEpisode(ctx, id), cached: cached}
+	state, err := engine.Snapshot(ctx)
+	if err == nil {
+		reply.state = &state
+	} else if reply.err == nil {
+		reply.err = err
+	}
+	return reply
 }
 
 func (m *libraryShell) openDetails() {
