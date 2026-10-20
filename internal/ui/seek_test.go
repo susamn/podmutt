@@ -56,11 +56,14 @@ func TestGlobalSeekKeysAreGuardedAndIndependentOfNavigation(t *testing.T) {
 		t.Fatal("seek stole input or escaped overlay")
 	}
 	key("esc")
-	m = m.WithFocus(PlayerPanel)
-	key("h")
+	m = m.WithFocus(Episodes)
 	key("l")
-	if len(commands) != 10 || m.Focus() != Episodes {
-		t.Fatal("navigation sought audio or did not leave player")
+	if m.Focus() != Episodes || m.colOffset[Episodes] != 4 {
+		t.Fatal("l did not scroll column offset on episodes")
+	}
+	key("h")
+	if m.Focus() != Episodes || m.colOffset[Episodes] != 0 {
+		t.Fatal("h did not scroll column offset back")
 	}
 	m = m.WithFocus(PlayerPanel)
 	key("tab")

@@ -484,14 +484,6 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		key := msg.String()
 		focus := m.Model.Focus()
-		if key == "h" || (key == "left" && focus != ui.PlayerPanel) {
-			key = "esc"
-		} else if key == "l" || (key == "right" && focus != ui.PlayerPanel) {
-			key = "i"
-			if focus == ui.Podcasts {
-				key = "enter"
-			}
-		}
 		switch key {
 		case "b":
 			cmd = m.switchBrowse()
