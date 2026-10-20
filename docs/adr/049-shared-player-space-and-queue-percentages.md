@@ -1,6 +1,6 @@
 # ADR 049: Shared bottom player and queue percentages
 
-Status: accepted; implemented for #52.
+Status: implemented in !60 / #52; identity rows and column headers amended by ADR 050.
 
 ## Decision
 

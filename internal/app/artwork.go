@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"math/rand/v2"
@@ -93,12 +94,40 @@ func (m *libraryShell) cancelArt() {
 		m.art.generation++
 	}
 }
+
+// Missing/unavailable remote covers fall back locally, but cancellation never
+// becomes a successful logo reply. Run both fetching and decoding off the UI loop.
+func loadArtwork(ctx context.Context, fetcher imageFetcher, episode, show string) (image.Image, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var img image.Image
+	var err error
+	if episode != "" || show != "" {
+		img, err = fetcher.Image(ctx, episode, show)
+	}
+	if canceled := ctx.Err(); canceled != nil {
+		return nil, canceled
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return nil, err
+	}
+	if img == nil || err != nil {
+		img, err = artwork.Logo()
+	}
+	if canceled := ctx.Err(); canceled != nil {
+		return nil, canceled
+	}
+	return img, err
+}
+
 func (m libraryShell) syncArt() (libraryShell, tea.Cmd) {
 	if m.art.fetcher == nil {
 		return m, nil
 	}
 	episode, show := m.artURLs()
-	key := episode + "\x00" + show
+	_, hasEpisode := m.contextEpisode()
+	key := fmt.Sprintf("%t:%s\x00%s", hasEpisode, episode, show)
 	if key != m.art.key {
 		m.cancelArt()
 		m.art.key = key
@@ -111,14 +140,17 @@ func (m libraryShell) syncArt() (libraryShell, tea.Cmd) {
 	if !visible {
 		m.cancelArt()
 	} else if !m.art.complete && m.art.cancel == nil {
-		if episode == "" && show == "" {
+		if episode == "" && show == "" && !hasEpisode {
 			m.art.complete = true
 		} else {
 			ctx, cancel := context.WithCancel(m.s.ctx)
 			m.art.cancel = cancel
 			m.art.generation++
 			version, fetcher := m.art.generation, m.art.fetcher
-			load = func() tea.Msg { img, err := fetcher.Image(ctx, episode, show); return artLoaded{version, img, err} }
+			load = func() tea.Msg {
+				img, err := loadArtwork(ctx, fetcher, episode, show)
+				return artLoaded{version, img, err}
+			}
 		}
 	}
 	desired, packet := "", ""

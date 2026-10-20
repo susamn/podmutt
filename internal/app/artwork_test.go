@@ -97,8 +97,8 @@ func TestArtworkAsyncSelectionFallbackFailureAndResize(t *testing.T) {
 		m.Model = m.Model.Select(ui.Episodes, strconv.FormatInt(m.rows[0].ID, 10))
 		m, cmd = m.syncArt()
 		updateLibrary(&m, cmd())
-		if m.art.image != nil || !strings.Contains(m.View().Content, "[no artwork]") {
-			t.Fatal("failure not clean placeholder")
+		if m.art.image == nil || m.art.image.Bounds().Dx() != 1024 || strings.Contains(m.View().Content, "[no artwork]") {
+			t.Fatal("failure did not use the bundled logo")
 		}
 	})
 }

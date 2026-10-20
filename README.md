@@ -149,7 +149,8 @@ a full page. These keys do not change episode selection or playback.
 
 The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue (3)**.
 Details sits below Episodes; **Now playing** spans the bottom of both Details and
-Queue, normally using six rows. Library keeps its full height. Queue takes 35% of
+Queue, normally using five rows. Its identity line is **episode title (max 50 cells)
+· channel (max 20 cells)**; state stays in the border, with no separate channel row. Library keeps its full height. Queue takes 35% of
 the wide viewport; Episodes and Details share the equally narrowed middle column. Long descriptions scroll without moving controls. Selection
 uses a highlighted row, never a `>` cursor; the active pane has an accented border.
 Errors/warnings may reserve a few additional player rows; compact layouts adapt
@@ -220,7 +221,10 @@ row number, title, show and **percentage remaining**, without duplicate elapsed 
 Unknown duration displays `--`, not an invented 100%. The current row uses the same
 bounded presentation clock as Player; pending rows retain their saved progress. Current audio is
 not duplicated in the actor's pending queue and cannot be removed by pending edits.
-The header shows visible count (or matching/total while filtering).
+Pinned **Title, Channel, Remains** headers share exact column widths with Queue
+rows. The pane title shows visible count (or matching/total while filtering).
+Episodes likewise reserves Duration at the right edge; narrower views omit optional
+Date/Channel columns before hiding duration, with bounded channel padding.
 Playing a different episode preserves interrupted playback; completion keeps history.
 
 Queue `o` toggles newest-first and channel alphabetically + newest-first. Sorting is
@@ -303,10 +307,12 @@ before use; fixture CI does not imply a successful live authorized search.
 
 ### Artwork
 
-Artwork renders asynchronously beside Details, using episode art then show-art
-fallback. Kitty requires a positive graphics probe outside tmux/screen; other
-terminals use image-derived ASCII. Compact/modal layouts hide art, and failure
-shows a placeholder without affecting playback. Real Kitty verification remains
+Artwork renders asynchronously beside Details, using episode art, then show art,
+then the bundled **`assets/logo.png`** when covers are missing/unavailable. The logo
+works offline in standalone binaries; it needs no runtime asset path. Kitty requires
+a positive graphics probe outside tmux/screen; other terminals use image-derived
+ASCII. Compact/modal/empty Details layouts hide art. Cancellation and stale replies
+never replace a newer cover or affect playback. Real Kitty verification remains
 [pending](docs/artwork-check.md). See
 [discovery policy and bounds](docs/adr/012-show-discovery.md).
 

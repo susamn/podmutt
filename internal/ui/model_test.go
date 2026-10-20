@@ -333,8 +333,8 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 		t.Fatalf("unexpected episodes header: %s", epHeader)
 	}
 
-	if pane := ansi.Strip(m.pane(Queue, 100, 10)); strings.Contains(pane, "Remains") {
-		t.Fatal("redundant queue table header", pane)
+	if pane := ansi.Strip(m.pane(Queue, 100, 10)); !strings.Contains(pane, "Title") || !strings.Contains(pane, "Channel") || !strings.Contains(pane, "Remains") {
+		t.Fatal("missing queue table headers", pane)
 	}
 }
 
