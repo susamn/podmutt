@@ -68,3 +68,20 @@ func (s *Store) EnqueueLatest(ctx context.Context, currentID, feedID int64) ([]E
 	})
 	return pending, err
 }
+
+// SeedAutoqueueSeen records autoqueue_seen receipts for the newest cached releases
+// of the specified feed (or all feeds when feedID=0) without adding them to the
+// playback queue.
+func (s *Store) SeedAutoqueueSeen(ctx context.Context, feedID int64) error {
+	if feedID < 0 {
+		return fmt.Errorf("store: invalid feed ID")
+	}
+	return transaction(ctx, s.db, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO autoqueue_seen(episode_id)
+			SELECT e.id FROM feeds f
+			JOIN episodes e ON e.id IN (SELECT newest.id FROM episodes newest
+				WHERE newest.feed_id=f.id ORDER BY newest.published_at DESC,newest.identity ASC LIMIT 2)
+			WHERE f.subscribed=1 AND (?=0 OR f.id=?)`, feedID, feedID)
+		return err
+	})
+}

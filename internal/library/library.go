@@ -123,7 +123,10 @@ func (s *Service) Add(ctx context.Context, raw string) (int64, error) {
 	}
 	for _, source := range sources {
 		if source.URL == address.String() {
-			return source.ID, s.Subscribe(ctx, source.ID, true)
+			if episodes, err := s.repo.Episodes(ctx, source.ID); err == nil && len(episodes) > 0 {
+				return source.ID, s.Subscribe(ctx, source.ID, true)
+			}
+			break
 		}
 	}
 	preview, err := s.Preview(ctx, address.String())

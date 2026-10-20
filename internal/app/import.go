@@ -47,6 +47,9 @@ func ImportOPML(path string, output io.Writer) error {
 			_, err := service.Add(ctx, url)
 			return err
 		}, output, importWorkers)
+		if failed < len(feeds) {
+			_ = db.SeedAutoqueueSeen(ctx, 0)
+		}
 		if failed > 0 {
 			return fmt.Errorf("%d of %d feeds could not be imported", failed, len(feeds))
 		}
