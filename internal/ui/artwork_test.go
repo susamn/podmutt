@@ -42,3 +42,10 @@ func TestArtworkColumnKeepsDetailsScrollableAndPlayerBounded(t *testing.T) {
 		t.Fatal("art overlay leaks")
 	}
 }
+
+func TestEmptyDetailsDoesNotReserveArtwork(t *testing.T) {
+	m := resize(New(Data{}), 180, 56)
+	if columns, rows := m.ArtworkSize(); columns != 0 || rows != 0 {
+		t.Fatal("blank Details reserved a cover slot", columns, rows)
+	}
+}
