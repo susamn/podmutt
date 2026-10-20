@@ -126,7 +126,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	}
 	if panel == Queue {
-		title += " · " + m.queueOrderLabel()
+		title += " · % left · " + m.queueOrderLabel()
 	}
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
@@ -270,19 +270,33 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 	if item.Index > 0 {
 		prefix += fmt.Sprintf("%d. ", item.Index)
 	}
-	title := item.PlainTitle
+	title := clean(item.PlainTitle, false)
 	if title == "" {
 		title = clean(item.Title, false)
 	}
 	if item.Current {
 		title = playerStatus(m.data.Player) + " · " + title
 	}
-	// Spend the narrow queue column on identity, not percentages/duplicate clocks.
+	remaining := FormatRemainingPercent(item.PositionSeconds, item.DurationSeconds)
+	if item.Current {
+		remaining = FormatRemainingPercent(m.data.Player.PositionSeconds, m.data.Player.DurationSeconds)
+		if remaining != "--" {
+			player := m.displayPlayer()
+			remaining = FormatRemainingPercent(player.Progress*player.DurationSeconds, player.DurationSeconds)
+		}
+	}
+	innerWidth := max(0, width-2)
+	if innerWidth < 5 {
+		return ansi.Truncate(remaining, innerWidth, "…")
+	}
+	// Reserve the percentage before truncating identity, so long titles and
+	// narrow layouts cannot push it out. Elapsed clocks stay in Player only.
+	textWidth := innerWidth - 5
 	text := title
 	if item.Channel != "" {
-		text = formatTitleAndChannel(title, clean(item.Channel, false), max(0, width-4-ansi.StringWidth(prefix)), m.Theme())
+		text = formatTitleAndChannel(title, clean(item.Channel, false), max(0, textWidth-2-ansi.StringWidth(prefix)), m.Theme())
 	}
-	return ansi.Truncate(prefix+text, max(0, width-2), "…")
+	return padRight(prefix+text, textWidth) + " " + padLeft(remaining, 4)
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {
@@ -636,8 +650,9 @@ func (m Model) View() tea.View {
 		} else {
 			g := m.wideLayout()
 			middle := lipgloss.JoinVertical(lipgloss.Left, m.pane(Episodes, g.episodeWidth, g.episodes), m.pane(Details, g.episodeWidth, g.details))
-			right := lipgloss.JoinVertical(lipgloss.Left, m.pane(Queue, g.queueWidth, g.queue), m.playerPane(g.queueWidth, g.player))
-			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), middle, right)
+			upper := lipgloss.JoinHorizontal(lipgloss.Top, middle, m.pane(Queue, g.queueWidth, g.queue))
+			body := lipgloss.JoinVertical(lipgloss.Left, upper, m.playerPane(g.playerWidth, g.player))
+			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), body)
 		}
 		hints := m.bottomHints()
 		content += "\n" + ansi.Truncate(hints, m.width, "…")

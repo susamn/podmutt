@@ -76,7 +76,7 @@ func TestSelectedRowsUseBackgroundNotCursorsAndQueueHasNoSecondClock(t *testing.
 		Podcasts: []Item{{ID: "all", Title: "All episodes", Destination: true}, {ID: "show", Title: "Subscribed show"}},
 		Episodes: []Item{{ID: "episode", PlainTitle: "Inspected title", Channel: "RSS show", Current: true, Duration: "48:00"}},
 		Queue:    []Item{{ID: "episode", PlainTitle: "Audio identity", Channel: "RSS show", Current: true, Position: "12:34", Duration: "48:00", Remains: "74%"}},
-		Player:   Player{Status: "paused", HasCurrent: true},
+		Player:   Player{Status: "paused", HasCurrent: true, PositionSeconds: 754, DurationSeconds: 2880},
 	}
 	for _, palette := range []theme.Palette{theme.Default(), theme.SolarizedDark(), theme.Catppuccin()} {
 		for _, icons := range []string{"plain", "unicode", "nerd"} {
@@ -91,7 +91,7 @@ func TestSelectedRowsUseBackgroundNotCursorsAndQueueHasNoSecondClock(t *testing.
 				}
 			}
 			queue := ansi.Strip(m.pane(Queue, 60, 8))
-			if !strings.Contains(queue, "Paused") || !strings.Contains(queue, "Audio identity") || strings.Contains(queue, "12:34") || strings.Contains(queue, "74%") || strings.Contains(queue, "Remains") {
+			if !strings.Contains(queue, "Paused") || !strings.Contains(queue, "Audio identity") || strings.Contains(queue, "12:34") || !strings.Contains(queue, "74%") || strings.Contains(queue, "Remains") {
 				t.Fatal("queue identity/status or simplified rows", queue)
 			}
 			for _, size := range [][2]int{{30, 12}, {70, 20}, {100, 24}, {160, 44}} {

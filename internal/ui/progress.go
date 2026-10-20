@@ -105,6 +105,17 @@ func (m Model) displayPlayer() Player {
 	player.Position = progressTime(position)
 	return player
 }
+
+// FormatRemainingPercent reports unknown duration/invalid samples quietly;
+// overshoot and negative positions are bounded without changing playback state.
+func FormatRemainingPercent(position, duration float64) string {
+	if duration <= 0 || math.IsNaN(duration) || math.IsInf(duration, 0) || math.IsNaN(position) || math.IsInf(position, 0) {
+		return "--"
+	}
+	position = max(0, min(position, duration))
+	return fmt.Sprintf("%d%%", int(math.Round(100*(1-position/duration))))
+}
+
 func FormatDuration(seconds float64) string {
 	if math.IsNaN(seconds) || math.IsInf(seconds, 0) {
 		seconds = 0

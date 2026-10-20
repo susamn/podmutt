@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"math"
 	"slices"
 	"strconv"
 	"time"
@@ -81,12 +80,7 @@ func queueItem(episode store.Episode) ui.Item {
 	duration := formatEpisodeDuration(episode.DurationSeconds)
 	plainTitle := cleanTitle(episode.Title)
 	pos := clock(episode.PositionSeconds)
-	remains := "100%"
-	if episode.DurationSeconds > 0 && episode.PositionSeconds > 0 {
-		pct := int(math.Round((1.0 - (episode.PositionSeconds / float64(episode.DurationSeconds))) * 100))
-		pct = max(0, min(100, pct))
-		remains = fmt.Sprintf("%d%%", pct)
-	}
+	remains := ui.FormatRemainingPercent(episode.PositionSeconds, float64(episode.DurationSeconds))
 	return ui.Item{
 		ID:              strconv.FormatInt(episode.ID, 10),
 		Title:           fmt.Sprintf("%s · %s · %s/%s", plainTitle, show, pos, duration),
