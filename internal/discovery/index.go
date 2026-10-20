@@ -90,5 +90,5 @@ func (i *Index) Search(ctx context.Context, query string) ([]Show, error) {
 		}
 		records = append(records, appleRecord{CollectionName: record.Title, FeedURL: record.URL, CollectionViewURL: source})
 	}
-	return normalize(records), nil
+	return normalize(records, maxResults), nil
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -114,7 +115,9 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	}
 	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: allDestination, wantLibraryID: allDestination,
 		notice: "Cached library", refreshErrors: make(map[int64]string)}
-	model.browse.directory = discovery.NewApple(nil)
+	appleDir := discovery.NewApple(nil)
+	appleDir.SetCountry(s.config.Country)
+	model.browse.directory = appleDir
 	model.browse.indexDirectory = discovery.NewIndex(os.Getenv(discovery.IndexKeyEnv), os.Getenv(discovery.IndexSecretEnv), nil)
 	state, err := s.playback.Snapshot(s.ctx)
 	if err != nil {
@@ -234,6 +237,18 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	var cmd tea.Cmd
 	rebuild, alignCurrent := false, false
 	switch msg := msg.(type) {
+	case countryChangedMsg:
+		m.s.config.Country = msg.country
+		if apple, ok := m.browse.directory.(*discovery.Apple); ok {
+			apple.SetCountry(msg.country)
+		}
+		m.Model = m.Model.WithSettings(m.s.settingsData())
+		m.notice = "Country set to " + strings.ToUpper(msg.country)
+		if m.browse.active {
+			m.browse.loaded = false
+			return m, m.searchDirectory("")
+		}
+		return m, nil
 	case themeReloadMsg:
 		m.s.theme = msg.palette
 		if msg.themeName != "" {

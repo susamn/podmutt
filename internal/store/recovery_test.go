@@ -131,7 +131,7 @@ func TestFailedUpgradePreservesListeningDataAndSchema(t *testing.T) {
 	if err = s.Checkpoint(ctx, episodes[0].ID, 123); err != nil {
 		t.Fatal(err)
 	}
-	err = migrate(ctx, s.db, []string{schema, autoqueueSchema, "ALTER TABLE episodes ADD COLUMN future TEXT; UPDATE playback SET position_seconds=0; INVALID SQL"})
+	err = migrate(ctx, s.db, append(append([]string(nil), migrations...), "ALTER TABLE episodes ADD COLUMN future TEXT; UPDATE playback SET position_seconds=0; INVALID SQL"))
 	if err == nil {
 		t.Fatal("broken upgrade succeeded")
 	}
