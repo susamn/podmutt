@@ -149,8 +149,12 @@ a full page. These keys do not change episode selection or playback.
 
 The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue (3)**.
 Details sits below Episodes; **Now playing** spans the bottom of both Details and
-Queue, normally using five rows. Its identity line is **episode title (max 50 cells)
-· channel (max 20 cells)**; state stays in the border, with no separate channel row. Library keeps its full height. Queue takes 35% of
+Queue, normally using seven rows with a blank row above and below the content.
+Its identity line gives priority to the **full channel name**, with remaining width
+for the episode title and two-cell side padding. Fixed 50/20 caps are removed;
+pathological names truncate safely only when needed. State stays in the border,
+not in Episodes/Queue titles. Compact layouts surrender padding first to preserve
+notices, transport and pinned Details identity. Library keeps its full height. Queue takes 35% of
 the wide viewport; Episodes and Details share the equally narrowed middle column. Long descriptions scroll without moving controls. Selection
 uses a highlighted row, never a `>` cursor; the active pane has an accented border.
 Errors/warnings may reserve a few additional player rows; compact layouts adapt
@@ -225,6 +229,9 @@ Pinned **Title, Channel, Remains** headers share exact column widths with Queue
 rows. The pane title shows visible count (or matching/total while filtering).
 Episodes likewise reserves Duration at the right edge; narrower views omit optional
 Date/Channel columns before hiding duration, with bounded channel padding.
+Episodes shows an accented **+** as soon as an episode enters visible Queue,
+including current audio; it does not wait for another play/navigation. Actor pending
+storage still excludes current audio, and current-row edit protections remain.
 Playing a different episode preserves interrupted playback; completion keeps history.
 
 Queue `o` toggles newest-first and channel alphabetically + newest-first. Sorting is
