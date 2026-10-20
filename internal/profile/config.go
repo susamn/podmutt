@@ -19,10 +19,11 @@ type Config struct {
 	Icons            string `toml:"icons"`
 	Theme            string `toml:"theme"`
 	PlayerDecoration bool   `toml:"player_decoration"`
+	Country          string `toml:"country"`
 }
 
 func Defaults() Config {
-	return Config{RefreshMinutes: 30, MPVPath: "mpv", Icons: "unicode", Theme: "colors"}
+	return Config{RefreshMinutes: 30, MPVPath: "mpv", Icons: "unicode", Theme: "colors", Country: DetectCountry(os.Getenv)}
 }
 
 // Load applies a TOML file over defaults. An absent file uses defaults.
@@ -53,6 +54,14 @@ func Load(path string) (Config, error) {
 	}
 	if filepath.Base(cfg.Theme) != cfg.Theme {
 		return Config{}, fmt.Errorf("configuration: theme must be a simple name")
+	}
+	if cfg.Country == "" {
+		cfg.Country = DetectCountry(os.Getenv)
+	} else {
+		cfg.Country = strings.ToLower(strings.TrimSpace(cfg.Country))
+		if len(cfg.Country) != 2 || !isAlpha(cfg.Country) {
+			return Config{}, fmt.Errorf("configuration: country must be a 2-letter ISO code")
+		}
 	}
 	if cfg.Telemetry {
 		return Config{}, fmt.Errorf("configuration: telemetry is not supported")
@@ -91,6 +100,78 @@ func SetTheme(path, themeName string) error {
 	}
 	if !found {
 		lines = append(lines, fmt.Sprintf("theme = %q", themeName))
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0600)
+}
+
+// DetectCountry infers a 2-letter country code from locale environment variables.
+func DetectCountry(getenv func(string) string) string {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	for _, env := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		val := getenv(env)
+		if val == "" {
+			continue
+		}
+		part := strings.Split(val, ".")[0]
+		sub := strings.Split(part, "_")
+		if len(sub) == 2 && len(sub[1]) == 2 && isAlpha(strings.ToLower(sub[1])) {
+			return strings.ToLower(sub[1])
+		}
+		if len(sub) == 1 && len(sub[0]) == 2 && isAlpha(strings.ToLower(sub[0])) {
+			return strings.ToLower(sub[0])
+		}
+	}
+	return "us"
+}
+
+func isAlpha(s string) bool {
+	for _, r := range s {
+		if r < 'a' || r > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// SetCountry updates or appends the country setting in config.toml.
+func SetCountry(path, country string) error {
+	country = strings.ToLower(strings.TrimSpace(country))
+	if len(country) != 2 || !isAlpha(country) {
+		return fmt.Errorf("configuration: country must be a 2-letter ISO code")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		content := fmt.Sprintf("country = %q\n", country)
+		return os.WriteFile(path, []byte(content), 0600)
+	}
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "country") {
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 && strings.TrimSpace(parts[0]) == "country" {
+				lines[i] = fmt.Sprintf("country = %q", country)
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines[len(lines)-1] = fmt.Sprintf("country = %q", country)
+			lines = append(lines, "")
+		} else {
+			lines = append(lines, fmt.Sprintf("country = %q", country))
+		}
 	}
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0600)
 }

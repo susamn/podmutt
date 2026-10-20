@@ -592,10 +592,13 @@ func (m Model) View() tea.View {
 				if m.settingsData.Icons != "" {
 					rows = append(rows, "  Icons:       "+clean(m.settingsData.Icons, false))
 				}
+				if m.settingsData.Country != "" {
+					rows = append(rows, "  Country:     "+clean(strings.ToUpper(m.settingsData.Country), false)+" (Left/Right to change)")
+				}
 				if m.settingsData.MPVPath != "" {
 					rows = append(rows, "  MPV:         "+clean(m.settingsData.MPVPath, false))
 				}
-				modal = m.box("Settings · e / Esc to close", rows, width, height, true, "", "")
+				modal = m.box("Settings · Left/Right country · e/Esc to close", rows, width, height, true, "", "")
 			} else if m.help {
 				modal = m.box("Keys · Esc closes", []string{
 					"j/k arrows · g/G first/last item",

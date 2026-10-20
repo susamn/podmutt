@@ -37,6 +37,48 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestDetectAndSetCountry(t *testing.T) {
+	env := map[string]string{}
+	get := func(k string) string { return env[k] }
+	if got := DetectCountry(get); got != "us" {
+		t.Fatalf("expected default us, got %q", got)
+	}
+	env["LANG"] = "de_DE.UTF-8"
+	if got := DetectCountry(get); got != "de" {
+		t.Fatalf("expected de from LANG, got %q", got)
+	}
+	env["LC_ALL"] = "fr_FR.UTF-8"
+	if got := DetectCountry(get); got != "fr" {
+		t.Fatalf("expected fr from LC_ALL priority, got %q", got)
+	}
+	env["LC_ALL"] = "gb"
+	if got := DetectCountry(get); got != "gb" {
+		t.Fatalf("expected gb, got %q", got)
+	}
+
+	path := filepath.Join(t.TempDir(), "sub", "config.toml")
+	if err := SetCountry(path, "DE"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.Country != "de" {
+		t.Fatalf("expected country de, got %+v %v", cfg, err)
+	}
+	if err := SetCountry(path, "jp"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(path)
+	if err != nil || cfg.Country != "jp" {
+		t.Fatalf("expected country jp after update, got %+v %v", cfg, err)
+	}
+	if err := SetCountry(path, "invalid"); err == nil {
+		t.Fatal("expected error for invalid country code")
+	}
+	if err := SetCountry(path, "12"); err == nil {
+		t.Fatal("expected error for numeric country code")
+	}
+}
+
 func TestSetTheme(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sub", "config.toml")
 	if err := SetTheme(path, "solarized-dark"); err != nil {

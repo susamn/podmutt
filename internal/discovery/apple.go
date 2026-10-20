@@ -20,15 +20,28 @@ import (
 
 const maxResponse = 1 << 20
 const maxResults = 25
+const maxTopResults = 100
 
 var ErrQuery = errors.New("show search requires 1–128 characters")
 var ErrUnavailable = errors.New("show directory unavailable (network, TLS, or redirect error)")
 var ErrRateLimited = errors.New("show directory rate limited; try again later")
 
-type Show struct{ Title, FeedURL, SourceURL string }
+type Show struct {
+	Title       string
+	FeedURL     string
+	SourceURL   string
+	ExternalID  string
+	Rating      float64
+	ReviewCount int
+}
 type cached struct {
 	shows   []Show
 	expires time.Time
+}
+type cachedRating struct {
+	rating      float64
+	reviewCount int
+	expires     time.Time
 }
 type appleRecord struct {
 	CollectionID                                          int64
@@ -40,10 +53,12 @@ type appleRecord struct {
 type Apple struct {
 	client                                  *http.Client
 	endpoint, chartEndpoint, lookupEndpoint string
+	country                                 string
 	gate                                    chan struct{}
 	interval                                time.Duration
 	next                                    time.Time
 	cache                                   map[string]cached
+	ratingCache                             map[string]cachedRating
 }
 
 func NewApple(client *http.Client) *Apple {
@@ -67,7 +82,37 @@ func NewApple(client *http.Client) *Apple {
 		}
 		return nil
 	}
-	return &Apple{client: &copy, endpoint: "https://itunes.apple.com/search", chartEndpoint: "https://rss.marketingtools.apple.com/api/v2/us/podcasts/top/25/podcasts.json", lookupEndpoint: "https://itunes.apple.com/lookup", gate: make(chan struct{}, 1), interval: 3 * time.Second, cache: make(map[string]cached)}
+	return &Apple{
+		client:         &copy,
+		endpoint:       "https://itunes.apple.com/search",
+		chartEndpoint:  "https://rss.marketingtools.apple.com/api/v2/%s/podcasts/top/100/podcasts.json",
+		lookupEndpoint: "https://itunes.apple.com/lookup",
+		country:        "us",
+		gate:           make(chan struct{}, 1),
+		interval:       3 * time.Second,
+		cache:          make(map[string]cached),
+		ratingCache:    make(map[string]cachedRating),
+	}
+}
+
+func (a *Apple) SetCountry(country string) {
+	if len(country) == 2 {
+		a.country = strings.ToLower(country)
+	}
+}
+
+func (a *Apple) Country() string {
+	if a.country == "" {
+		return "us"
+	}
+	return a.country
+}
+
+func (a *Apple) chartURL() string {
+	if a.chartEndpoint != "" && !strings.Contains(a.chartEndpoint, "%s") {
+		return a.chartEndpoint
+	}
+	return fmt.Sprintf("https://rss.marketingtools.apple.com/api/v2/%s/podcasts/top/100/podcasts.json", a.Country())
 }
 func (a *Apple) Search(ctx context.Context, query string) ([]Show, error) {
 	query = strings.Join(strings.Fields(query), " ")
@@ -83,24 +128,34 @@ func (a *Apple) Search(ctx context.Context, query string) ([]Show, error) {
 		q.Set("term", query)
 		q.Set("media", "podcast")
 		q.Set("entity", "podcast")
+		q.Set("country", a.Country())
 		q.Set("limit", strconv.Itoa(maxResults))
 		endpoint.RawQuery = q.Encode()
 		var document struct{ Results []appleRecord }
 		if err := a.read(ctx, endpoint.String(), &document); err != nil {
 			return nil, err
 		}
-		return normalize(document.Results), nil
+		return normalize(document.Results, maxResults), nil
 	})
 }
 
-// Top returns the non-personalized US top-25 chart, resolved to public RSS URLs
+// Top returns the non-personalized top chart for the active country, resolved to public RSS URLs
 // via one batch lookup. Apple artwork and preview assets are ignored entirely.
 func (a *Apple) Top(ctx context.Context) ([]Show, error) {
-	return a.load(ctx, "\x00top-us", func(ctx context.Context) ([]Show, error) {
+	return a.TopLimit(ctx, maxResults)
+}
+
+// TopLimit returns the top chart up to the given limit (capped at 100).
+func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
+	if limit <= 0 || limit > maxTopResults {
+		limit = maxTopResults
+	}
+	key := fmt.Sprintf("\x00top-%s-%d", a.Country(), limit)
+	return a.load(ctx, key, func(ctx context.Context) ([]Show, error) {
 		var chart struct {
 			Feed struct{ Results []struct{ ID string } }
 		}
-		if err := a.read(ctx, a.chartEndpoint, &chart); err != nil {
+		if err := a.read(ctx, a.chartURL(), &chart); err != nil {
 			return nil, err
 		}
 		var ids []string
@@ -115,7 +170,7 @@ func (a *Apple) Top(ctx context.Context) ([]Show, error) {
 			}
 			rank[id] = len(ids)
 			ids = append(ids, strconv.FormatInt(id, 10))
-			if len(ids) == maxResults {
+			if len(ids) == limit {
 				break
 			}
 		}
@@ -141,7 +196,7 @@ func (a *Apple) Top(ctx context.Context) ([]Show, error) {
 			}
 		}
 		sort.SliceStable(records, func(i, j int) bool { return rank[records[i].CollectionID] < rank[records[j].CollectionID] })
-		shows := normalize(records)
+		shows := normalize(records, limit)
 		if len(shows) == 0 {
 			return nil, errors.New("Apple chart has no available RSS feeds")
 		}
@@ -234,8 +289,8 @@ func (a *Apple) readHeaders(ctx context.Context, address string, document any, h
 	}
 	return nil
 }
-func normalize(records []appleRecord) []Show {
-	shows := make([]Show, 0, maxResults)
+func normalize(records []appleRecord, limit int) []Show {
+	shows := make([]Show, 0, limit)
 	seen := make(map[string]bool)
 	for _, result := range records {
 		if len(result.FeedURL) > 4096 {
@@ -264,12 +319,72 @@ func normalize(records []appleRecord) []Show {
 			source = u.String()
 		}
 		seen[feedURL.String()] = true
-		shows = append(shows, Show{Title: title, FeedURL: feedURL.String(), SourceURL: source})
-		if len(shows) == maxResults {
+		shows = append(shows, Show{
+			Title:      title,
+			FeedURL:    feedURL.String(),
+			SourceURL:  source,
+			ExternalID: strconv.FormatInt(result.CollectionID, 10),
+		})
+		if len(shows) == limit {
 			break
 		}
 	}
 	return shows
+}
+
+// Ratings fetches customer reviews and computes the star rating and review count.
+func (a *Apple) Ratings(ctx context.Context, country, collectionID string) (float64, int, error) {
+	if collectionID == "" {
+		return 0, 0, nil
+	}
+	if country == "" {
+		country = a.Country()
+	}
+	key := fmt.Sprintf("rating:%s:%s", country, collectionID)
+	if a.ratingCache == nil {
+		a.ratingCache = make(map[string]cachedRating)
+	}
+	if entry, ok := a.ratingCache[key]; ok && time.Now().Before(entry.expires) {
+		return entry.rating, entry.reviewCount, nil
+	}
+
+	url := fmt.Sprintf("https://itunes.apple.com/%s/rss/customerreviews/id=%s/json", country, collectionID)
+	var doc struct {
+		Feed struct {
+			Entry []struct {
+				Rating struct {
+					Label string `json:"label"`
+				} `json:"im:rating"`
+			} `json:"entry"`
+		} `json:"feed"`
+	}
+
+	if err := a.read(ctx, url, &doc); err != nil {
+		return 0, 0, err
+	}
+
+	total := 0.0
+	count := 0
+	for _, entry := range doc.Feed.Entry {
+		if r, err := strconv.ParseFloat(entry.Rating.Label, 64); err == nil && r >= 1 && r <= 5 {
+			total += r
+			count++
+		}
+	}
+
+	avg := 0.0
+	if count > 0 {
+		avg = total / float64(count)
+		avg = float64(int(avg*10+0.5)) / 10.0
+	}
+
+	a.ratingCache[key] = cachedRating{
+		rating:      avg,
+		reviewCount: count,
+		expires:     time.Now().Add(1 * time.Hour),
+	}
+
+	return avg, count, nil
 }
 func retryDelay(value string) time.Duration {
 	delay := 3 * time.Second

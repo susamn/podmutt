@@ -51,6 +51,10 @@ type shell struct {
 	state playback.State
 }
 
+type countryChangedMsg struct {
+	country string
+}
+
 func newShell(s *session) shell {
 	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
 		return func() tea.Msg {
@@ -62,6 +66,21 @@ func newShell(s *session) shell {
 				pal, themePath := theme.Load(s.paths.ConfigDir(), chosen)
 				s.theme = pal
 				return themeReloadMsg{palette: pal, themeName: chosen, themePath: themePath}
+			}
+			if strings.HasPrefix(command, "country:") {
+				countries := []string{"us", "de", "gb", "fr", "ca", "au", "jp", "es", "it", "nl"}
+				curr := strings.ToLower(s.config.Country)
+				nextIndex := 0
+				for idx, c := range countries {
+					if c == curr {
+						nextIndex = (idx + 1) % len(countries)
+						break
+					}
+				}
+				chosen := countries[nextIndex]
+				_ = profile.SetCountry(s.paths.Config, chosen)
+				s.config.Country = chosen
+				return countryChangedMsg{country: chosen}
 			}
 			if command == "seek-forward" || command == "seek-backward" {
 				delta := 15.0
