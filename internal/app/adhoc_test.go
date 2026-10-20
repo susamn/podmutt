@@ -38,7 +38,7 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		s.playback = engine
 		m := browserLibrary(t, s, &fixtureDirectory{shows: []discovery.Show{{Title: "Adhoc show", FeedURL: server.URL + "/rss"}}})
 		finishLibrary(&m, updateLibrary(&m, discoverStartup{}))
-		finishLibrary(&m, libraryKey(&m, 'l'))
+		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		sources, err := s.store.Feeds(s.ctx, false)
 		if err != nil || len(sources) != 0 {
 			t.Fatal("browsing wrote cache", sources, err)
@@ -51,8 +51,8 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 			t.Fatal("Space wrote preview cache", sources, err)
 		}
 		m.Model = m.Model.WithFocus(ui.Episodes)
-		libraryKey(&m, 'l')
-		libraryKey(&m, 'h')
+		libraryKey(&m, 'i')
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
 		if m.browse.preview == nil || m.Model.Focus() != ui.Episodes {
 			t.Fatal("details return discarded preview")
 		}
@@ -73,15 +73,15 @@ func TestExplicitPreviewPlayAndEnqueueDoNotSubscribe(t *testing.T) {
 		}
 		id := state.Current.ID
 		m.Model = m.Model.WithFocus(ui.Queue)
-		libraryKey(&m, 'l')
+		libraryKey(&m, 'i')
 		if m.Model.Focus() != ui.Details || m.browse.preview == nil || len(m.Model.Visible(ui.Queue)) != 1 {
 			t.Fatal("current Queue row was not inspectable or lost preview")
 		}
-		libraryKey(&m, 'h')
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
 		if m.Model.Focus() != ui.Queue {
 			t.Fatal("inspection lost Queue origin")
 		}
-		libraryKey(&m, 'h')
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		if m.Model.Focus() != ui.Episodes || m.browse.preview == nil {
 			t.Fatal("leaving queue closed unrelated preview")
 		}

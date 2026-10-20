@@ -72,6 +72,14 @@ func (m Model) renderEpisodeColumns(item Item, width int) string {
 	if title == "" {
 		title = clean(item.Title, false)
 	}
+	if offset := m.colOffset[Episodes]; offset > 0 {
+		runes := []rune(title)
+		if offset < len(runes) {
+			title = string(runes[offset:])
+		} else {
+			title = ""
+		}
+	}
 	duration := clean(item.Duration, false)
 	if duration == "" {
 		duration = "--:--"
@@ -87,6 +95,14 @@ func (m Model) renderQueueColumns(item Item, width int, remaining string) string
 	title := clean(item.PlainTitle, false)
 	if title == "" {
 		title = clean(item.Title, false)
+	}
+	if offset := m.colOffset[Queue]; offset > 0 {
+		runes := []rune(title)
+		if offset < len(runes) {
+			title = string(runes[offset:])
+		} else {
+			title = ""
+		}
 	}
 	c := queueColumns(width, max(m.queueGutter(), ansi.StringWidth(prefix)))
 	if c.inner < c.gutter+c.tail+1 {

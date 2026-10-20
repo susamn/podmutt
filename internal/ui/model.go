@@ -84,6 +84,7 @@ type Model struct {
 	focus         Panel
 	lastVisible   Panel
 	selected      [3]int
+	colOffset     [3]int
 	filters       [3]string
 	editing       bool
 	previous      string
@@ -184,6 +185,7 @@ func (m Model) ClearFilter(panel Panel) Model {
 func (m Model) Reset(panel Panel) Model {
 	if panel >= Podcasts && panel <= Queue {
 		m.selected[panel] = 0
+		m.colOffset[panel] = 0
 	}
 	return m
 }
@@ -381,9 +383,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					step = -1
 				}
 				m.playerButton = (m.playerButton + step + 3) % 3
-			} else if key == "left" {
-				m.back()
+			} else if m.focus < Details {
+				step := 4
+				if key == "left" {
+					step = -4
+				}
+				m.colOffset[m.focus] = max(0, m.colOffset[m.focus]+step)
 			}
+			return m, nil
 		case "enter":
 			if m.focus == PlayerPanel {
 				return m, m.activatePlayer()
@@ -429,7 +436,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.actions("seek-forward")
 			}
 		case "h":
-			m.back()
+			if m.focus < Details {
+				m.colOffset[m.focus] = max(0, m.colOffset[m.focus]-4)
+			}
+			return m, nil
+		case "l":
+			if m.focus < Details {
+				m.colOffset[m.focus] += 4
+			}
+			return m, nil
 		case "tab":
 			if m.focus >= Queue {
 				m.setFocus(Podcasts)
