@@ -1,7 +1,7 @@
 package ui
 
 // Geometry is shared by rendering, paging, artwork, reading and animation.
-const playerBaseRows = 5 // borders, one identity line, timeline, transport
+const playerBaseRows = 7 // borders, identity/timeline/transport, top/bottom padding
 type wideGeometry struct {
 	libraryWidth, episodeWidth, queueWidth, playerWidth int
 	episodes, details, player, queue                    int
@@ -32,7 +32,10 @@ func (m Model) rightCellHeights() (details, player int) {
 
 func (m Model) compactHeights() (top, middle, player int) {
 	available := max(0, m.height-1)
-	player = min(max(0, available-4), playerBaseRows+len(m.playerNotices(m.width-2)))
+	core := playerBaseRows - 2 + len(m.playerNotices(m.width-2))
+	// Whitespace must not cost the minimum compact card its pinned identity.
+	padding := min(2, max(0, available-core-6))
+	player = min(max(0, available-4), core+padding)
 	return 0, available - player, player
 }
 
