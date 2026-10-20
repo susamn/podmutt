@@ -68,29 +68,33 @@ func TestTabCyclesListsAndBackLeavesSupportingPanes(t *testing.T) {
 				t.Fatal("reverse Tab traversed supporting pane", m.Focus(), want)
 			}
 		}
-		for _, key := range []string{"h", "left", "esc"} {
-			m = m.WithFocus(Episodes)
-			for _, panel := range []Panel{Queue, Details, PlayerPanel} {
-				m = m.WithFocus(panel)
-				m = press(m, key)
-				// Player Left retains explicit transport-button selection.
-				if panel == PlayerPanel && key == "left" {
-					if m.Focus() != PlayerPanel {
-						t.Fatal("Player Left lost transport focus")
-					}
-					m = press(m, "esc")
-				}
-				if m.Focus() != Episodes {
-					t.Fatal("back lost browsing origin", key, panel, m.Focus())
-				}
+		m = m.WithFocus(Episodes)
+		for _, panel := range []Panel{Queue, Details, PlayerPanel} {
+			m = m.WithFocus(panel)
+			m = press(m, "esc")
+			if m.Focus() != Episodes {
+				t.Fatal("back lost browsing origin", panel, m.Focus())
 			}
-			m = press(m, key)
-			if m.Focus() != Podcasts {
-				t.Fatal("episode back did not reach shows", key)
+		}
+		m = press(m, "esc")
+		if m.Focus() != Podcasts {
+			t.Fatal("episode back did not reach shows")
+		}
+		m = press(m, "esc")
+		if m.Focus() != Podcasts {
+			t.Fatal("root back wrapped")
+		}
+
+		// h and l pan columns horizontally without switching panels
+		for _, panel := range []Panel{Podcasts, Episodes, Queue} {
+			m = m.WithFocus(panel)
+			m = press(m, "l")
+			if m.Focus() != panel || m.colOffset[panel] != 4 {
+				t.Fatalf("expected l to scroll column on %v", panel)
 			}
-			m = press(m, key)
-			if m.Focus() != Podcasts {
-				t.Fatal("root back wrapped")
+			m = press(m, "h")
+			if m.Focus() != panel || m.colOffset[panel] != 0 {
+				t.Fatalf("expected h to restore column scroll on %v", panel)
 			}
 		}
 		m = m.WithFocus(Episodes)

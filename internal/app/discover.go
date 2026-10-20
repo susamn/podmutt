@@ -155,7 +155,7 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 			// First check locally cached discovery shows for this country
 			if store != nil {
 				cached, dbErr := store.DiscoveredShows(ctx, country, "", 100)
-				if dbErr == nil && len(cached) > 0 {
+				if dbErr == nil && len(cached) >= 100 {
 					for _, cs := range cached {
 						shows = append(shows, discovery.Show{
 							Title:       cs.Title,

@@ -169,6 +169,14 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 		}
 		chanColor := lipgloss.Color(string(m.Theme().ChannelColor(channel)))
 		title := clean(item.Title, false)
+		if offset := m.colOffset[Podcasts]; offset > 0 {
+			runes := []rune(title)
+			if offset < len(runes) {
+				title = string(runes[offset:])
+			} else {
+				title = ""
+			}
+		}
 		return prefix + m.Icon(ShowIcon, lipgloss.NewStyle().Foreground(chanColor).Render(title))
 	case Episodes:
 		return m.renderEpisodeRow(item, width, selected)
