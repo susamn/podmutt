@@ -162,7 +162,8 @@ The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue 
 Details sits below Episodes; **Now playing** spans the bottom of both Details and
 Queue, normally using seven rows with a blank row above and below the content.
 Its identity line gives priority to the **full channel name**, with remaining width
-for the episode title and two-cell side padding. Fixed 50/20 caps are removed;
+for the episode title and two-cell side padding. Title and channel are adjacent:
+`Episode title · Channel`, never padded apart or right-aligned. Fixed 50/20 caps are removed;
 pathological names truncate safely only when needed. State stays in the border,
 not in Episodes/Queue titles. Compact layouts surrender padding first to preserve
 notices, transport and pinned Details identity. Library keeps its full height. Queue takes 35% of
@@ -240,8 +241,9 @@ Pinned **Title, Channel, Remains** headers share exact column widths with Queue
 rows. The pane title shows visible count (or matching/total while filtering).
 Episodes likewise reserves Duration at the right edge; narrower views omit optional
 Date/Channel columns before hiding duration, with bounded channel padding.
-Episodes shows an accented **+** as soon as an episode enters visible Queue,
-including current audio; it does not wait for another play/navigation. Actor pending
+Episodes shows **`+ Title`** for queued episodes and **`◉ Title`** otherwise, with
+exactly one space after the marker and no brackets. The accented **+** appears as
+soon as an episode enters visible Queue, including current audio; it does not wait for another play/navigation. Actor pending
 storage still excludes current audio, and current-row edit protections remain.
 Playing a different episode preserves interrupted playback; completion keeps history.
 

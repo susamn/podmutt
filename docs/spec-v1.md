@@ -38,11 +38,13 @@ Player spans the bottom of Details and Queue, borrowing height from Details whil
 Episodes retains its height. Queue takes 35% of the viewport; Episodes and Details
 share an equally reduced width. Queue rows include percentage remaining (unknown
 is --); current percentage uses Player's clock and pending work uses saved progress.
-Player identity uses one full-width line: remaining-width title, middle dot, and
-preferably the full channel, with two-cell side padding. Top/bottom blank rows yield
+Player identity uses one line: `Title · Channel`, with no gap padding between
+fields. Prefer the full channel, truncating the title only when needed, and retain
+two-cell side padding. Top/bottom blank rows yield
 before notices/core content or compact pinned identity. State stays in the border,
-not as Episodes/Queue title prefixes. An accented + marks pending and visible current
-queue membership immediately, including the authoritative Enter action reply. Episodes headers/rows reserve Duration first and bound
+not as Episodes/Queue title prefixes. Episode rows use `+ Title` when queued and
+`◉ Title` otherwise, with one space after the marker. The accented + marks pending
+and visible current queue membership immediately, including the authoritative Enter action reply. Episodes headers/rows reserve Duration first and bound
 Channel padding. Queue has pinned Title, Channel, Remains headers. Missing covers
 use the bundled application PNG after episode/show art; no runtime asset dependency.
 Descriptions never enlarge or displace the player. Compact
