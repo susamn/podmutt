@@ -28,7 +28,7 @@ func clean(text string, multiline bool) string {
 
 func listCapacity(panel Panel, height int) int {
 	rows := height - 3
-	if panel == Episodes {
+	if panel == Episodes || panel == Queue {
 		rows-- // pinned table header
 	}
 	return max(0, rows)
@@ -79,6 +79,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 		items := m.items(panel)
 		if panel == Episodes {
 			rows = append(rows, m.renderEpisodesHeader(width))
+		} else if panel == Queue {
+			rows = append(rows, m.renderQueueHeader(width))
 		}
 		rows = append(rows, m.renderList(panel, items, width, listCapacity(panel, height))...)
 		if len(items) == 0 {
@@ -126,7 +128,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 	}
 	if panel == Queue {
-		title += " · % left · " + m.queueOrderLabel()
+		title += " · " + m.queueOrderLabel()
 	}
 	if panel < Details && m.filters[panel] != "" {
 		title += " / " + clean(m.filters[panel], false)
@@ -139,26 +141,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 }
 
 func (m Model) renderEpisodesHeader(width int) string {
-	pal := m.Theme()
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(pal.LightForeground)))
-	dateWidth := 10
-	durWidth := 8
-	gutterWidth := 6
-	innerWidth := max(0, width-2)
-	avail := max(0, innerWidth-gutterWidth)
-
-	if width < 70 {
-		availText := max(8, avail-durWidth-1)
-		return headerStyle.Render("      " + padRight("Title", availText) + " " + padLeft("Duration", durWidth))
-	}
-
-	fixedWidths := dateWidth + durWidth + 4
-	slack := max(16, avail-fixedWidths)
-	titleBudget := max(8, (slack*60)/100)
-	chanBudget := max(6, slack-titleBudget)
-
-	hdrText := padRight("Title", titleBudget) + "  " + padRight("Channel", chanBudget) + "  " + padRight("Date", dateWidth) + " " + padLeft("Duration", durWidth)
-	return headerStyle.Render("      " + hdrText)
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(episodeColumns(width).row("", "Title", "Channel", "Date", "Duration"))
 }
 
 func padRight(s string, width int) string {
@@ -196,87 +179,11 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 	}
 }
 
-func formatTitleAndChannel(title, channel string, slack int, pal theme.Palette) string {
-	titleBudget := max(8, (slack*60)/100)
-	chanBudget := max(6, slack-titleBudget)
-
-	titleCol := ansi.Truncate(title, titleBudget, "…")
-	titlePad := max(0, titleBudget-ansi.StringWidth(titleCol))
-
-	chanColor := lipgloss.Color(string(pal.ChannelColor(channel)))
-	chanTrunc := ansi.Truncate(channel, chanBudget, "…")
-	chanPad := max(0, chanBudget-ansi.StringWidth(chanTrunc))
-	chanCol := lipgloss.NewStyle().Foreground(chanColor).Render(chanTrunc) + strings.Repeat(" ", chanPad)
-
-	return titleCol + strings.Repeat(" ", titlePad) + "  " + chanCol
-}
-
 func (m Model) renderEpisodeRow(item Item, width int, selected bool) string {
-	prefix := "  "
-	pal := m.Theme()
-	gutter := "[ ] "
-	if item.Queued {
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Accent))).Render("[+] ")
-	} else if item.Completed {
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Green))).Render("[✓] ")
-	}
-
-	titleText := item.PlainTitle
-	if titleText == "" {
-		titleText = clean(item.Title, false)
-	}
-
-	if item.Current {
-		titleText = playerStatus(m.data.Player) + " · " + titleText
-	}
-	if item.Channel == "" && item.Date == "" && item.Duration == "" {
-		return prefix + m.Icon(EpisodeIcon, clean(item.Title, false))
-	}
-
-	dateWidth := 10
-	durWidth := 8
-	gutterWidth := 4
-	innerWidth := max(0, width-2-ansi.StringWidth(prefix))
-	avail := max(0, innerWidth-gutterWidth)
-
-	dateStr := item.Date
-	durStr := item.Duration
-	if durStr == "" {
-		durStr = "--:--"
-	}
-
-	if width < 70 {
-		availText := max(8, avail-durWidth-1)
-		titleCol := ansi.Truncate(titleText, availText, "…")
-		pad := max(0, availText-ansi.StringWidth(titleCol))
-		return prefix + gutter + titleCol + strings.Repeat(" ", pad) + " " + durStr
-	}
-
-	fixedWidths := dateWidth + durWidth + 4
-	slack := max(16, avail-fixedWidths)
-	titleAndChan := formatTitleAndChannel(titleText, item.Channel, slack, pal)
-
-	datePad := max(0, dateWidth-ansi.StringWidth(dateStr))
-	dateCol := dateStr + strings.Repeat(" ", datePad)
-
-	durPad := max(0, durWidth-ansi.StringWidth(durStr))
-	durCol := strings.Repeat(" ", durPad) + durStr
-
-	return prefix + gutter + titleAndChan + "  " + dateCol + " " + durCol
+	return m.renderEpisodeColumns(item, width)
 }
 
 func (m Model) renderQueueRow(item Item, width int, selected bool) string {
-	prefix := "  "
-	if item.Index > 0 {
-		prefix += fmt.Sprintf("%d. ", item.Index)
-	}
-	title := clean(item.PlainTitle, false)
-	if title == "" {
-		title = clean(item.Title, false)
-	}
-	if item.Current {
-		title = playerStatus(m.data.Player) + " · " + title
-	}
 	remaining := FormatRemainingPercent(item.PositionSeconds, item.DurationSeconds)
 	if item.Current {
 		remaining = FormatRemainingPercent(m.data.Player.PositionSeconds, m.data.Player.DurationSeconds)
@@ -285,18 +192,7 @@ func (m Model) renderQueueRow(item Item, width int, selected bool) string {
 			remaining = FormatRemainingPercent(player.Progress*player.DurationSeconds, player.DurationSeconds)
 		}
 	}
-	innerWidth := max(0, width-2)
-	if innerWidth < 5 {
-		return ansi.Truncate(remaining, innerWidth, "…")
-	}
-	// Reserve the percentage before truncating identity, so long titles and
-	// narrow layouts cannot push it out. Elapsed clocks stay in Player only.
-	textWidth := innerWidth - 5
-	text := title
-	if item.Channel != "" {
-		text = formatTitleAndChannel(title, clean(item.Channel, false), max(0, textWidth-2-ansi.StringWidth(prefix)), m.Theme())
-	}
-	return padRight(prefix+text, textWidth) + " " + padLeft(remaining, 4)
+	return m.renderQueueColumns(item, width, remaining)
 }
 
 func (m Model) box(title string, rows []string, width, height int, focused bool, tag, extraTag string) string {

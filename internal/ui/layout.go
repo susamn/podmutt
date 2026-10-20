@@ -1,6 +1,7 @@
 package ui
 
 // Geometry is shared by rendering, paging, artwork, reading and animation.
+const playerBaseRows = 5 // borders, one identity line, timeline, transport
 type wideGeometry struct {
 	libraryWidth, episodeWidth, queueWidth, playerWidth int
 	episodes, details, player, queue                    int
@@ -14,7 +15,7 @@ func (m Model) wideLayout() wideGeometry {
 	g.episodes = available / 2
 	// Player borrows only the bottom of Details, not Episodes. Keep at least
 	// two interior Details rows for pinned identity and readable overflow.
-	g.player = min(max(0, available-g.episodes-4), 6+len(m.playerNotices(g.playerWidth-2)))
+	g.player = min(max(0, available-g.episodes-4), playerBaseRows+len(m.playerNotices(g.playerWidth-2)))
 	g.details = available - g.episodes - g.player
 	if m.decoration && g.details >= 10 {
 		g.player += 2
@@ -31,11 +32,7 @@ func (m Model) rightCellHeights() (details, player int) {
 
 func (m Model) compactHeights() (top, middle, player int) {
 	available := max(0, m.height-1)
-	base := 6
-	if m.height < 14 {
-		base = 5
-	}
-	player = min(max(0, available-4), base+len(m.playerNotices(m.width-2)))
+	player = min(max(0, available-4), playerBaseRows+len(m.playerNotices(m.width-2)))
 	return 0, available - player, player
 }
 

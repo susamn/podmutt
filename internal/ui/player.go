@@ -95,7 +95,6 @@ func (m Model) playerPane(width, height int) string {
 	player := m.displayPlayer()
 	innerWidth, innerHeight := max(0, width-2), max(0, height-2)
 	title := m.renderPlayerTopLine(player, innerWidth)
-	meta := m.renderPlayerMetaLine(player, innerWidth)
 	slider, transport := m.renderSliderLine(player, innerWidth), m.renderTransportRow(player, innerWidth)
 	notices := m.playerNotices(innerWidth)
 	var rows []string
@@ -103,13 +102,7 @@ func (m Model) playerPane(width, height int) string {
 		rows = []string{slider, transport}
 	} else {
 		budget := max(0, innerHeight-3)
-		if len(notices) < budget {
-			rows = []string{title, meta}
-			budget--
-		} else {
-			status := " · " + playerStatus(player)
-			rows = []string{ansi.Truncate(title, max(0, innerWidth-ansi.StringWidth(status)), "…") + status}
-		}
+		rows = []string{title}
 		rows = append(rows, notices[:min(len(notices), budget)]...)
 		spare := innerHeight - len(rows) - 2
 		if m.decoration && !m.Busy() && spare >= 2 {
@@ -120,7 +113,7 @@ func (m Model) playerPane(width, height int) string {
 		}
 		rows = append(rows, slider, transport)
 	}
-	return m.box(m.Icon(stateIcon(player.Status), "Now playing"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
+	return m.box(m.Icon(stateIcon(player.Status), "Now playing · "+playerStatus(player)), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
 
 func (m Model) renderPlayerTopLine(player Player, width int) string {
@@ -128,18 +121,18 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 	if title == "" {
 		title = "No current episode"
 	}
-	return "  " + lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, max(0, width-2), "…"))
-}
-
-func (m Model) renderPlayerMetaLine(player Player, width int) string {
-	status := playerStatus(player)
 	show := clean(player.Channel, false)
-	if show == "" {
-		return "  " + status
+	available := max(0, width-2)
+	titleBudget, showBudget := min(50, available), min(20, ansi.StringWidth(show))
+	if show != "" {
+		showBudget = min(showBudget, max(0, available/3))
+		titleBudget = min(titleBudget, max(0, available-3-showBudget))
 	}
-	show = ansi.Truncate(show, max(0, width-ansi.StringWidth(status)-5), "…")
-	color := lipgloss.Color(string(m.Theme().ChannelColor(clean(player.Channel, false))))
-	return "  " + lipgloss.NewStyle().Foreground(color).Render(show) + " · " + status
+	line := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, titleBudget, "…"))
+	if show != "" && showBudget > 0 {
+		line += " · " + m.channelCell(ansi.Truncate(show, showBudget, "…"))
+	}
+	return ansi.Truncate("  "+line, max(0, width), "…")
 }
 
 func (m Model) renderSliderLine(player Player, width int) string {
