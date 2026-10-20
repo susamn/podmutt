@@ -38,7 +38,11 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error, command 
 		}
 		return 2
 	}
-	if flags.NArg() == 2 && flags.Arg(0) == "import-opml" && !*showVersion {
+	if flags.NArg() >= 1 && flags.Arg(0) == "import-opml" {
+		if *showVersion || flags.NArg() != 2 {
+			fmt.Fprintln(stderr, "podmutt: import-opml requires exactly one file path")
+			return 2
+		}
 		if err := importOPML(flags.Arg(1), stdout); err != nil {
 			fmt.Fprintln(stderr, "podmutt:", err)
 			return 1

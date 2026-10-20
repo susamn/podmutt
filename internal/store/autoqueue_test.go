@@ -200,3 +200,30 @@ func TestUpgradeV1PreservesListeningState(t *testing.T) {
 		t.Fatal("receipt lost on reopen", queue, err)
 	}
 }
+
+func TestSeedAutoqueueSeenSuppressesAutoqueue(t *testing.T) {
+	s, _ := openStore(t)
+	feedID, err := s.UpsertFeed(ctx, Feed{URL: "https://example.test/seeded", Subscribed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	episodes := []Episode{
+		{GUID: "ep1", AudioURL: "https://example.test/ep1", PublishedAt: time.Unix(100, 0)},
+		{GUID: "ep2", AudioURL: "https://example.test/ep2", PublishedAt: time.Unix(200, 0)},
+		{GUID: "ep3", AudioURL: "https://example.test/ep3", PublishedAt: time.Unix(300, 0)},
+	}
+	if err := s.UpsertEpisodes(ctx, feedID, episodes); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SeedAutoqueueSeen(ctx, -1); err == nil {
+		t.Fatal("expected error for invalid feed ID")
+	}
+	if err := s.SeedAutoqueueSeen(ctx, feedID); err != nil {
+		t.Fatal(err)
+	}
+	// Seeded receipts must prevent EnqueueLatest from queueing the seeded episodes.
+	queue, err := s.EnqueueLatest(ctx, 0, feedID)
+	if err != nil || len(queue) != 0 {
+		t.Fatalf("expected empty queue after seeding receipts, got %v (err: %v)", queue, err)
+	}
+}

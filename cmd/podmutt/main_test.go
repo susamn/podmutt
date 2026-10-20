@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,9 @@ func TestRun(t *testing.T) {
 		{name: "unknown flag", args: []string{"--unknown"}, code: 2, stderr: "flag provided but not defined"},
 		{name: "unexpected argument", args: []string{"unknown"}, code: 2, stderr: "unexpected arguments"},
 		{name: "version with argument", args: []string{"--version", "extra"}, code: 2, stderr: "unexpected arguments"},
+		{name: "import-opml missing file", args: []string{"import-opml"}, code: 2, stderr: "import-opml requires exactly one file path"},
+		{name: "import-opml extra args", args: []string{"import-opml", "one", "two"}, code: 2, stderr: "import-opml requires exactly one file path"},
+		{name: "version with import-opml", args: []string{"--version", "import-opml", "file.opml"}, code: 2, stderr: "import-opml requires exactly one file path"},
 		{name: "start TUI"},
 	}
 	for _, tt := range tests {
@@ -47,5 +51,33 @@ func TestRunReportsStartupFailure(t *testing.T) {
 	code := run(nil, &stdout, &stderr, func() error { return errors.New("profile already running") }, nil)
 	if code != 1 || !strings.Contains(stderr.String(), "profile already running") {
 		t.Fatalf("startup error: code=%d, stderr=%q", code, stderr.String())
+	}
+}
+
+func TestRunImportOPML(t *testing.T) {
+	orig := importOPML
+	defer func() { importOPML = orig }()
+
+	calledPath := ""
+	importOPML = func(path string, w io.Writer) error {
+		calledPath = path
+		if path == "error.opml" {
+			return errors.New("parse error")
+		}
+		io.WriteString(w, "import success")
+		return nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"import-opml", "test.opml"}, &stdout, &stderr, nil, nil)
+	if code != 0 || calledPath != "test.opml" || !strings.Contains(stdout.String(), "import success") {
+		t.Fatalf("success: code=%d calledPath=%q stdout=%q stderr=%q", code, calledPath, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"import-opml", "error.opml"}, &stdout, &stderr, nil, nil)
+	if code != 1 || !strings.Contains(stderr.String(), "parse error") {
+		t.Fatalf("failure: code=%d stderr=%q", code, stderr.String())
 	}
 }

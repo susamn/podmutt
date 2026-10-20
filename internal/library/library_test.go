@@ -224,3 +224,27 @@ func TestHTMLToPlainText(t *testing.T) {
 		}
 	}
 }
+
+func TestAddHealsEmptyFeed(t *testing.T) {
+	db := database(t)
+	fetcher := &fixtureFetcher{}
+	service := New(db, fetcher)
+
+	id, err := db.UpsertFeed(ctx, store.Feed{URL: "https://example.test/feed", Title: "Empty Feed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	episodes, err := db.Episodes(ctx, id)
+	if err != nil || len(episodes) != 0 {
+		t.Fatalf("expected 0 episodes, got %v", episodes)
+	}
+
+	addedID, err := service.Add(ctx, "https://example.test/feed")
+	if err != nil || addedID != id {
+		t.Fatalf("Add failed: %v, addedID=%d, want=%d", err, addedID, id)
+	}
+	episodes, err = db.Episodes(ctx, id)
+	if err != nil || len(episodes) != 2 {
+		t.Fatalf("expected 2 episodes populated, got %v", episodes)
+	}
+}
