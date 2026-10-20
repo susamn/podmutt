@@ -25,15 +25,15 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 
 ```text
 +----------------+----------------------+----------------------+
-| Library (1)    | Episodes (2)         | Now playing (~6 rows) |
-|                +----------------------+----------------------+
-| All episodes   | Details (4)          | Queue (3)            |
-| Subscriptions  |                      | current + pending    |
-| shows          |                      |                      |
+| Library (1)    | Episodes (2)         | Queue (3)            |
+|                |                      | current + pending    |
+| All episodes   +----------------------+                      |
+| Subscriptions  | Details (4)          +----------------------+
+| shows          |                      | Now playing (~6 rows) |
 +----------------+----------------------+----------------------+
 ```
 
-Details gets the lower half of the middle column; Player is compact at the top
+Details gets the lower half of the middle column; Player is compact at the bottom
 of the Queue column. Descriptions never enlarge or displace the player. Compact
 layouts retain Player above one focused list; Queue/Details replace that list.
 Hide artwork/visualization first as space shrinks. Shared geometry governs rendering,

@@ -636,7 +636,7 @@ func (m Model) View() tea.View {
 		} else {
 			g := m.wideLayout()
 			middle := lipgloss.JoinVertical(lipgloss.Left, m.pane(Episodes, g.episodeWidth, g.episodes), m.pane(Details, g.episodeWidth, g.details))
-			right := lipgloss.JoinVertical(lipgloss.Left, m.playerPane(g.queueWidth, g.player), m.pane(Queue, g.queueWidth, g.queue))
+			right := lipgloss.JoinVertical(lipgloss.Left, m.pane(Queue, g.queueWidth, g.queue), m.playerPane(g.queueWidth, g.player))
 			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), middle, right)
 		}
 		hints := m.bottomHints()

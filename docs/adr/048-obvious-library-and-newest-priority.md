@@ -9,7 +9,7 @@ a scope immediately changes Episodes. Not started and Continue listening are no
 longer sidebar destinations. Library episode sorting starts newest first; o keeps
 the newest/oldest/title cycle. / searches the focused panel. Selection uses row
 backgrounds, never > cursors. Discovery Enter loads a show without leaving Library.
-Wide layout is Library | Episodes over Details | compact Player over Queue.
+Wide layout is Library | Episodes over Details | Queue over compact Player.
 Compact layout keeps Player above the focused list; geometry is shared with paging,
 reading, artwork and animation.
 
