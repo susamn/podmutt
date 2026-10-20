@@ -2,19 +2,23 @@ package ui
 
 // Geometry is shared by rendering, paging, artwork, reading and animation.
 type wideGeometry struct {
-	libraryWidth, episodeWidth, queueWidth int
-	episodes, details, player, queue       int
+	libraryWidth, episodeWidth, queueWidth, playerWidth int
+	episodes, details, player, queue                    int
 }
 
 func (m Model) wideLayout() wideGeometry {
 	available := max(0, m.height-1)
-	g := wideGeometry{libraryWidth: min(28, m.width/5), queueWidth: m.width * 3 / 10}
-	g.episodeWidth = m.width - g.libraryWidth - g.queueWidth
+	g := wideGeometry{libraryWidth: min(28, m.width/5), queueWidth: m.width * 35 / 100}
+	g.playerWidth = m.width - g.libraryWidth
+	g.episodeWidth = g.playerWidth - g.queueWidth
 	g.episodes = available / 2
-	g.details = available - g.episodes
-	g.player = min(max(0, available-5), 6+len(m.playerNotices(g.queueWidth-2)))
-	if m.decoration && available-g.player >= 10 {
+	// Player borrows only the bottom of Details, not Episodes. Keep at least
+	// two interior Details rows for pinned identity and readable overflow.
+	g.player = min(max(0, available-g.episodes-4), 6+len(m.playerNotices(g.playerWidth-2)))
+	g.details = available - g.episodes - g.player
+	if m.decoration && g.details >= 10 {
 		g.player += 2
+		g.details -= 2
 	}
 	g.queue = available - g.player
 	return g

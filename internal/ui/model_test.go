@@ -317,10 +317,10 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 		t.Fatalf("unexpected compact episode row: %s", compactEp)
 	}
 
-	queued := Item{ID: "1", Index: 1, PlainTitle: "Queued episode", Channel: "Tech Daily", Position: "10:00", Duration: "40:00", Remains: "75%"}
+	queued := Item{ID: "1", Index: 1, PlainTitle: "Queued episode", Channel: "Tech Daily", Position: "10:00", Duration: "40:00", Remains: "75%", PositionSeconds: 600, DurationSeconds: 2400}
 	for _, width := range []int{50, 100} {
 		row := ansi.Strip(m.renderQueueRow(queued, width, true))
-		if strings.Contains(row, "> ") || !strings.Contains(row, "1. ") || strings.Contains(row, "75%") || strings.Contains(row, "10:00/40:00") || !strings.Contains(row, "Queued episode") || !strings.Contains(row, "Tech Daily") {
+		if strings.Contains(row, "> ") || !strings.Contains(row, "1. ") || !strings.Contains(row, "75%") || strings.Contains(row, "10:00/40:00") || !strings.Contains(row, "Queued episode") || !strings.Contains(row, "Tech Daily") {
 			t.Fatalf("unexpected pending row: %s", row)
 		}
 		if strings.ContainsAny(row, "▶⏸■") {
@@ -341,7 +341,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 func TestRenderRowCharacterization(t *testing.T) {
 	m := New(Data{}).WithIcons("plain")
 	ep := Item{ID: "1", PlainTitle: "My Episode", Channel: "My Show", Date: "2026-04-12", Duration: "45:00", Queued: false}
-	q := Item{ID: "2", Index: 1, PlainTitle: "Queued Title", Channel: "My Show", Position: "05:00", Duration: "50:00", Remains: "90%"}
+	q := Item{ID: "2", Index: 1, PlainTitle: "Queued Title", Channel: "My Show", Position: "05:00", Duration: "50:00", Remains: "90%", PositionSeconds: 300, DurationSeconds: 3000}
 
 	for _, width := range []int{60, 80, 120} {
 		epRow := ansi.Strip(m.renderEpisodeRow(ep, width, false))
@@ -353,7 +353,7 @@ func TestRenderRowCharacterization(t *testing.T) {
 		}
 
 		qRow := ansi.Strip(m.renderQueueRow(q, width, true))
-		if strings.Contains(qRow, "> ") || strings.Contains(qRow, "90%") || !strings.Contains(qRow, "Queued Title") {
+		if strings.Contains(qRow, "> ") || !strings.Contains(qRow, "90%") || !strings.Contains(qRow, "Queued Title") {
 			t.Fatalf("width %d: unexpected queue row: %q", width, qRow)
 		}
 		if width >= 70 && !strings.Contains(qRow, "My Show") {
