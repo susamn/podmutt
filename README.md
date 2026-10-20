@@ -148,8 +148,9 @@ scroll half a page, `g/G` or Home/End reach the top/bottom, and PgUp/PgDn scroll
 a full page. These keys do not change episode selection or playback.
 
 The wide layout reads left to right: **Library (1)**, **Episodes (2)**, **Queue (3)**.
-Details sits below Episodes; the compact **Now playing** card sits below Queue and
-normally uses six rows. Long descriptions scroll without moving controls. Selection
+Details sits below Episodes; **Now playing** spans the bottom of both Details and
+Queue, normally using six rows. Library keeps its full height. Queue takes 35% of
+the wide viewport; Episodes and Details share the equally narrowed middle column. Long descriptions scroll without moving controls. Selection
 uses a highlighted row, never a `>` cursor; the active pane has an accented border.
 Errors/warnings may reserve a few additional player rows; compact layouts adapt
 without hiding current identity or transport.
@@ -215,7 +216,9 @@ requires subscription. Space still controls current audio. `s` stops and `n` adv
 episode by publication time; natural completion uses the same priority, independent
 of insertion/display order. Equal or unknown dates retain queue order as a tie-breaker.
 **Queue projects current audio alongside pending work**, with a current-status label,
-row number, title and show—not duplicate clocks or percentages. Current audio is
+row number, title, show and **percentage remaining**, without duplicate elapsed clocks.
+Unknown duration displays `--`, not an invented 100%. The current row uses the same
+bounded presentation clock as Player; pending rows retain their saved progress. Current audio is
 not duplicated in the actor's pending queue and cannot be removed by pending edits.
 The header shows visible count (or matching/total while filtering).
 Playing a different episode preserves interrupted playback; completion keeps history.

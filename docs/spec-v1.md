@@ -28,16 +28,20 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 | Library (1)    | Episodes (2)         | Queue (3)            |
 |                |                      | current + pending    |
 | All episodes   +----------------------+                      |
-| Subscriptions  | Details (4)          +----------------------+
-| shows          |                      | Now playing (~6 rows) |
-+----------------+----------------------+----------------------+
+| Subscriptions  | Details (4)          |                      |
+| shows          +----------------------+----------------------+
+|                | Now playing (~6 rows, spanning both columns) |
++----------------+---------------------------------------------+
 ```
 
-Details gets the lower half of the middle column; Player is compact at the bottom
-of the Queue column. Descriptions never enlarge or displace the player. Compact
+Player spans the bottom of Details and Queue, borrowing height from Details while
+Episodes retains its height. Queue takes 35% of the viewport; Episodes and Details
+share an equally reduced width. Queue rows include percentage remaining (unknown
+is --); current percentage uses Player's clock and pending work uses saved progress.
+Descriptions never enlarge or displace the player. Compact
 layouts retain Player above one focused list; Queue/Details replace that list.
 Hide artwork/visualization first as space shrinks. Shared geometry governs rendering,
-paging, description reading and animation (ADR 048).
+paging, description reading and animation (ADRs 048, 049).
 
 Vim-friendly navigation: j/k move selection, h/Left goes back, l/Right opens shows
 or inspects episodes without playback. Queue o toggles newest vs channel/newest

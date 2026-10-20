@@ -1,6 +1,6 @@
 # ADR 048: Obvious library navigation and newest-first playback priority
 
-Status: implemented in draft MR !57 / #51; validation in progress.
+Status: implemented in !57 / #51; geometry amended by !59 and ADR 049.
 
 ## Contract
 
@@ -9,7 +9,8 @@ a scope immediately changes Episodes. Not started and Continue listening are no
 longer sidebar destinations. Library episode sorting starts newest first; o keeps
 the newest/oldest/title cycle. / searches the focused panel. Selection uses row
 backgrounds, never > cursors. Discovery Enter loads a show without leaving Library.
-Wide layout is Library | Episodes over Details | Queue over compact Player.
+Wide layout follows Library | Episodes over Details | Queue, with Player spanning
+below Details and Queue (ADR 049).
 Compact layout keeps Player above the focused list; geometry is shared with paging,
 reading, artwork and animation.
 
