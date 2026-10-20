@@ -308,7 +308,7 @@ func TestColumnarLayoutAndGlyphs(t *testing.T) {
 	}
 
 	doneEp := ansi.Strip(m.renderEpisodeRow(epDone, 100, true))
-	if !strings.Contains(doneEp, "[✓]") || strings.Contains(doneEp, "> ") || !strings.Contains(doneEp, "35:10") {
+	if !strings.HasPrefix(doneEp, "  ◉ Ep Done") || strings.Contains(doneEp, "> ") || !strings.Contains(doneEp, "35:10") {
 		t.Fatalf("unexpected done episode row: %s", doneEp)
 	}
 
@@ -345,7 +345,7 @@ func TestRenderRowCharacterization(t *testing.T) {
 
 	for _, width := range []int{60, 80, 120} {
 		epRow := ansi.Strip(m.renderEpisodeRow(ep, width, false))
-		if !strings.Contains(epRow, "[ ]") || !strings.Contains(epRow, "45:00") {
+		if !strings.HasPrefix(epRow, "  ◉ My Episode") || !strings.Contains(epRow, "45:00") {
 			t.Fatalf("width %d: unexpected episode row: %q", width, epRow)
 		}
 		if width >= 70 && (!strings.Contains(epRow, "My Show") || !strings.Contains(epRow, "2026-04-12")) {

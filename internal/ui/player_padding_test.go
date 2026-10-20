@@ -16,7 +16,7 @@ func TestListRowsUsePlainAccentPlusWithoutTransportPrefix(t *testing.T) {
 			m := New(Data{Player: Player{Status: status, PositionSeconds: 25, DurationSeconds: 100}, Queue: []Item{item}}).WithTheme(palette)
 			episode := ansi.Strip(m.renderEpisodeRow(item, 70, false))
 			queue := ansi.Strip(m.renderQueueRow(item, 70, false))
-			if !strings.HasPrefix(episode, "  +   Literal episode") || strings.Contains(episode, "[+]") || strings.Contains(episode, " · Literal episode") || strings.Contains(queue, " · Literal episode") || !strings.Contains(queue, "75%") {
+			if !strings.HasPrefix(episode, "  + Literal episode") || strings.Contains(episode, "[+]") || strings.Contains(episode, " · Literal episode") || strings.Contains(queue, " · Literal episode") || !strings.Contains(queue, "75%") {
 				t.Fatal("marker or transport prefix", episode, queue)
 			}
 		}
@@ -50,7 +50,7 @@ func TestPlayerPaddingYieldsBeforeNoticesAndMinimumDetails(t *testing.T) {
 		}
 	}
 	line := ansi.Strip(m.renderPlayerTopLine(Player{Title: "Short episode", Channel: "A complete channel longer than twenty cells"}, 100))
-	if !strings.HasSuffix(line, "A complete channel longer than twenty cells  ") || ansi.StringWidth(line) != 100 || !strings.Contains(line, "Short episode") {
+	if line != "  Short episode · A complete channel longer than twenty cells  " {
 		t.Fatal("short title or full channel lost", line)
 	}
 	longChannel := strings.Repeat("C", 92)
