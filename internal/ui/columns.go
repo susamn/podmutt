@@ -13,7 +13,7 @@ import (
 type listColumns struct{ inner, gutter, title, channel, date, tail int }
 
 func episodeColumns(width int) listColumns {
-	c := listColumns{inner: max(0, width-2), gutter: 6, tail: 8}
+	c := listColumns{inner: max(0, width-2), gutter: 4, tail: 8}
 	body := c.inner - c.gutter - c.tail - 1
 	if width >= 70 {
 		c.date = 10
@@ -62,11 +62,11 @@ func (m Model) renderQueueHeader(width int) string {
 }
 
 func (m Model) renderEpisodeColumns(item Item, width int) string {
-	gutter := "[ ] "
+	gutter := "◉ "
 	if item.Queued {
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Render("+   ")
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Render("+ ")
 	} else if item.Completed {
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Green))).Render("[✓] ")
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Green))).Render("◉ ")
 	}
 	title := clean(item.PlainTitle, false)
 	if title == "" {

@@ -140,7 +140,7 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 			titleBudget = available - 3 - showBudget
 		}
 	}
-	line := lipgloss.NewStyle().Bold(true).Render(padRight(title, titleBudget))
+	line := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, titleBudget, "…"))
 	if showBudget > 0 {
 		line += " · " + m.channelCell(ansi.Truncate(show, showBudget, "…"))
 	}

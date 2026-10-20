@@ -29,6 +29,9 @@ func TestEnterImmediatelyMarksCurrentAndPreviousWithoutStreamOrNavigation(t *tes
 		m, _ := playerLibrary(t, s)
 		first, second := m.rows[0], m.rows[1]
 		assertEpisodeMembership(t, m, first.ID, false, false)
+		if !strings.Contains(ansi.Strip(m.View().Content), "◉ "+first.Title) {
+			t.Fatal("unqueued episode lacks its circle marker")
+		}
 		var previous playback.State
 		for i, episode := range m.rows[:2] {
 			m.Model = m.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(episode.ID))
@@ -45,7 +48,7 @@ func TestEnterImmediatelyMarksCurrentAndPreviousWithoutStreamOrNavigation(t *tes
 			if len(m.Model.Visible(ui.Queue)) != i+1 || len(m.state.Queue) != i {
 				t.Fatal("visible and actor pending queue confused")
 			}
-			if !strings.Contains(ansi.Strip(m.View().Content), "+   "+episode.Title) {
+			if !strings.Contains(ansi.Strip(m.View().Content), "+ "+episode.Title) {
 				t.Fatal("immediate plus marker missing", m.View().Content)
 			}
 			if i == 0 {
