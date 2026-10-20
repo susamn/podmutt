@@ -12,6 +12,22 @@ Apple discovery/subscription previews, library search, and running-instance
 controls are available.
 `--help` and `--version` work without creating profile files.
 
+## Screenshots
+
+### Dashboard
+Full 5-pane layout featuring Library, Episodes, Up next queue, Details card, and Now playing HUD.
+
+![podmutt dashboard](assets/screenshot-dashboard.png)
+
+### Discover & preview
+Directory browsing (Apple US top 25 / search) and read-only episode previews without subscribing.
+
+![podmutt discover](assets/screenshot-discover.png)
+
+### Compact mode
+Responsive layout adapting automatically when terminal dimensions shrink.
+
+![podmutt compact mode](assets/screenshot-compact.png)
 ## Install
 
 ### Homebrew (macOS and Linux)
