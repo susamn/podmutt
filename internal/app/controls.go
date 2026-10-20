@@ -81,6 +81,55 @@ func newShell(s *session) shell {
 		}
 	}), s: s}
 }
+
+// Current audio is projected into visible Queue, but never actor pending storage.
+func currentInQueue(state playback.State) bool {
+	return state.Current != nil && (!state.Current.Completed || state.Status != playback.Stopped)
+}
+
+// Project an authoritative snapshot without arming/discarding subscription commands.
+func (m shell) withPlayback(state playback.State) shell {
+	if state.Revision != 0 && state.Revision < m.state.Revision {
+		return m
+	}
+	m.state = state
+	// Marking history complete does not itself stop current audio. Keep its
+	// read-only identity visible until transport actually stops/finishes.
+	currentVisible := currentInQueue(state)
+	var queue []ui.Item
+	for _, episode := range state.Queue {
+		if currentVisible && episode.ID == state.Current.ID {
+			continue
+		}
+		queue = append(queue, queueItem(episode))
+	}
+	player := ui.Player{Status: string(state.Status), Position: "0:00", Duration: "--:--", Error: state.Error, CanNext: len(state.Queue) > 0, CanSeek: state.CanSeek}
+	if episode := state.Current; episode != nil {
+		if currentVisible {
+			item := queueItem(*episode)
+			item.Current = true
+			queue = append(queue, item)
+		}
+		player.HasCurrent, player.Title, player.Channel = true, cleanTitle(episode.Title), cleanShow(episode.FeedTitle)
+		player.PositionSeconds, player.DurationSeconds, player.ClockAt = episode.PositionSeconds, float64(episode.DurationSeconds), state.ClockAt
+		player.Position = clock(episode.PositionSeconds)
+		if episode.DurationSeconds > 0 {
+			player.Duration = clock(float64(episode.DurationSeconds))
+			player.Progress = episode.PositionSeconds / float64(episode.DurationSeconds)
+		}
+	}
+	mediaError := m.s.mediaError
+	if m.s.media != nil {
+		mediaError = errors.Join(mediaError, m.s.media.Err())
+	}
+	mediaError = errors.Join(mediaError, m.s.nativeMedia.Err())
+	if mediaError != nil {
+		player.Warning = mediaError.Error()
+	}
+	m.Model = m.Model.WithPlayback(queue, player)
+	return m
+}
+
 func (m shell) wait() tea.Cmd {
 	return func() tea.Msg { state, ok := <-m.s.playback.Updates(); return playbackUpdate{state, ok} }
 }
@@ -91,36 +140,7 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !msg.ok {
 			return m, nil
 		}
-		m.state = msg.state
-		var queue []ui.Item
-		for i, episode := range msg.state.Queue {
-			item := queueItem(episode)
-			item.Index = i + 1
-			queue = append(queue, item)
-		}
-		player := ui.Player{Status: string(msg.state.Status), Position: "0:00", Duration: "--:--", Error: msg.state.Error, CanNext: len(msg.state.Queue) > 0, CanSeek: msg.state.CanSeek}
-		if episode := msg.state.Current; episode != nil {
-			player.HasCurrent = true
-			player.PositionSeconds = episode.PositionSeconds
-			player.DurationSeconds = float64(episode.DurationSeconds)
-			player.ClockAt = msg.state.ClockAt
-			player.Title = cleanTitle(episode.Title)
-			player.Channel = cleanShow(episode.FeedTitle)
-			player.Position = clock(episode.PositionSeconds)
-			if episode.DurationSeconds > 0 {
-				player.Duration = clock(float64(episode.DurationSeconds))
-				player.Progress = episode.PositionSeconds / float64(episode.DurationSeconds)
-			}
-		}
-		mediaError := m.s.mediaError
-		if m.s.media != nil {
-			mediaError = errors.Join(mediaError, m.s.media.Err())
-		}
-		mediaError = errors.Join(mediaError, m.s.nativeMedia.Err())
-		if mediaError != nil {
-			player.Warning = mediaError.Error()
-		}
-		m.Model = m.Model.WithPlayback(queue, player)
+		m = m.withPlayback(msg.state)
 		var animation tea.Cmd
 		m.Model, animation = m.Model.SyncAnimation()
 		var progress tea.Cmd

@@ -14,8 +14,8 @@ func TestListPagingMatchesVisibleRowsAndClamps(t *testing.T) {
 		width, height int
 		pages         [3]int
 	}{
-		{140, 44, [3]int{18, 18, 17}},
-		{70, 20, [3]int{1, 5, 5}},
+		{140, 44, [3]int{40, 17, 32}},
+		{70, 20, [3]int{9, 8, 8}},
 		{30, 12, [3]int{3, 2, 2}},
 	} {
 		for panel := Podcasts; panel <= Queue; panel++ {

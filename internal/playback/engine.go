@@ -28,12 +28,13 @@ const (
 )
 
 type State struct {
-	ClockAt time.Time // last moving position anchor; queue-only updates preserve it
-	Current *store.Episode
-	Queue   []store.Episode
-	Status  Status
-	Error   string
-	CanSeek bool
+	Revision uint64    // monotonic within this actor lifetime; presentation rejects stale replies
+	ClockAt  time.Time // last moving position anchor; queue-only updates preserve it
+	Current  *store.Episode
+	Queue    []store.Episode
+	Status   Status
+	Error    string
+	CanSeek  bool
 }
 
 type Repository interface {
@@ -230,6 +231,7 @@ func (e *Engine) snapshot() State {
 }
 
 func (e *Engine) publish() {
+	e.state.Revision++
 	e.anchorPosition()
 	offer(e.updates, e.snapshot())
 	e.publishWatchers()

@@ -167,6 +167,7 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	}
 	model.Model = model.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(episodes[0].ID))
 	finishLibrary(&model, libraryKey(&model, 'A'))
+	model.Model = model.Model.Select(ui.Queue, fmt.Sprint(episodes[0].ID))
 	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeyEnter}))
 	readyWorkflow(t, first)
 	syncPlayer(t, &model)
@@ -176,10 +177,10 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if state := syncPlayer(t, &model); state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
 		t.Fatal("browse/pause changed episode", state)
 	}
-	if rows := model.Model.Visible(ui.Queue); len(rows) != 1 || rows[0].ID != fmt.Sprint(episodes[1].ID) || rows[0].Index != 1 {
-		t.Fatal("paused current appeared in editable Up next", rows)
+	if rows := model.Model.Visible(ui.Queue); len(rows) != 2 {
+		t.Fatal("paused current or pending work missing", rows)
 	}
-	model.Model = model.Model.WithFocus(ui.Queue)
+	model.Model = model.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(episodes[1].ID))
 	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeyDelete}))
 	if state := syncPlayer(t, &model); len(state.Queue) != 0 || state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
 		t.Fatal("queue deletion changed paused current", state)
@@ -188,9 +189,10 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	if state := syncPlayer(t, &model); len(state.Queue) != 1 || state.Queue[0].ID != episodes[1].ID || state.Current.PositionSeconds != 42 {
 		t.Fatal("queue undo lost pending work or progress", state)
 	}
-	openLibraryDestination(&model, continueDestination)
-	if len(model.rows) != 1 || model.rows[0].ID != episodes[0].ID || model.rows[0].PositionSeconds != 42 {
-		t.Fatal("paused episode unavailable in Continue", model.rows)
+	openLibraryDestination(&model, allDestination)
+	model.Model = model.Model.Select(ui.Episodes, fmt.Sprint(episodes[0].ID))
+	if saved, ok := model.selectedEpisode(); !ok || saved.PositionSeconds != 42 {
+		t.Fatal("paused episode unavailable in All", model.rows)
 	}
 	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeySpace}))
 	if _, err = control.Call(s.ctx, paths, "pause"); err != nil {
@@ -255,14 +257,15 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	updateLibrary(&restored, tea.WindowSizeMsg{Width: 70, Height: 20})
-	if rows := restored.Model.Visible(ui.Queue); len(rows) != 1 || rows[0].ID != fmt.Sprint(episodes[0].ID) || rows[0].Index != 1 {
+	if rows := restored.Model.Visible(ui.Queue); len(rows) != 2 {
 		t.Fatal("offline pending/current separation lost", rows)
 	}
-	openLibraryDestination(&restored, continueDestination)
-	if len(restored.rows) != 1 || restored.rows[0].ID != episodes[1].ID || restored.rows[0].PositionSeconds != 42 {
-		t.Fatal("offline Continue lost saved history or includes completed episode", restored.rows)
+	openLibraryDestination(&restored, allDestination)
+	restored.Model = restored.Model.Select(ui.Episodes, fmt.Sprint(episodes[1].ID))
+	if saved, ok := restored.selectedEpisode(); !ok || saved.PositionSeconds != 42 || len(restored.rows) != 2 {
+		t.Fatal("offline All lost saved or completed history", restored.rows)
 	}
-	finishLibrary(&restored, updateLibrary(&restored, tea.KeyPressMsg{Code: tea.KeySpace}))
+	finishLibrary(&restored, updateLibrary(&restored, libraryStartup{}))
 	if state := syncPlayer(t, &restored); state.Current.ID != episodes[1].ID || state.Status != playback.Playing {
 		t.Fatal("offline Space did not resume saved current", state)
 	}

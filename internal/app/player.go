@@ -2,12 +2,14 @@ package app
 
 import (
 	"fmt"
-	"math"
+	"slices"
 	"strconv"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"context"
 	"podmutt/internal/library"
+	"podmutt/internal/playback"
 	"podmutt/internal/store"
 	"podmutt/internal/ui"
 )
@@ -49,14 +51,15 @@ func episodeItem(episode store.Episode, queued bool) ui.Item {
 		marker = "[x] "
 	}
 	return ui.Item{
-		ID:         strconv.FormatInt(episode.ID, 10),
-		Title:      marker + plain,
-		PlainTitle: plain,
-		Channel:    library.PlainText(episode.FeedTitle),
-		Date:       formatPublishedDate(episode.PublishedAt),
-		Duration:   formatEpisodeDuration(episode.DurationSeconds),
-		Queued:     queued,
-		Completed:  episode.Completed,
+		ID:          strconv.FormatInt(episode.ID, 10),
+		Title:       marker + plain,
+		PlainTitle:  plain,
+		Channel:     library.PlainText(episode.FeedTitle),
+		Date:        formatPublishedDate(episode.PublishedAt),
+		Duration:    formatEpisodeDuration(episode.DurationSeconds),
+		Queued:      queued,
+		Completed:   episode.Completed,
+		PublishedAt: episode.PublishedAt,
 	}
 }
 
@@ -77,12 +80,7 @@ func queueItem(episode store.Episode) ui.Item {
 	duration := formatEpisodeDuration(episode.DurationSeconds)
 	plainTitle := cleanTitle(episode.Title)
 	pos := clock(episode.PositionSeconds)
-	remains := "100%"
-	if episode.DurationSeconds > 0 && episode.PositionSeconds > 0 {
-		pct := int(math.Round((1.0 - (episode.PositionSeconds / float64(episode.DurationSeconds))) * 100))
-		pct = max(0, min(100, pct))
-		remains = fmt.Sprintf("%d%%", pct)
-	}
+	remains := ui.FormatRemainingPercent(episode.PositionSeconds, float64(episode.DurationSeconds))
 	return ui.Item{
 		ID:              strconv.FormatInt(episode.ID, 10),
 		Title:           fmt.Sprintf("%s · %s · %s/%s", plainTitle, show, pos, duration),
@@ -94,12 +92,15 @@ func queueItem(episode store.Episode) ui.Item {
 		PositionSeconds: episode.PositionSeconds,
 		DurationSeconds: float64(episode.DurationSeconds),
 		Completed:       episode.Completed,
+		PublishedAt:     episode.PublishedAt,
 	}
 }
 
 type playerEdited struct {
-	err    error
-	cached bool
+	err      error
+	cached   bool
+	state    *playback.State
+	enqueued []int64
 }
 type queueConfirmation struct{ ids []int64 }
 type queueEdited struct {
@@ -127,6 +128,9 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 				return episode, true
 			}
 		}
+		if current := m.state.Current; current != nil && item.ID == strconv.FormatInt(current.ID, 10) {
+			return *current, true
+		}
 		return store.Episode{}, false
 	}
 	return m.selectedEpisode()
@@ -141,7 +145,20 @@ func (m *libraryShell) playSelected() tea.Cmd {
 		return nil
 	}
 	engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
-	return func() tea.Msg { return playerEdited{err: engine.PlayEpisode(ctx, id)} }
+	return func() tea.Msg { return playEpisode(ctx, engine, id, false) }
+}
+
+// Return the actor's authoritative membership with the action, not only on a
+// later streamed update. Failed loads can also leave visible current audio.
+func playEpisode(ctx context.Context, engine *playback.Engine, id int64, cached bool) playerEdited {
+	reply := playerEdited{err: engine.PlayEpisode(ctx, id), cached: cached}
+	state, err := engine.Snapshot(ctx)
+	if err == nil {
+		reply.state = &state
+	} else if reply.err == nil {
+		reply.err = err
+	}
+	return reply
 }
 
 func (m *libraryShell) openDetails() {
@@ -189,25 +206,28 @@ func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{err: engine.Enqueue(ctx, ids...)} }
+	return func() tea.Msg { return enqueueEpisodes(ctx, engine, ids, false) }
 }
-func (m *libraryShell) moveQueue(step int) tea.Cmd {
-	if m.Model.Focus() != ui.Queue {
-		return nil
+func enqueueEpisodes(ctx context.Context, engine *playback.Engine, ids []int64, cached bool) playerEdited {
+	err := engine.Enqueue(ctx, ids...)
+	if err != nil {
+		return playerEdited{err: err, cached: cached}
 	}
-	episode, ok := m.contextEpisode()
-	if !ok {
-		return nil
-	}
-	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{err: engine.MoveQueued(ctx, episode.ID, step)} }
+	state, err := engine.Snapshot(ctx)
+	return playerEdited{err: err, cached: cached, state: &state, enqueued: ids}
 }
+
 func (m *libraryShell) removeQueueItem() tea.Cmd {
 	if m.Model.Focus() != ui.Queue || m.queueEditing {
 		return nil
 	}
 	episode, ok := m.contextEpisode()
 	if !ok {
+		return nil
+	}
+	selected, _ := m.Model.Selected(ui.Queue)
+	if selected.Current || !slices.ContainsFunc(m.state.Queue, func(item store.Episode) bool { return item.ID == episode.ID }) {
+		m.notice = "Current audio is not a pending queue item"
 		return nil
 	}
 	m.queueEditing = true

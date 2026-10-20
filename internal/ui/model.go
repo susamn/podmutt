@@ -3,6 +3,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/theme"
@@ -32,6 +33,8 @@ type Item struct {
 	Destination     bool
 	Queued          bool
 	Completed       bool
+	Current         bool
+	PublishedAt     time.Time
 	Index           int
 }
 
@@ -89,6 +92,8 @@ type Model struct {
 	playerButton  int
 	decoration    bool
 	episodeOps    EpisodeActions
+	queueChannel  bool
+	queueTail     []string
 	artColumns    int
 	artRows       []string
 }
@@ -142,6 +147,16 @@ func (m Model) Busy() bool {
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
 func (m Model) WithPlayback(queue []Item, player Player) Model {
+	var tails []string
+	for _, id := range m.queueTail {
+		for _, item := range queue {
+			if item.ID == id {
+				tails = append(tails, id)
+				break
+			}
+		}
+	}
+	m.queueTail = tails
 	data := m.data
 	data.Queue, data.Player = queue, player
 	updated, _ := m.Update(data)
@@ -207,10 +222,13 @@ func (m Model) items(panel Panel) []Item {
 	default:
 		return nil
 	}
+	if panel == Queue {
+		source = m.sortedQueue(source)
+	}
 	query := strings.ToLower(m.filters[panel])
 	var items []Item
 	for _, item := range source {
-		if strings.Contains(strings.ToLower(item.Title), query) {
+		if strings.Contains(strings.ToLower(item.Title+" "+item.Channel), query) {
 			items = append(items, item)
 		}
 	}

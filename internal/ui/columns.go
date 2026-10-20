@@ -1,0 +1,96 @@
+package ui
+
+import (
+	"fmt"
+	"strconv"
+
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+)
+
+// Headers and data share exact cell budgets, including every separator. Reserve
+// the right-hand value first; surplus space belongs to Title, not channel padding.
+type listColumns struct{ inner, gutter, title, channel, date, tail int }
+
+func episodeColumns(width int) listColumns {
+	c := listColumns{inner: max(0, width-2), gutter: 4, tail: 8}
+	body := c.inner - c.gutter - c.tail - 1
+	if width >= 70 {
+		c.date = 10
+		body -= 12
+	}
+	if width >= 56 {
+		c.channel = min(20, max(7, (body-2)/3))
+		body -= c.channel + 2
+	}
+	c.title = max(0, body)
+	return c
+}
+
+func queueColumns(width, gutter int) listColumns {
+	c := listColumns{inner: max(0, width-2), gutter: gutter, tail: 7}
+	body := c.inner - c.gutter - c.tail - 1
+	if body >= 14 {
+		c.channel = min(20, max(7, (body-2)/3))
+		body -= c.channel + 2
+	}
+	c.title = max(0, body)
+	return c
+}
+
+func (c listColumns) row(prefix, title, channel, date, tail string) string {
+	row := padRight(prefix, c.gutter) + padRight(title, c.title)
+	if c.channel > 0 {
+		row += "  " + padRight(channel, c.channel)
+	}
+	if c.date > 0 {
+		row += "  " + padRight(date, c.date)
+	}
+	return ansi.Truncate(row+" "+padLeft(tail, c.tail), c.inner, "…")
+}
+
+func (m Model) channelCell(channel string) string {
+	channel = clean(channel, false)
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().ChannelColor(channel)))).Render(channel)
+}
+
+func (m Model) queueGutter() int { return max(5, 4+len(strconv.Itoa(max(1, len(m.data.Queue))))) }
+
+func (m Model) renderQueueHeader(width int) string {
+	c := queueColumns(width, m.queueGutter())
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "Channel", "", "Remains"))
+}
+
+func (m Model) renderEpisodeColumns(item Item, width int) string {
+	gutter := "◉ "
+	if item.Queued {
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Render("+ ")
+	} else if item.Completed {
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Green))).Render("◉ ")
+	}
+	title := clean(item.PlainTitle, false)
+	if title == "" {
+		title = clean(item.Title, false)
+	}
+	duration := clean(item.Duration, false)
+	if duration == "" {
+		duration = "--:--"
+	}
+	return episodeColumns(width).row("  "+gutter, title, m.channelCell(item.Channel), clean(item.Date, false), duration)
+}
+
+func (m Model) renderQueueColumns(item Item, width int, remaining string) string {
+	prefix := "  "
+	if item.Index > 0 {
+		prefix += fmt.Sprintf("%d. ", item.Index)
+	}
+	title := clean(item.PlainTitle, false)
+	if title == "" {
+		title = clean(item.Title, false)
+	}
+	c := queueColumns(width, max(m.queueGutter(), ansi.StringWidth(prefix)))
+	if c.inner < c.gutter+c.tail+1 {
+		return padLeft(remaining, c.inner)
+	}
+	return c.row(prefix, title, m.channelCell(item.Channel), "", remaining)
+}

@@ -41,8 +41,8 @@ func (m Model) animationVisible() bool {
 		return false
 	}
 	_, player := m.rightCellHeights()
-	width := m.width - m.width*2/5
-	return player-6-len(m.playerNotices(width-2)) >= 2
+	width := m.wideLayout().playerWidth
+	return player-playerBaseRows-len(m.playerNotices(width-2)) >= 2
 }
 
 // SyncAnimation is called after transport changes and resize. Pausing preserves

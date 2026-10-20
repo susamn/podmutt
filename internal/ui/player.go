@@ -95,7 +95,6 @@ func (m Model) playerPane(width, height int) string {
 	player := m.displayPlayer()
 	innerWidth, innerHeight := max(0, width-2), max(0, height-2)
 	title := m.renderPlayerTopLine(player, innerWidth)
-	meta := m.renderPlayerMetaLine(player, innerWidth)
 	slider, transport := m.renderSliderLine(player, innerWidth), m.renderTransportRow(player, innerWidth)
 	notices := m.playerNotices(innerWidth)
 	var rows []string
@@ -103,24 +102,25 @@ func (m Model) playerPane(width, height int) string {
 		rows = []string{slider, transport}
 	} else {
 		budget := max(0, innerHeight-3)
-		if len(notices) < budget {
-			rows = []string{title, meta}
-			budget--
-		} else {
-			status := " · " + playerStatus(player)
-			rows = []string{ansi.Truncate(title, max(0, innerWidth-ansi.StringWidth(status)), "…") + status}
-		}
+		rows = []string{title}
 		rows = append(rows, notices[:min(len(notices), budget)]...)
 		spare := innerHeight - len(rows) - 2
-		if m.decoration && !m.Busy() && spare >= 2 {
+		padding := min(2, spare) // surrender whitespace before any core content
+		if padding > 0 {
+			rows = append([]string{""}, rows...)
+		}
+		if m.decoration && !m.Busy() && spare-padding >= 2 {
 			if frame := m.animationFrame(max(0, innerWidth-15)); frame != "" {
 				rows = append(rows, "  "+frame)
 				rows = append(rows, globalVisualizer.Render(innerWidth, 1, float64(m.animation.frame), player.Status, m.Theme())...)
 			}
 		}
 		rows = append(rows, slider, transport)
+		if padding > 1 {
+			rows = append(rows, "")
+		}
 	}
-	return m.box(m.Icon(stateIcon(player.Status), "Now playing"), rows, width, height, m.focus == PlayerPanel, "[5]", "")
+	return m.box(m.Icon(stateIcon(player.Status), "Now playing · "+playerStatus(player)), rows, width, height, m.focus == PlayerPanel, "[5]", "")
 }
 
 func (m Model) renderPlayerTopLine(player Player, width int) string {
@@ -128,18 +128,23 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 	if title == "" {
 		title = "No current episode"
 	}
-	return "  " + lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, max(0, width-2), "…"))
-}
-
-func (m Model) renderPlayerMetaLine(player Player, width int) string {
-	status := playerStatus(player)
 	show := clean(player.Channel, false)
-	if show == "" {
-		return "  " + status
+	available := max(0, width-4) // two cells of padding at each side
+	titleBudget, showBudget := available, 0
+	if show != "" && available > 3 {
+		// Prefer the full channel, but retain a small readable title when a
+		// pathological channel cannot fit. The title gets all remaining width.
+		minimumTitle := min(8, ansi.StringWidth(title), available-3)
+		showBudget = min(ansi.StringWidth(show), max(0, available-3-minimumTitle))
+		if showBudget > 0 {
+			titleBudget = available - 3 - showBudget
+		}
 	}
-	show = ansi.Truncate(show, max(0, width-ansi.StringWidth(status)-5), "…")
-	color := lipgloss.Color(string(m.Theme().ChannelColor(clean(player.Channel, false))))
-	return "  " + lipgloss.NewStyle().Foreground(color).Render(show) + " · " + status
+	line := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, titleBudget, "…"))
+	if showBudget > 0 {
+		line += " · " + m.channelCell(ansi.Truncate(show, showBudget, "…"))
+	}
+	return ansi.Truncate("  "+line+"  ", max(0, width), "…")
 }
 
 func (m Model) renderSliderLine(player Player, width int) string {

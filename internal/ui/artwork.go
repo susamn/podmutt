@@ -3,7 +3,7 @@ package ui
 // ArtworkSize reserves a small left-hand column inside Details. Compact and
 // modal layouts hide art before sacrificing descriptions or player controls.
 func (m Model) ArtworkSize() (int, int) {
-	if m.compact() || m.Busy() || m.data.Prompt != "" {
+	if m.compact() || m.Busy() || m.data.Prompt != "" || (m.data.EpisodeDetails == nil && m.data.Details == "") {
 		return 0, 0
 	}
 	width, height := m.detailsSize()

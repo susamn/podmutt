@@ -83,7 +83,7 @@ func TestCachedDestinationsSortingSelectionAndCompletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 32})
-		if len(m.rows) != 2 || m.libraryID != newDestination || !strings.Contains(m.View().Content, "Not started") {
+		if len(m.rows) != 2 || m.libraryID != allDestination || !strings.Contains(m.View().Content, "All episodes") {
 			t.Fatal("cached content missing")
 		}
 		selected, _ := m.Model.Selected(ui.Episodes)
@@ -101,9 +101,9 @@ func TestCachedDestinationsSortingSelectionAndCompletion(t *testing.T) {
 		if selected, ok := m.selectedEpisode(); !ok || !selected.Completed {
 			t.Fatal("completion not shown")
 		}
-		openLibraryDestination(&m, newDestination)
-		if len(m.rows) != 1 {
-			t.Fatal("completed episode remains in New")
+		openLibraryDestination(&m, allDestination)
+		if len(m.rows) != 2 {
+			t.Fatal("All omitted completed episode")
 		}
 		openLibraryDestination(&m, strconv.FormatInt(a, 10))
 		if len(m.Model.Visible(ui.Podcasts)) != len(libraryDestinations)+1 {

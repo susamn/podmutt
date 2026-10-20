@@ -12,12 +12,11 @@ Status: core v1 scope agreed; remaining engineering details listed below.
   add RSS/ordinary podcast website URLs. My subscriptions lists subscribed shows
   only; library search covers their names and cached episode titles/descriptions
   (including completed history), never a remote episode index.
-- Newest episodes first; explicit Not started, Continue listening, All episodes
-  (subscribed), and show destinations. A quiet, non-selectable Subscriptions
-  divider separates views from shows (ADR 042). Not started excludes progress
-  and completed history; live progress moves episodes to Continue (ADR 043). Highlighting a show always scopes its
-  episodes. Continue includes saved unfinished history even after unsubscribe.
-  Sort by newest, oldest, or title; preserve episode identity on refresh (ADR 040).
+- Library contains All episodes, a quiet non-selectable Subscriptions heading,
+  and subscribed shows only. Highlighting a scope immediately changes Episodes.
+  All includes subscribed history plus saved unfinished/current/pending work without
+  implicitly subscribing. Episode sort cycles newest, oldest, title. Selection,
+  current playback, visual sort and actor priority are independent (ADR 048).
 - Refresh at startup, every 30 minutes while running, and manually with R.
 - Priorities: ease of use, clean visuals, podcast artwork via Kitty graphics
   with an image-derived ASCII fallback. Design reference: sibling mpdtui.
@@ -25,23 +24,37 @@ Status: core v1 scope agreed; remaining engineering details listed below.
 ## Layout
 
 ```text
-+----------------------+---------------------------+
-| Podcasts/subscribed  | Up next (pending only)    |
-+----------------------+---------------------------+
-| Episodes             | Details (remaining space) |
-|                      +---------------------------+
-|                      | Now playing (~6 rows)     |
-+----------------------+---------------------------+
++----------------+----------------------+----------------------+
+| Library (1)    | Episodes (2)         | Queue (3)            |
+|                |                      | current + pending    |
+| All episodes   +----------------------+                      |
+| Subscriptions  | Details (4)          |                      |
+| shows          +----------------------+----------------------+
+|                | Now playing (~7 rows, spanning both columns) |
++----------------+---------------------------------------------+
 ```
 
-The bottom-right cell splits 50/50 between a clipped, scrollable description and
-an independent player. Descriptions never enlarge or displace the player.
-Compact layouts retain bottom player controls; Queue/Details replace the middle
-list while focused. Very short layouts show one library pane plus Player. Hide
-artwork/visualization first as space shrinks. See ADR 014.
+Player spans the bottom of Details and Queue, borrowing height from Details while
+Episodes retains its height. Queue takes 35% of the viewport; Episodes and Details
+share an equally reduced width. Queue rows include percentage remaining (unknown
+is --); current percentage uses Player's clock and pending work uses saved progress.
+Player identity uses one line: `Title · Channel`, with no gap padding between
+fields. Prefer the full channel, truncating the title only when needed, and retain
+two-cell side padding. Top/bottom blank rows yield
+before notices/core content or compact pinned identity. State stays in the border,
+not as Episodes/Queue title prefixes. Episode rows use `+ Title` when queued and
+`◉ Title` otherwise, with one space after the marker. The accented + marks pending
+and visible current queue membership immediately, including the authoritative Enter action reply. Episodes headers/rows reserve Duration first and bound
+Channel padding. Queue has pinned Title, Channel, Remains headers. Missing covers
+use the bundled application PNG after episode/show art; no runtime asset dependency.
+Descriptions never enlarge or displace the player. Compact
+layouts retain Player above one focused list; Queue/Details replace that list.
+Hide artwork/visualization first as space shrinks. Shared geometry governs rendering,
+paging, description reading and animation (ADRs 048–051).
 
 Vim-friendly navigation: j/k move selection, h/Left goes back, l/Right opens shows
-or inspects episodes without playback; J/K reorders queue. Tab cycles the three
+or inspects episodes without playback. Queue o toggles newest vs channel/newest
+presentation without changing actor order; manual J/K moves are removed. Tab cycles the three
 lists; 1–5 directly focuses any pane. Ctrl-d/u and PgUp/PgDn page lists. See ADR 039.
 / filters locally, b switches My subscriptions / Apple Discover, f opens search
 in the current scope (Tab switches Library/Apple in the dialog), ? shows help.
@@ -60,16 +73,21 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 - No daemon, login service, or detached playback. Quit saves state, stops mpv,
   cancels refreshes, and exits. No app-owned child should remain running.
 - Persist current episode, position, subscriptions, history, and queue.
-- Reopening restores state without autoplay. Checkpoint position every 5 seconds
-  and on pause, stop, episode change, and graceful exit.
+- App startup explicitly resumes saved unfinished current audio and aligns selections
+  once; ordinary progress must not reset browsing. The actor constructor itself
+  remains stopped/side-effect-free. Checkpoint every 5 seconds and on pause, stop,
+  episode change, and graceful exit.
 - Resume interrupted episodes. Completion means reaching natural EOF or explicit
   user marking, not merely receiving a playback error or pressing Stop.
-- At natural EOF advance through the explicit queue; stop when it is empty.
-- Controls: play, pause, stop. Up next is persistent, reorderable, batch enqueue;
-  no duplicate entries. Current playback stays in the separate Now playing pane,
-  never an editable queue row (ADR 041). Direct playback preserves pending work.
-  d/Delete removes immediately; u in Up next undoes one session-local removal
-  by merging into the live queue. D clear still requires confirmation (ADR 044).
+- EOF/Next chooses the newest pending publication, independently of display or
+  insertion order; stable persisted order breaks ties. Next does not complete skipped audio.
+  Subscription arrivals consider the two latest cached releases, not historical backfill.
+- Controls: play, pause, stop. Queue is persistent and supports batch enqueue without
+  duplicates. Presentation projects current audio without making it editable as pending
+  work. Manual additions append/select/focus Queue without autoplay or subscription;
+  visual sort never writes back. Direct playback preserves pending work. d/Delete removes
+  pending work immediately; Queue u merges one session-local removal into the live queue.
+  D clear still requires confirmation and never clears current audio (ADRs 044, 048).
 - Playback failure: persistent notification and stop; no automatic retry or skip.
 - CLI controls/status target the running TUI for use in external keybindings;
   they must not create a background player when no TUI is running.

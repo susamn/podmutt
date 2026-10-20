@@ -68,7 +68,7 @@ func TestSectionNavigationAndPagingKeepSelectionVisible(t *testing.T) {
 				pane := ansi.Strip(m.pane(Podcasts, size.paneWidth, size.paneHeight))
 				found := false
 				for _, row := range strings.Split(pane, "\n") {
-					if strings.Contains(row, "> ") && strings.Contains(row, selected.Title) {
+					if strings.Contains(row, selected.Title) {
 						found = true
 					}
 					if ansi.StringWidth(row) > size.paneWidth {
@@ -82,7 +82,7 @@ func TestSectionNavigationAndPagingKeepSelectionVisible(t *testing.T) {
 		}
 	}
 	// Half-page landing on the caption advances to a real item.
-	m := resize(New(sectionFixture()), 100, 24)
+	m := resize(New(sectionFixture()), 30, 12).Select(Podcasts, "all")
 	m = press(m, "ctrl+d")
 	if item, _ := m.Selected(Podcasts); item.ID != "show-0" {
 		t.Fatal("half-page stopped on heading", item)

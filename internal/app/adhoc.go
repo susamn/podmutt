@@ -56,8 +56,8 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 			return playerEdited{err: err}
 		}
 		if enqueue {
-			return playerEdited{err: engine.Enqueue(ctx, ids...), cached: true}
+			return enqueueEpisodes(ctx, engine, ids, true)
 		}
-		return playerEdited{err: engine.PlayEpisode(ctx, ids[0]), cached: true}
+		return playEpisode(ctx, engine, ids[0], true)
 	}
 }

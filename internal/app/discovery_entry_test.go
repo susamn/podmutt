@@ -37,7 +37,7 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
 		view := ansi.Strip(m.View().Content)
-		if !strings.Contains(view, "f:search") || !strings.Contains(view, "U:url") {
+		if !strings.Contains(view, "f:find podcast") || !strings.Contains(view, "/:search") {
 			t.Fatal("entry points hidden")
 		}
 		libraryKey(&m, 'U')
@@ -46,7 +46,7 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 		}
 		updateLibrary(&m, tea.PasteMsg{Content: server.URL + "/site"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if m.browse.preview == nil || m.browse.preview.URL != server.URL+"/rss" || m.Model.Focus() != ui.Episodes {
+		if m.browse.preview == nil || m.browse.preview.URL != server.URL+"/rss" || m.Model.Focus() != ui.Podcasts {
 			t.Fatal("website preview failed", m.notice)
 		}
 		sources, _ := s.store.Feeds(s.ctx, false)
@@ -54,6 +54,7 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 		if len(sources) != 2 || state.Current != nil || len(state.Queue) != 0 {
 			t.Fatal("preview mutated library or playback")
 		}
+		m.Model = m.Model.WithFocus(ui.Episodes)
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		state = syncPlayer(t, &m)
 		sources, _ = s.store.Feeds(s.ctx, true)
@@ -117,7 +118,7 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 		libraryKey(&m, 'f')
 		updateLibrary(&m, tea.PasteMsg{Content: "outside the chart"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if d.query != "outside the chart" || !strings.Contains(m.View().Content, "No matching shows") || !strings.Contains(m.View().Content, "Apple search") {
+		if d.query != "outside the chart" || !strings.Contains(m.View().Content, "No matching shows") || !strings.Contains(m.View().Content, "Apple Podcasts search:") {
 			t.Fatal("search source/query/empty state hidden")
 		}
 		d.err = errors.New("directory offline")
@@ -144,7 +145,7 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 		for _, size := range [][2]int{{70, 20}, {30, 12}} {
 			updateLibrary(&m, tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 			m.Model = m.Model.WithFocus(ui.Episodes)
-			if !strings.Contains(ansi.Strip(m.View().Content), "f:search") {
+			if !strings.Contains(ansi.Strip(m.View().Content), "f:find podcast") {
 				t.Fatal("compact entry hidden", size, m.View().Content)
 			}
 		}

@@ -34,6 +34,11 @@ func TestDetailsActionsUsePinnedEpisodeNotUnderlyingSelection(t *testing.T) {
 		if state := syncPlayer(t, &m); state.Current.ID != first.ID || len(state.Queue) != 1 || state.Queue[0].ID != target.ID {
 			t.Fatal("enqueue targeted selection/current", state)
 		}
+		if m.Model.Focus() != ui.Queue {
+			t.Fatal("enqueue did not activate Queue")
+		}
+		libraryKey(&m, 'i')
+		m.Model = m.Model.Select(ui.Episodes, fmt.Sprint(first.ID))
 		if libraryKey(&m, 'a') != nil || m.notice != "Already in Up next" {
 			t.Fatal("duplicate queue action", m.notice)
 		}
@@ -55,7 +60,7 @@ func TestDetailsActionsUsePinnedEpisodeNotUnderlyingSelection(t *testing.T) {
 			t.Fatal("Enter toggled/reloaded current", p.loads)
 		}
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape}))
-		if selected, _ := m.Model.Selected(ui.Episodes); m.Model.Focus() != ui.Episodes || selected.ID != fmt.Sprint(target.ID) {
+		if selected, _ := m.Model.Selected(ui.Queue); m.Model.Focus() != ui.Queue || selected.ID != fmt.Sprint(target.ID) {
 			t.Fatal("return did not restore inspected identity", selected)
 		}
 	})
@@ -83,6 +88,9 @@ func TestPreviewDetailsActionsCaptureIdentityWithoutSubscribing(t *testing.T) {
 		if !strings.Contains(m.View().Content, "In Up next") {
 			t.Fatal("cached preview membership not refreshed")
 		}
+		m.Model = m.Model.WithFocus(ui.Episodes).Select(ui.Episodes, "preview:1")
+		libraryKey(&m, 'i')
+		m.Model = m.Model.Select(ui.Episodes, "preview:0")
 		if libraryKey(&m, 'c') != nil || m.mutating || !strings.Contains(m.notice, "Preview only") {
 			t.Fatal("preview changed completion")
 		}
@@ -173,8 +181,8 @@ func TestDetailsCompletionTracksUnsubscribedHistoryAndGuardsOverlays(t *testing.
 		if err := s.store.Checkpoint(s.ctx, cached[0].ID, 42); err != nil {
 			t.Fatal(err)
 		}
-		openLibraryDestination(&m, continueDestination)
-		m.Model = m.Model.WithFocus(ui.Episodes)
+		openLibraryDestination(&m, allDestination)
+		m.Model = m.Model.WithFocus(ui.Episodes).Select(ui.Episodes, fmt.Sprint(cached[0].ID))
 		libraryKey(&m, 'i')
 		for _, opener := range []rune{'?', 'e'} {
 			libraryKey(&m, opener)

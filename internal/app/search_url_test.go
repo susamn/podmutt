@@ -29,7 +29,7 @@ func TestSearchAcceptsURLInEverySourceWithoutSubscribing(t *testing.T) {
 						t.Fatal("URL truncated to query length", len(m.browse.input))
 					}
 					finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-					if m.browse.preview == nil || m.browse.preview.URL != address || m.Model.Focus() != ui.Episodes || m.browse.searching {
+					if m.browse.preview == nil || m.browse.preview.URL != address || m.Model.Focus() != ui.Podcasts || m.browse.searching {
 						t.Fatal("search did not open feed preview", m.notice)
 					}
 					libraryKey(&m, 'f')

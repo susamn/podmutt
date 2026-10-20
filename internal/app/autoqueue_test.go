@@ -95,7 +95,7 @@ func TestRefreshAndConditionalRefreshReconcileLatest(t *testing.T) {
 		}
 		drain(updateLibrary(&m, refreshUpdate{result: feed.Result{FeedID: a, NotModified: true}, ok: true}))
 		state := syncStateForAuto(t, s)
-		if len(state.Queue) != 1 || state.Queue[0].Title != "Alpha" {
+		if len(state.Queue) != 2 || state.Queue[0].Title != "Alpha" || state.Queue[1].Title != "Zulu" {
 			t.Fatal("304 did not reconcile latest", state)
 		}
 		if err := s.playback.SetQueue(s.ctx, nil); err != nil {
