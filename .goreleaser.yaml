@@ -1,0 +1,82 @@
+# GoReleaser builds the release binaries and updates susamn/homebrew-tap.
+# Exercise locally with: goreleaser release --snapshot --clean
+version: 2
+
+project_name: podmutt
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: podmutt
+    main: ./cmd/podmutt
+    binary: podmutt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: podmutt
+    ids:
+      - podmutt
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - assets/logo.svg
+      - assets/logo.png
+      - packaging/linux/podmutt.desktop
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^build:"
+      - "^merge:"
+
+homebrew_casks:
+  - name: podmutt
+    repository:
+      owner: susamn
+      name: homebrew-tap
+      branch: main
+      # A fine-grained PAT with Contents:read-write on susamn/homebrew-tap.
+      # The default GITHUB_TOKEN cannot push to another repository.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    homepage: "https://github.com/susamn/podmutt"
+    description: "Terminal podcast client inspired by lazygit and mpdtui"
+    commit_msg_template: "podmutt {{ .Tag }}"
+    caveats: |
+      podmutt streams podcast audio through mpv:
+
+        brew      brew install mpv
+        Arch      sudo pacman -S mpv
+        Debian    sudo apt install mpv
+
+      Icons use standard Unicode by default (no patched font required).
+      To use Nerd Fonts, set `icons = "nerd"` in config.toml.
+
+release:
+  github:
+    owner: susamn
+    name: podmutt
+  replace_existing_artifacts: true
+  mode: replace

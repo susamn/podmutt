@@ -12,6 +12,17 @@ Apple discovery/subscription previews, library search, and running-instance
 controls are available.
 `--help` and `--version` work without creating profile files.
 
+## Install
+
+### Homebrew (macOS and Linux)
+
+```sh
+brew tap susamn/tap
+brew install --cask podmutt
+```
+
+Runtime playback streams audio through `mpv` (`brew install mpv` / `apt install mpv` / `pacman -S mpv`).
+
 ## Development
 
 Requires Go 1.27.2+, Make, and a C compiler for race tests. Runtime playback will
