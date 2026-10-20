@@ -19,6 +19,7 @@ func TestSharedPlayerAndQueuePercentKeepInspectionAcrossProgressResizeAndEOF(t *
 		newer, older := m.rows[0], m.rows[1]
 		m.Model = m.Model.Select(ui.Episodes, fmt.Sprint(older.ID))
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
+		assertEpisodeMembership(t, m, older.ID, true, true)
 		syncPlayer(t, &m)
 		m.Model = m.Model.Select(ui.Episodes, fmt.Sprint(newer.ID))
 		finishLibrary(&m, libraryKey(&m, 'a'))
@@ -64,6 +65,8 @@ func TestSharedPlayerAndQueuePercentKeepInspectionAcrossProgressResizeAndEOF(t *
 		if m.Model.Focus() != ui.Details || m.detailTarget.ID != newer.ID || strings.Contains(ansi.Strip(m.View().Content), "75%") {
 			t.Fatal("EOF replaced inspection or retained old percentage")
 		}
+		assertEpisodeMembership(t, m, newer.ID, true, true)
+		assertEpisodeMembership(t, m, older.ID, false, false)
 		if history, err := s.store.Playback(s.ctx, older.ID); err != nil || !history.Completed {
 			t.Fatal("history lost", history, err)
 		}

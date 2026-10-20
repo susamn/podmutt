@@ -64,16 +64,13 @@ func (m Model) renderQueueHeader(width int) string {
 func (m Model) renderEpisodeColumns(item Item, width int) string {
 	gutter := "[ ] "
 	if item.Queued {
-		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Render("[+] ")
+		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Render("+   ")
 	} else if item.Completed {
 		gutter = lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Green))).Render("[✓] ")
 	}
 	title := clean(item.PlainTitle, false)
 	if title == "" {
 		title = clean(item.Title, false)
-	}
-	if item.Current {
-		title = playerStatus(m.data.Player) + " · " + title
 	}
 	duration := clean(item.Duration, false)
 	if duration == "" {
@@ -90,9 +87,6 @@ func (m Model) renderQueueColumns(item Item, width int, remaining string) string
 	title := clean(item.PlainTitle, false)
 	if title == "" {
 		title = clean(item.Title, false)
-	}
-	if item.Current {
-		title = playerStatus(m.data.Player) + " · " + title
 	}
 	c := queueColumns(width, max(m.queueGutter(), ansi.StringWidth(prefix)))
 	if c.inner < c.gutter+c.tail+1 {
