@@ -142,7 +142,7 @@ func (a *Apple) Search(ctx context.Context, query string) ([]Show, error) {
 // Top returns the non-personalized top chart for the active country, resolved to public RSS URLs
 // via one batch lookup. Apple artwork and preview assets are ignored entirely.
 func (a *Apple) Top(ctx context.Context) ([]Show, error) {
-	return a.TopLimit(ctx, maxResults)
+	return a.TopLimit(ctx, maxTopResults)
 }
 
 // TopLimit returns the top chart up to the given limit (capped at 100).

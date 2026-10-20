@@ -51,6 +51,11 @@ type previewLoaded struct {
 	preview     feed.Resolved
 	err         error
 }
+type showRatingLoaded struct {
+	feedURL string
+	rating  float64
+	count   int
+}
 
 func (m *libraryShell) cancelPreview() {
 	if m.browse.previewCancel != nil {
@@ -264,6 +269,9 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.Model = m.Model.WithFocus(ui.Episodes)
 		m.renderDetails()
 	}
+	if !msg.local && msg.err == nil {
+		m.ensureShowRating()
+	}
 }
 func (m *libraryShell) openSearch() {
 	m.browse.searching = true
@@ -420,10 +428,11 @@ func (m *libraryShell) previewShow() tea.Cmd {
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.previewCancel = cancel
 	generation, service := m.browse.previewGeneration, m.service
-	return func() tea.Msg {
+	previewCmd := func() tea.Msg {
 		preview, err := service.Preview(ctx, show.FeedURL)
 		return previewLoaded{generation, show.FeedURL, show.SourceURL, preview, err}
 	}
+	return tea.Batch(previewCmd, m.ensureShowRating())
 }
 func (m *libraryShell) applyPreview(msg previewLoaded) {
 	show, ok := m.selectedShow()
@@ -501,7 +510,7 @@ func (m *libraryShell) renderDiscovery() {
 		data.PodcastEmpty = "Search failed · 4 details"
 	}
 	for _, show := range m.browse.shows {
-		marker := "    "
+		marker := ""
 		for _, source := range m.snapshot.Feeds {
 			if source.Subscribed && source.URL == show.FeedURL {
 				marker = "[+] "
@@ -593,4 +602,40 @@ func (m *libraryShell) selectLibraryShow() {
 	m.browse.localQuery = ""
 	m.libraryID = fmt.Sprint(id)
 	m.wantLibraryID = m.libraryID
+}
+
+func (m *libraryShell) ensureShowRating() tea.Cmd {
+	show, ok := m.selectedShow()
+	if !ok || show.Rating > 0 || show.ExternalID == "" {
+		return nil
+	}
+	if m.s.store != nil {
+		shows, err := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, show.Title, 5)
+		if err == nil {
+			for _, s := range shows {
+				if s.FeedURL == show.FeedURL && s.Rating > 0 {
+					for i := range m.browse.shows {
+						if m.browse.shows[i].FeedURL == show.FeedURL {
+							m.browse.shows[i].Rating = s.Rating
+							m.browse.shows[i].ReviewCount = s.ReviewCount
+							m.renderDetails()
+							return nil
+						}
+					}
+				}
+			}
+		}
+	}
+	apple, ok := m.browse.directory.(*discovery.Apple)
+	if !ok {
+		return nil
+	}
+	ctx := m.s.ctx
+	country := m.s.config.Country
+	id := show.ExternalID
+	feedURL := show.FeedURL
+	return func() tea.Msg {
+		r, c, _ := apple.Ratings(ctx, country, id)
+		return showRatingLoaded{feedURL: feedURL, rating: r, count: c}
+	}
 }

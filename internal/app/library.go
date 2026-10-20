@@ -299,6 +299,30 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		m.applyDirectory(msg)
 	case previewLoaded:
 		m.applyPreview(msg)
+	case showRatingLoaded:
+		if msg.rating > 0 {
+			for i := range m.browse.shows {
+				if m.browse.shows[i].FeedURL == msg.feedURL {
+					m.browse.shows[i].Rating = msg.rating
+					m.browse.shows[i].ReviewCount = msg.count
+					break
+				}
+			}
+			if m.s.store != nil {
+				sourceID, _ := m.s.store.SourceID(m.s.ctx, "apple")
+				if sourceID > 0 {
+					shows, _ := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, "", 100)
+					for _, s := range shows {
+						if s.FeedURL == msg.feedURL {
+							_ = m.s.store.UpsertShowRating(m.s.ctx, s.ID, sourceID, msg.rating, msg.count)
+							break
+						}
+					}
+				}
+			}
+			m.renderDetails()
+		}
+		return m, nil
 	case libraryLoaded:
 		if msg.version != m.version {
 			return m, nil
