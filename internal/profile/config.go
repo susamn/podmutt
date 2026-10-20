@@ -104,6 +104,23 @@ func (p Paths) ConfigDir() string {
 	return filepath.Dir(p.Config)
 }
 
+// Onboarded reports whether the first-run welcome dialog was dismissed.
+func (p Paths) Onboarded() bool {
+	if p.State == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(p.State, "onboarded"))
+	return err == nil
+}
+
+// SetOnboarded records that the first-run welcome dialog was dismissed.
+func (p Paths) SetOnboarded() error {
+	if p.State == "" {
+		return nil
+	}
+	return os.WriteFile(filepath.Join(p.State, "onboarded"), []byte("1\n"), 0600)
+}
+
 // Resolve selects one default user profile. Relative XDG values are ignored.
 // Supplying the platform and environment explicitly also makes path policy testable.
 func Resolve(platform, home string, getenv func(string) string) (Paths, error) {

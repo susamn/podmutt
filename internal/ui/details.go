@@ -43,7 +43,7 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 	if card == nil {
 		text := m.data.Details
 		if text == "" {
-			text = "Select an episode for details."
+			text = "Select an episode to view details.\n\nQuick keys:\n  Enter  Play selected\n  Space  Pause / resume\n  a      Add to queue\n  f      Search podcasts\n  b      Toggle Discover\n  ?      All keybindings"
 		}
 		return nil, wrapDetails(text, width)
 	}
