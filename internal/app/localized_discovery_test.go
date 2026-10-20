@@ -46,6 +46,9 @@ func TestLocalizedDiscoveryLocalCacheAndRatings(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		// Set mock directory so test never makes live network calls
+		m.browse.directory = &mockShowDirectory{shows: []discovery.Show{{Title: "Lage der Nation", FeedURL: "https://feeds.lagedernation.org/ldn", Rating: 4.8, ReviewCount: 12500}}}
+
 		// Switch to Discover mode: loads local cache with 0 network calls
 		finishLibrary(&m, m.switchBrowse())
 		finishLibrary(&m, m.searchDirectory(""))

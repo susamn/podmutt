@@ -80,7 +80,7 @@ func TestTopLimitsIDBatchAndRedactsLookupFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/chart" {
 			fmt.Fprint(w, `{"feed":{"results":[`)
-			for i := 1; i <= 30; i++ {
+			for i := 1; i <= 120; i++ {
 				if i > 1 {
 					fmt.Fprint(w, ",")
 				}
@@ -88,7 +88,7 @@ func TestTopLimitsIDBatchAndRedactsLookupFailure(t *testing.T) {
 			}
 			fmt.Fprint(w, `]}}`)
 		} else {
-			if len(strings.Split(r.URL.Query().Get("id"), ",")) != 25 {
+			if len(strings.Split(r.URL.Query().Get("id"), ",")) != 100 {
 				t.Error("batch cap ignored")
 			}
 			w.WriteHeader(503)

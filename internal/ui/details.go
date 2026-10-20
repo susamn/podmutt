@@ -75,11 +75,11 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 			metadata = append(metadata, field)
 		}
 	}
-	if card.Rating != "" {
-		metadata = append(metadata, card.Rating)
-	}
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
 	add(strings.Join(metadata, " · "), muted)
+	if card.Rating != "" {
+		add("Rating: "+card.Rating, lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))))
+	}
 	var progress []string
 	if card.Position != "" {
 		progress = append(progress, "Progress "+card.Position)

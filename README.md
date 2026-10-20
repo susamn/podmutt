@@ -12,6 +12,22 @@ Apple discovery/subscription previews, library search, and running-instance
 controls are available.
 `--help` and `--version` work without creating profile files.
 
+## Screenshots
+
+### Dashboard
+Full 5-pane layout featuring Library, Episodes, Up next queue, Details card, and Now playing HUD.
+
+![podmutt dashboard](assets/screenshot-dashboard.png)
+
+### Discover & preview
+Directory browsing (Apple US top 25 / search) and read-only episode previews without subscribing.
+
+![podmutt discover](assets/screenshot-discover.png)
+
+### Compact mode
+Responsive layout adapting automatically when terminal dimensions shrink.
+
+![podmutt compact mode](assets/screenshot-compact.png)
 ## Install
 
 ### Homebrew (macOS and Linux)
@@ -145,8 +161,9 @@ private `run` directory. See [profile paths and ownership](docs/adr/002-profile-
 
 ## Shell controls
 
-`j/k` or Up/Down select; `g/G` go first/last. **h/Left goes back; l/Right opens**
-a show or inspects an episode without starting playback. Tab/Shift+Tab cycles
+`j/k` or Up/Down select; `g/G` go first/last. **h/l (or Left/Right) scrolls content horizontally**
+on narrow screens. **Esc goes back; Enter opens** a show or plays an episode; `i` inspects
+an episode without starting playback. Tab/Shift+Tab cycles
 **Library → Episodes → Queue**; `1-5` still focuses any pane directly.
 Details and Player are no longer mandatory Tab stops. In lists, Ctrl-d/Ctrl-u
 moves half a visible page and PgUp/PgDn moves a full page. Esc clears an applied
