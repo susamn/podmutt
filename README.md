@@ -105,6 +105,13 @@ On first run, a Quick Start overlay appears with essential hotkeys. Press **Ente
   - **By URL**: Paste any direct RSS/Atom feed or podcast website URL (e.g. `https://feeds.simplecast.com/...`).
 - `podmutt` searches your local SQLite cache first (**0ms**), then queries remote directories automatically.
 
+### Importing subscriptions from OPML
+Export your subscriptions from another podcast app as an `.opml` file, then close podmutt and run:
+```sh
+podmutt import-opml subscriptions.opml
+```
+Every feed is fetched and subscribed (nested folders are flattened, duplicates are skipped, and shows you already follow are left untouched). Failing feeds are listed and the exit code is non-zero, but the rest are still imported. The command takes the same profile lock as the UI, so it cannot run while podmutt is open.
+
 ### 4. Playing & Queuing Episodes
 - Move to the **Episodes (2)** list with **`Tab`** or press **`2`**.
 - Press **`Enter`** on any episode to stream it instantly.
