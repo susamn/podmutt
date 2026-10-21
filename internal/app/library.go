@@ -158,8 +158,10 @@ func (m libraryShell) waitSignal() tea.Cmd {
 		case <-m.s.ctx.Done():
 			return nil
 		case <-m.signals:
-			pal, themePath := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
-			return themeReloadMsg{palette: pal, themeName: m.s.config.Theme, themePath: themePath}
+			return work(m.s.ctx, "Reloading theme…", func(context.Context) tea.Msg {
+				pal, themePath := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
+				return themeReloadMsg{palette: pal, themeName: m.s.config.Theme, themePath: themePath}
+			})()
 		}
 	}
 }
@@ -190,14 +192,14 @@ func (m *libraryShell) reload() tea.Cmd {
 			previewURL = m.browse.preview.URL
 		}
 	}
-	return func() tea.Msg {
+	return work(ctx, "Loading library…", func(ctx context.Context) tea.Msg {
 		snapshot, err := service.Read(ctx, id)
 		var details *store.Episode
 		if err == nil {
 			details = readInspected(ctx, repo, snapshot.Feeds, target, previewURL)
 		}
 		return libraryLoaded{version: version, snapshot: snapshot, details: details, detailKey: detailKey, err: err}
-	}
+	})
 }
 func (m libraryShell) selectedFeed() int64 {
 	item, _ := m.Model.Selected(ui.Podcasts)
@@ -516,7 +518,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		case "space":
 			engine, ctx := m.s.playback, m.s.ctx
-			cmd = func() tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} }
+			cmd = work(ctx, "Updating playback…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} })
 		case "i":
 			m.openDetails()
 		case "a", "A":
@@ -649,10 +651,10 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 		m.notice = "Adding feed…"
 		address, service, ctx, engine := m.input, m.service, m.s.ctx, m.s.playback
 		m.input = ""
-		return func() tea.Msg {
+		return work(ctx, "Adding podcast…", func(ctx context.Context) tea.Msg {
 			id, err := service.Add(ctx, address)
 			return subscriptionEdited(ctx, engine, id, true, err)
-		}
+		})
 	default:
 		ti := ui.TextInput{Value: m.input, Limit: 4096}
 		if ti.EditKey(key) {
@@ -669,9 +671,9 @@ func (m *libraryShell) subscribe() tea.Cmd {
 		if source.ID == m.selectedFeed() {
 			m.mutating = true
 			service, ctx, engine := m.service, m.s.ctx, m.s.playback
-			return func() tea.Msg {
+			return work(ctx, "Saving subscription…", func(ctx context.Context) tea.Msg {
 				return subscriptionEdited(ctx, engine, source.ID, false, service.Subscribe(ctx, source.ID, !source.Subscribed))
-			}
+			})
 		}
 	}
 	m.notice = "Select a show first"
@@ -692,14 +694,14 @@ func (m *libraryShell) complete() tea.Cmd {
 	}
 	m.mutating = true
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg {
+	return work(ctx, "Saving listening history…", func(ctx context.Context) tea.Msg {
 		if err := engine.MarkCompleted(ctx, episode.ID, !episode.Completed); err != nil {
 			return libraryEdited{err: err}
 		}
 		episode.Completed = !episode.Completed
 		state, err := engine.Snapshot(ctx)
 		return libraryEdited{state: &state, episode: &episode, err: err}
-	}
+	})
 }
 
 func (m *libraryShell) renderLibrary() {

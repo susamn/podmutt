@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/control"
 	"podmutt/internal/macmedia"
 	"podmutt/internal/mpris"
@@ -31,7 +32,7 @@ type session struct {
 // withSession runs under withProfile ownership. All foreground services share
 // this database, actor, and cancellation lifetime; no client creates its own.
 func withSession(cfg profile.Config, paths profile.Paths, run func(*session) error) (err error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(activity.WithTracker(context.Background(), activity.New()))
 	defer cancel()
 	db, err := store.Open(ctx, filepath.Join(paths.State, "podcasts.db"))
 	if err != nil {

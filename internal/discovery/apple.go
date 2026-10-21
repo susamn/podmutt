@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/httpurl"
 )
 
@@ -115,6 +116,8 @@ func (a *Apple) chartURL() string {
 	return fmt.Sprintf("https://rss.marketingtools.apple.com/api/v2/%s/podcasts/top/100/podcasts.json", a.Country())
 }
 func (a *Apple) Search(ctx context.Context, query string) ([]Show, error) {
+	ctx, finish := activity.Begin(ctx, "Searching Apple Podcasts…", activity.Foreground)
+	defer finish()
 	query = strings.Join(strings.Fields(query), " ")
 	if size := len([]rune(query)); size == 0 || size > 128 {
 		return nil, ErrQuery
@@ -147,6 +150,8 @@ func (a *Apple) Top(ctx context.Context) ([]Show, error) {
 
 // TopLimit returns the top chart up to the given limit (capped at 100).
 func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
+	ctx, finish := activity.Begin(ctx, "Updating Apple Podcasts charts…", activity.Foreground)
+	defer finish()
 	if limit <= 0 || limit > maxTopResults {
 		limit = maxTopResults
 	}
@@ -334,6 +339,8 @@ func normalize(records []appleRecord, limit int) []Show {
 
 // Ratings fetches customer reviews and computes the star rating and review count.
 func (a *Apple) Ratings(ctx context.Context, country, collectionID string) (float64, int, error) {
+	ctx, finish := activity.Begin(ctx, "Loading podcast ratings…", activity.Background)
+	defer finish()
 	if collectionID == "" {
 		return 0, 0, nil
 	}

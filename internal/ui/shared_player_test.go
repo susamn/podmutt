@@ -27,7 +27,7 @@ func TestWidePlayerBorrowsDetailsBottomAndQueueGainsWidth(t *testing.T) {
 						if g.queueWidth != size[0]*35/100 || g.queueWidth <= oldQueue || g.episodeWidth != oldMiddle-(g.queueWidth-oldQueue) {
 							t.Fatal("width transfer is not shared by Episodes/Details", size, g)
 						}
-						if g.playerWidth != g.episodeWidth+g.queueWidth || g.episodes != (size[1]-1)/2 || g.episodes+g.details != g.queue || g.details < 4 {
+						if g.playerWidth != g.episodeWidth+g.queueWidth || g.episodes != (size[1]-statusRows)/2 || g.episodes+g.details != g.queue || g.details < 4 {
 							t.Fatal("inconsistent shared bottom geometry", size, g)
 						}
 						if w, h := m.detailsSize(); w != g.episodeWidth || h != g.details {

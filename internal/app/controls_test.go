@@ -29,7 +29,11 @@ func TestForegroundServicesAndKeyboardShareActions(t *testing.T) {
 				t.Fatal(err)
 			}
 			m := newShell(s)
-			updated, cmd := m.Update(m.Init()())
+			initial, ok := m.Init()().(tea.BatchMsg)
+			if !ok || len(initial) != 2 {
+				t.Fatal("missing playback/activity subscriptions")
+			}
+			updated, cmd := m.Update(initial[0]())
 			m = updated.(shell)
 			if cmd == nil {
 				t.Fatal("not subscribed to player updates")

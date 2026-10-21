@@ -145,7 +145,7 @@ func (m *libraryShell) playSelected() tea.Cmd {
 		return nil
 	}
 	engine, ctx, id := m.s.playback, m.s.ctx, episode.ID
-	return func() tea.Msg { return playEpisode(ctx, engine, id, false) }
+	return work(ctx, "Starting playback…", func(ctx context.Context) tea.Msg { return playEpisode(ctx, engine, id, false) })
 }
 
 // Return the actor's authoritative membership with the action, not only on a
@@ -206,7 +206,7 @@ func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return enqueueEpisodes(ctx, engine, ids, false) }
+	return work(ctx, "Adding episodes to Up next…", func(ctx context.Context) tea.Msg { return enqueueEpisodes(ctx, engine, ids, false) })
 }
 func enqueueEpisodes(ctx context.Context, engine *playback.Engine, ids []int64, cached bool) playerEdited {
 	err := engine.Enqueue(ctx, ids...)
@@ -232,7 +232,9 @@ func (m *libraryShell) removeQueueItem() tea.Cmd {
 	}
 	m.queueEditing = true
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return queueEdited{err: engine.RemoveQueuedUndoable(ctx, episode.ID)} }
+	return work(ctx, "Updating Up next…", func(ctx context.Context) tea.Msg {
+		return queueEdited{err: engine.RemoveQueuedUndoable(ctx, episode.ID)}
+	})
 }
 
 func (m *libraryShell) undoQueueRemoval() tea.Cmd {
@@ -242,7 +244,7 @@ func (m *libraryShell) undoQueueRemoval() tea.Cmd {
 	}
 	m.queueEditing = true
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return queueEdited{undo: true, err: engine.UndoQueueRemoval(ctx)} }
+	return work(ctx, "Restoring episode to Up next…", func(ctx context.Context) tea.Msg { return queueEdited{undo: true, err: engine.UndoQueueRemoval(ctx)} })
 }
 
 func (m *libraryShell) confirmClearQueue() {
@@ -271,5 +273,5 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{err: engine.ClearQueue(ctx, confirmation.ids)} }
+	return work(ctx, "Clearing Up next…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.ClearQueue(ctx, confirmation.ids)} })
 }

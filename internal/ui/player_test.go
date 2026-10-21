@@ -25,8 +25,8 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 		data := fixture()
 		data.Player = Player{Status: "playing", HasCurrent: true, Title: "Current audio", Position: "0:42", Duration: "2:00", Progress: .35}
 		m := resize(New(data), size[0], size[1]).WithFocus(Details)
-		available := size[1] - 1
-		want := available - 7
+		available := size[1] - statusRows
+		want := available - min(7, available-available/2-5)
 		for _, description := range []string{"Short description", strings.Repeat("very long paragraph words that must wrap 界\n", 2000)} {
 			m = m.WithDetails(description)
 			if got := rowContaining(t, m.View().Content, "Now playing"); got != want {
@@ -35,7 +35,7 @@ func TestDescriptionsNeverMovePlayerOrControls(t *testing.T) {
 			if got := rowContaining(t, m.View().Content, "Details"); got != available/2 {
 				t.Fatal("details escaped cell")
 			}
-			if controls := rowContaining(t, m.View().Content, "[Pause] [Stop] [Next]"); controls <= want || controls >= size[1]-1 {
+			if controls := rowContaining(t, m.View().Content, "[Pause] [Stop] [Next]"); controls <= want || controls >= size[1]-statusRows {
 				t.Fatal("controls hidden or outside viewport")
 			}
 			if !strings.Contains(ansi.Strip(m.View().Content), "0:42") || !strings.Contains(ansi.Strip(m.View().Content), "2:00") {

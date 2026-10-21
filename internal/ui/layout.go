@@ -8,14 +8,14 @@ type wideGeometry struct {
 }
 
 func (m Model) wideLayout() wideGeometry {
-	available := max(0, m.height-1)
+	available := max(0, m.height-statusRows)
 	g := wideGeometry{libraryWidth: min(28, m.width/5), queueWidth: m.width * 35 / 100}
 	g.playerWidth = m.width - g.libraryWidth
 	g.episodeWidth = g.playerWidth - g.queueWidth
 	g.episodes = available / 2
 	// Player borrows only the bottom of Details, not Episodes. Keep at least
-	// two interior Details rows for pinned identity and readable overflow.
-	g.player = min(max(0, available-g.episodes-4), playerBaseRows+len(m.playerNotices(g.playerWidth-2)))
+	// three interior Details rows for pinned identity and readable overflow.
+	g.player = min(max(0, available-g.episodes-5), playerBaseRows+len(m.playerNotices(g.playerWidth-2)))
 	g.details = available - g.episodes - g.player
 	if m.decoration && g.details >= 10 {
 		g.player += 2
@@ -31,7 +31,7 @@ func (m Model) rightCellHeights() (details, player int) {
 }
 
 func (m Model) compactHeights() (top, middle, player int) {
-	available := max(0, m.height-1)
+	available := max(0, m.height-statusRows)
 	core := playerBaseRows - 2 + len(m.playerNotices(m.width-2))
 	// Whitespace must not cost the minimum compact card its pinned identity.
 	padding := min(2, max(0, available-core-6))

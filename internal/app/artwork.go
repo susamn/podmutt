@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/activity"
 	"podmutt/internal/artwork"
 	"podmutt/internal/ui"
 )
@@ -147,10 +148,10 @@ func (m libraryShell) syncArt() (libraryShell, tea.Cmd) {
 			m.art.cancel = cancel
 			m.art.generation++
 			version, fetcher := m.art.generation, m.art.fetcher
-			load = func() tea.Msg {
+			load = trackedWork(ctx, "Loading artwork…", activity.Background, func(ctx context.Context) tea.Msg {
 				img, err := loadArtwork(ctx, fetcher, episode, show)
 				return artLoaded{version, img, err}
-			}
+			})
 		}
 	}
 	desired, packet := "", ""
