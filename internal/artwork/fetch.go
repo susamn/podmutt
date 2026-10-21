@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/httpurl"
 )
 
@@ -58,6 +59,8 @@ func New(client *http.Client) *Fetcher {
 	return &Fetcher{client: &copy, gate: make(chan struct{}, 2), cache: make(map[string]*list.Element), lru: list.New(), budget: 8 << 20}
 }
 func (f *Fetcher) Image(ctx context.Context, episodeURL, showURL string) (image.Image, error) {
+	ctx, finish := activity.Begin(ctx, "Loading artwork…", activity.Background)
+	defer finish()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := ctx.Err(); err != nil {

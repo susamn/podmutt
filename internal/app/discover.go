@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/activity"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/httpurl"
@@ -142,7 +143,11 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	country := m.s.config.Country
 	store := m.s.store
 	m.renderLibrary()
-	return func() tea.Msg {
+	label := "Searching " + m.directoryName() + "…"
+	if query == "" {
+		label = "Updating " + m.directoryName() + " charts…"
+	}
+	return work(ctx, label, func(ctx context.Context) tea.Msg {
 		var shows []discovery.Show
 		var err error
 		if index {
@@ -193,7 +198,7 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 			}
 		}
 		return directoryLoaded{generation: generation, shows: shows, err: err}
-	}
+	})
 }
 func (m *libraryShell) searchLibrary(query string) tea.Cmd {
 	m.discardIndexResults()
@@ -215,10 +220,10 @@ func (m *libraryShell) searchLibrary(query string) tea.Cmd {
 	m.browse.cancel = cancel
 	generation, service := m.browse.generation, m.service
 	m.renderLibrary()
-	return func() tea.Msg {
+	return work(ctx, "Searching saved library…", func(ctx context.Context) tea.Msg {
 		episodes, err := service.Search(ctx, query)
 		return directoryLoaded{generation: generation, local: true, episodes: episodes, err: err}
-	}
+	})
 }
 func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 	if msg.generation != m.browse.generation || msg.local == m.browse.active {
@@ -428,10 +433,10 @@ func (m *libraryShell) previewShow() tea.Cmd {
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.previewCancel = cancel
 	generation, service := m.browse.previewGeneration, m.service
-	previewCmd := func() tea.Msg {
+	previewCmd := work(ctx, "Loading feed preview…", func(ctx context.Context) tea.Msg {
 		preview, err := service.Preview(ctx, show.FeedURL)
 		return previewLoaded{generation, show.FeedURL, show.SourceURL, preview, err}
-	}
+	})
 	return tea.Batch(previewCmd, m.ensureShowRating())
 }
 func (m *libraryShell) applyPreview(msg previewLoaded) {
@@ -467,10 +472,10 @@ func (m *libraryShell) subscribePreview() tea.Cmd {
 	m.mutating = true
 	m.notice = "Subscribing…"
 	preview, service, ctx, engine := *m.browse.preview, m.service, m.s.ctx, m.s.playback
-	return func() tea.Msg {
+	return work(ctx, "Subscribing to podcast…", func(ctx context.Context) tea.Msg {
 		id, err := service.SubscribePreview(ctx, preview)
 		return subscriptionEdited(ctx, engine, id, true, err)
-	}
+	})
 }
 func (m libraryShell) previewEpisode() (store.Episode, bool) {
 	if m.browse.preview == nil {
@@ -634,8 +639,8 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 	country := m.s.config.Country
 	id := show.ExternalID
 	feedURL := show.FeedURL
-	return func() tea.Msg {
+	return trackedWork(ctx, "Loading podcast ratings…", activity.Background, func(ctx context.Context) tea.Msg {
 		r, c, _ := apple.Ratings(ctx, country, id)
 		return showRatingLoaded{feedURL: feedURL, rating: r, count: c}
-	}
+	})
 }

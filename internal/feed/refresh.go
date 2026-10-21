@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/store"
 )
@@ -108,6 +109,8 @@ func (r *Refresher) withFeed(ctx context.Context, feed store.Feed, action func(c
 // Fetch reads without persistence, sharing refresh's transport, limits and locks.
 // Use it to validate an add/preview before creating a stored subscription.
 func (r *Refresher) Fetch(ctx context.Context, source store.Feed) (Fetched, error) {
+	ctx, finish := activity.Begin(ctx, "Loading podcast feed…", activity.Foreground)
+	defer finish()
 	var result Fetched
 	err := r.withFeed(ctx, source, func(ctx context.Context) error {
 		var err error
@@ -120,6 +123,8 @@ func (r *Refresher) Fetch(ctx context.Context, source store.Feed) (Fetched, erro
 // Refresh commits episode data before metadata/cache validators. The per-feed
 // lock remains held through persistence, not merely the HTTP request.
 func (r *Refresher) Refresh(ctx context.Context, source store.Feed) (result Result) {
+	ctx, finish := activity.Begin(ctx, "Refreshing podcast feed…", activity.Background)
+	defer finish()
 	result.FeedID = source.ID
 	if source.ID <= 0 {
 		result.Error = fmt.Errorf("feed must be stored before refresh")

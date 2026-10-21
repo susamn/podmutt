@@ -35,7 +35,7 @@ func listCapacity(panel Panel, height int) int {
 }
 
 func (m Model) listPageSize() int {
-	available := max(0, m.height-1)
+	available := max(0, m.height-statusRows)
 	height := available
 	g := m.wideLayout()
 	if m.focus == Episodes {
@@ -460,13 +460,7 @@ func (m Model) bottomHints() string {
 		}
 		hints = append(actions, remaining...)
 	}
-	hintText := m.formatHints(hints)
-	if m.data.Notice != "" && m.width >= 80 {
-		pal := m.Theme()
-		noticeText := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))).Render(clean(m.data.Notice, false))
-		hintText = noticeText + " · " + hintText
-	}
-	return hintText
+	return m.formatHints(hints)
 }
 
 func renderInputBox(label, value string, width int, pal theme.Palette) string {
@@ -535,7 +529,7 @@ func (m Model) View() tea.View {
 	case m.width < 30 || m.height < 12:
 		content = ansi.Truncate("Resize terminal (minimum 30×12); q quits", m.width, "…")
 	default:
-		available := m.height - 1
+		available := m.height - statusRows
 		if m.compact() {
 			top, middle, player := m.compactHeights()
 			panel := Episodes
@@ -559,11 +553,11 @@ func (m Model) View() tea.View {
 			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), body)
 		}
 		hints := m.bottomHints()
-		content += "\n" + ansi.Truncate(hints, m.width, "…")
+		content += "\n" + m.statusLine() + "\n" + ansi.Truncate(hints, m.width, "…")
 		if m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
-			width, height := min(72, m.width-2), min(16, m.height-2)
+			width, height := min(72, m.width-2), min(16, available-2)
 			if m.help || m.settings || m.data.Dialog != nil {
-				height = min(22, m.height-2)
+				height = min(22, available-2)
 			}
 			var modal string
 			if m.data.Dialog != nil {
@@ -571,7 +565,7 @@ func (m Model) View() tea.View {
 			} else if m.data.Prompt != "" {
 				modal = m.renderPromptModal(clean(m.data.Prompt, false), width, height)
 			} else if m.settings {
-				height = min(20, m.height-2)
+				height = min(20, available-2)
 				width = min(64, m.width-4)
 				var rows []string
 				rows = append(rows, "Themes (j/k select, Enter apply):")
@@ -630,7 +624,7 @@ func (m Model) View() tea.View {
 				}, width, height, true, "", "")
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
-				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((m.height-height)/2).Z(1)).Render()
+				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((available-height)/2).Z(1)).Render()
 		}
 	}
 	view := tea.NewView(content)

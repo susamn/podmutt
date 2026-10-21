@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
@@ -238,6 +239,16 @@ func (e *Engine) publish() {
 }
 
 func (e *Engine) submit(ctx context.Context, apply action) (State, error) {
+	// Include CLI and desktop-media actions, not only TUI-originated commands.
+	// Snapshot reads are idle observation, not user-visible work.
+	if apply != nil {
+		if activity.FromContext(ctx) == nil && activity.FromContext(e.ctx) != nil {
+			ctx = activity.WithTracker(ctx, activity.FromContext(e.ctx))
+		}
+		var finish func()
+		ctx, finish = activity.Begin(ctx, "Updating playback…", activity.Foreground)
+		defer finish()
+	}
 	req := request{ctx: ctx, apply: apply, reply: make(chan result, 1)}
 	select {
 	case e.requests <- req:

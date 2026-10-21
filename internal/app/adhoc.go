@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -50,7 +51,7 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 		return nil
 	}
 	preview, service, engine, ctx := *m.browse.preview, m.service, m.s.playback, m.s.ctx
-	return func() tea.Msg {
+	return work(ctx, "Preparing preview episodes…", func(ctx context.Context) tea.Msg {
 		ids, err := service.CachePreviewEpisodes(ctx, preview, indices)
 		if err != nil {
 			return playerEdited{err: err}
@@ -59,5 +60,5 @@ func (m *libraryShell) previewPlayback(batch, enqueue bool) tea.Cmd {
 			return enqueueEpisodes(ctx, engine, ids, true)
 		}
 		return playEpisode(ctx, engine, ids[0], true)
-	}
+	})
 }

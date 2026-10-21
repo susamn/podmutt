@@ -8,6 +8,7 @@ import (
 	"mime"
 	"strings"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/store"
 )
@@ -21,6 +22,8 @@ type Resolved struct {
 // It never persists, follows website links only one level, tries at most three,
 // and shares Fetch's body/redirect/slot bounds and one total 15-second deadline.
 func (r *Refresher) Resolve(ctx context.Context, raw string) (Resolved, error) {
+	ctx, finish := activity.Begin(ctx, "Loading feed preview…", activity.Foreground)
+	defer finish()
 	address, err := httpurl.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return Resolved{}, err

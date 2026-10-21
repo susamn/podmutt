@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/store"
 )
 
@@ -51,6 +53,8 @@ func (r *Refresher) start(ctx context.Context, ticks <-chan time.Time, stop func
 }
 
 func (r *Refresher) cycle(ctx context.Context, results chan<- Result) {
+	ctx, finish := activity.Begin(ctx, "Refreshing feeds…", activity.Background)
+	defer finish()
 	feeds, err := r.repo.Feeds(ctx, true)
 	if err != nil {
 		select {
@@ -59,12 +63,15 @@ func (r *Refresher) cycle(ctx context.Context, results chan<- Result) {
 		}
 		return
 	}
+	activity.Progress(ctx, 0, len(feeds))
+	var completed atomic.Int64
 	jobs := make(chan store.Feed)
 	var workers sync.WaitGroup
 	for range min(parallelism, len(feeds)) {
 		workers.Go(func() {
 			for feed := range jobs {
 				result := r.Refresh(ctx, feed)
+				activity.Progress(ctx, int(completed.Add(1)), len(feeds))
 				select {
 				case results <- result:
 				case <-ctx.Done():

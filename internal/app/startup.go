@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
@@ -96,7 +97,7 @@ func (m *libraryShell) resumeStartup() tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
-	return func() tea.Msg { return playerEdited{err: engine.Play(ctx)} }
+	return work(ctx, "Resuming playback…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.Play(ctx)} })
 }
 
 func (m *libraryShell) applyQueueFocus() {

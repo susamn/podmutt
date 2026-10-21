@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
@@ -25,6 +26,8 @@ func (e *Engine) loadSelected(ctx context.Context, id int64) error {
 }
 func (e *Engine) load(ctx context.Context, id int64) error { return e.loadStack(ctx, id, false) }
 func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) error {
+	ctx, finish := activity.Begin(ctx, "Starting playback…", activity.Foreground)
+	defer finish()
 	episode, err := e.repo.Episode(ctx, id)
 	if err != nil {
 		return err

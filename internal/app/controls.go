@@ -56,8 +56,8 @@ type countryChangedMsg struct {
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActions(func(command string) tea.Cmd {
-		return func() tea.Msg {
+	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(command string) tea.Cmd {
+		return work(s.ctx, commandLabel(command), func(ctx context.Context) tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {
 				chosen := strings.TrimPrefix(command, "theme:")
@@ -87,17 +87,17 @@ func newShell(s *session) shell {
 				if command == "seek-backward" {
 					delta = -15
 				}
-				err = s.playback.SeekBy(s.ctx, delta)
+				err = s.playback.SeekBy(ctx, delta)
 			} else if command == "toggle" {
-				err = s.playback.Toggle(s.ctx, 0)
+				err = s.playback.Toggle(ctx, 0)
 			} else {
-				_, err = control.Execute(s.ctx, s.playback, command)
+				_, err = control.Execute(ctx, s.playback, command)
 			}
 			if err != nil {
 				return actionError{err}
 			}
 			return nil
-		}
+		})
 	}), s: s}
 }
 
@@ -152,9 +152,14 @@ func (m shell) withPlayback(state playback.State) shell {
 func (m shell) wait() tea.Cmd {
 	return func() tea.Msg { state, ok := <-m.s.playback.Updates(); return playbackUpdate{state, ok} }
 }
-func (m shell) Init() tea.Cmd { return m.wait() }
+func (m shell) Init() tea.Cmd { return tea.Batch(m.wait(), m.waitActivity()) }
 func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case activityChanged:
+		m.Model = m.Model.WithActivity(msg.snapshot)
+		var tick tea.Cmd
+		m.Model, tick = m.Model.SyncActivity()
+		return m, tea.Batch(m.waitActivity(), tick)
 	case playbackUpdate:
 		if !msg.ok {
 			return m, nil

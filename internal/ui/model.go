@@ -78,6 +78,7 @@ type Model struct {
 	settingsData  SettingsData
 	icons         string
 	animation     animation
+	activity      activityView
 	progress      progressClock
 	data          Data
 	width, height int
@@ -265,6 +266,16 @@ func (m *Model) back() {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case activityTick:
+		if msg.generation != m.activity.generation || !m.activity.running {
+			return m, nil
+		}
+		if m.activity.ctx.Err() != nil {
+			return m.SyncActivity()
+		}
+		m.activity.at = time.Now()
+		m.activity.frame++
+		return m.scheduleActivity()
 	case animationTick:
 		if msg.generation != m.animation.generation || !m.animation.running {
 			return m, nil

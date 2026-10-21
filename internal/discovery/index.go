@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"podmutt/internal/activity"
 )
 
 // Searcher is the small shared provider contract. Charts remain Apple-specific.
@@ -40,6 +42,8 @@ func NewIndex(key, secret string, client *http.Client) *Index {
 func (i *Index) String() string   { return "Podcast Index client (credentials redacted)" }
 func (i *Index) GoString() string { return i.String() }
 func (i *Index) Search(ctx context.Context, query string) ([]Show, error) {
+	ctx, finish := activity.Begin(ctx, "Searching Podcast Index…", activity.Foreground)
+	defer finish()
 	query = strings.Join(strings.Fields(query), " ")
 	if size := len([]rune(query)); size == 0 || size > 128 {
 		return nil, ErrQuery
