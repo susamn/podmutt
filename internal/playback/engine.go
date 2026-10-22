@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
 
-var ErrClosed = errors.New("playback: session closed")
-var ErrNoEpisode = errors.New("playback: no current episode")
+var ErrClosed = feedback.New(feedback.SessionClosed, "playback: session closed")
+var ErrNoEpisode = feedback.New(feedback.NoEpisode, "playback: no current episode")
 
 const operationTimeout = 3 * time.Second
 
