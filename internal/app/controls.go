@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
+	"podmutt/internal/feedback"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/theme"
@@ -20,7 +21,7 @@ import (
 func userPaths() (profile.Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return profile.Paths{}, err
+		return profile.Paths{}, &feedback.Fault{Code: feedback.Input, Safe: "Set HOME to your absolute home directory before starting podmutt.", Cause: err}
 	}
 	return profile.Resolve(runtime.GOOS, home, os.Getenv)
 }

@@ -6,10 +6,12 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
+	"podmutt/internal/feedback"
 	"syscall"
 
 	_ "modernc.org/sqlite"
@@ -32,7 +34,7 @@ type Store struct{ db *sql.DB }
 
 func Open(ctx context.Context, path string) (*Store, error) {
 	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("store: database path must be absolute")
+		return nil, feedback.New(feedback.Profile, "store: database path must be absolute")
 	}
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
@@ -44,7 +46,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Geteuid()) {
-		return nil, fmt.Errorf("store: database must be a private regular file owned by current user")
+		return nil, feedback.New(feedback.Profile, "store: database must be a private regular file owned by current user")
 	}
 	uri := url.URL{Scheme: "file", Path: path}
 	query := uri.Query()
@@ -59,7 +61,11 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	if err := migrate(ctx, db, migrations); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("store: migrate: %w", err)
+		var classified *feedback.Fault
+		if errors.As(err, &classified) {
+			return nil, err
+		}
+		return nil, feedback.Wrap(feedback.Database, err)
 	}
 	return &Store{db: db}, nil
 }
@@ -88,7 +94,7 @@ func migrate(ctx context.Context, db *sql.DB, migrations []string) error {
 			return fmt.Errorf("invalid negative database version %d", version)
 		}
 		if version > len(migrations) {
-			return fmt.Errorf("database version %d is newer than supported version %d", version, len(migrations))
+			return feedback.New(feedback.NewerDatabase, fmt.Sprintf("Database version %d is newer than supported version %d.", version, len(migrations)))
 		}
 		for i := version; i < len(migrations); i++ {
 			if _, err := tx.ExecContext(ctx, migrations[i]); err != nil {
