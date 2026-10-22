@@ -40,7 +40,7 @@ func TestUpNextHasPendingCountsAndNoTransportRows(t *testing.T) {
 	}
 	m := resize(New(Data{Player: Player{Title: "Only current", HasCurrent: true}}), 140, 40).WithFocus(Queue)
 	pane := ansi.Strip(m.pane(Queue, 80, 8))
-	if !strings.Contains(pane, "Queue · 0") || !strings.Contains(pane, "Queue is empty") {
+	if !strings.Contains(pane, "Queue · 0") || !strings.Contains(pane, "Queue empty · 2: Episodes") {
 		t.Fatal("current-only playback is not an empty pending list", pane)
 	}
 }

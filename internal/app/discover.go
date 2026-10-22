@@ -17,7 +17,7 @@ import (
 	"podmutt/internal/ui"
 )
 
-const discoveryActions = "f Search podcasts\nU RSS/website preview\nt Apple US top 25"
+const discoveryActions = "f Search podcasts\nU RSS/website preview\nt Apple Top 100"
 
 type showDirectory interface {
 	Top(context.Context) ([]discovery.Show, error)
@@ -266,7 +266,10 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.browse.errorText = m.notice
 	} else if msg.local {
 		m.browse.hits = msg.episodes
-		m.notice = fmt.Sprintf("Library search · %d cached episodes (max 100)", len(msg.episodes))
+		m.notice = fmt.Sprintf("Library search · %d saved episodes", len(msg.episodes))
+		if len(msg.episodes) == 100 {
+			m.notice += " · showing up to 100 matches"
+		}
 	} else {
 		m.browse.shows = msg.shows
 		m.browse.loaded = true
@@ -543,13 +546,13 @@ func (m libraryShell) previewEpisode() (store.Episode, bool) {
 	return store.Episode{}, false
 }
 func (m *libraryShell) renderDiscovery() {
-	topTag := "US top 25"
+	topTag := "US Top 100"
 	if m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
-		topTag = strings.ToUpper(m.s.config.Country) + " top"
+		topTag = strings.ToUpper(m.s.config.Country) + " Top 100"
 	}
 	label := "Discover · Apple Podcasts · " + topTag
 	if m.browse.query != "" {
-		label = "Discover · Apple search: " + m.browse.query
+		label = "Discover · Apple Podcasts search: " + m.browse.query
 		if m.browse.usingIndex {
 			label = "Discover · Podcast Index search: " + m.browse.query
 		}
@@ -603,7 +606,11 @@ func (m *libraryShell) renderDiscovery() {
 	m.renderStatus()
 }
 func (m *libraryShell) renderPreviewDetails() {
-	details := "Apple Podcasts · US top 25\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to My library.\nSource: https://podcasts.apple.com/us/charts"
+	country := strings.ToUpper(m.s.config.Country)
+	if country == "" {
+		country = "US"
+	}
+	details := "Apple Podcasts · " + country + " Top 100\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to Library.\nSource: https://podcasts.apple.com/" + strings.ToLower(country) + "/charts"
 	if m.browse.query != "" {
 		details = m.directoryName() + " search: " + m.browse.query + "\nOnline shows, not remote episode text."
 		if m.browse.usingIndex {
