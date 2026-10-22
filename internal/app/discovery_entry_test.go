@@ -129,11 +129,11 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 			t.Fatal("compact loading state hidden")
 		}
 		finishLibrary(&m, pending)
-		if !strings.Contains(m.View().Content, "Search failed") {
+		if !strings.Contains(m.View().Content, "Request failed") {
 			t.Fatal("compact error state hidden")
 		}
 		updateLibrary(&m, tea.WindowSizeMsg{Width: 160, Height: 36})
-		if !strings.Contains(m.View().Content, "Discovery failed") {
+		if !strings.Contains(m.View().Content, "Apple Podcasts search failed") {
 			t.Fatal("failed search looks like empty chart")
 		}
 		d.err = nil
