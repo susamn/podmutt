@@ -97,6 +97,33 @@ func TestFeedbackScopeRecoveryAndReadingPosition(t *testing.T) {
 	}
 }
 
+func TestMediaWarningsHaveFullDetailsWithoutReplacingUserNotices(t *testing.T) {
+	m := resize(New(Data{Notice: "Saved", Player: Player{Warning: "Desktop media keys unavailable. Use in-app controls."}}), 30, 12)
+	if !strings.Contains(m.View().Content, "Media (!)") {
+		t.Fatal("missing details cue")
+	}
+	m = press(m, "!")
+	if !m.messageOpen {
+		t.Fatal("media warning has no full details")
+	}
+	m = m.WithBackgroundFeedback(feedback.Message{})
+	if !m.messageOpen {
+		t.Fatal("empty refresh update dismissed media details")
+	}
+	for range 30 {
+		m = press(m, "j")
+	}
+	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "in-app") || !strings.Contains(text, "controls.") {
+		t.Fatal("warning recovery unreadable", ansi.Strip(m.View().Content))
+	}
+	m = press(m, "esc")
+	m = m.WithFeedback(feedback.Message{Scope: "Playback", Severity: "error", Summary: "Playback failed.", Action: "Try another episode."})
+	rows := strings.Join(m.messageRows(30), " ")
+	if !strings.Contains(rows, "Media controls:") {
+		t.Fatal("full failure omitted optional warning")
+	}
+}
+
 func TestBackgroundWarningDoesNotHideForegroundActivity(t *testing.T) {
 	m := resize(New(Data{}), 140, 40).WithBackgroundFeedback(feedback.Message{Severity: "warning", Summary: "Some feeds failed."})
 	m = m.WithActivity(activity.Snapshot{Operations: []activity.Operation{{Label: "Searching Apple Podcasts…", Started: time.Now().Add(-time.Second)}}})
