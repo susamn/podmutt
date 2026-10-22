@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
 	"podmutt/internal/library"
 	"podmutt/internal/opml"
 	"podmutt/internal/profile"
@@ -24,15 +25,15 @@ const importWorkers = 4
 func ImportOPML(path string, output io.Writer) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return feedback.Wrap(feedback.Import, err)
 	}
 	feeds, err := opml.Parse(file)
 	file.Close()
 	if err != nil {
-		return err
+		return feedback.Wrap(feedback.Import, err)
 	}
 	if len(feeds) == 0 {
-		return errors.New("no podcast feeds found in " + path)
+		return feedback.New(feedback.Import, "no podcast feeds found in this OPML file")
 	}
 	return withProfile(func(cfg profile.Config, paths profile.Paths) (err error) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -48,10 +49,12 @@ func ImportOPML(path string, output io.Writer) error {
 			return err
 		}, output, importWorkers)
 		if failed < len(feeds) {
-			_ = db.SeedAutoqueueSeen(ctx, 0)
+			if err := db.SeedAutoqueueSeen(ctx, 0); err != nil {
+				return &feedback.Fault{Code: feedback.Import, Safe: "Subscriptions were saved, but import bookkeeping could not be saved. Check free disk space and profile permissions before retrying.", Cause: err}
+			}
 		}
 		if failed > 0 {
-			return fmt.Errorf("%d of %d feeds could not be imported", failed, len(feeds))
+			return feedback.New(feedback.Import, fmt.Sprintf("%d of %d feeds could not be imported", failed, len(feeds)))
 		}
 		return nil
 	})
@@ -79,17 +82,17 @@ func importFeeds(ctx context.Context, feeds []opml.Feed, add func(context.Contex
 	wg.Wait()
 	failed := 0
 	for i, item := range feeds {
-		name := item.Title
+		name := feedback.PublicLabel(item.Title)
 		if name == "" {
-			name = item.URL
+			name = fmt.Sprintf("Feed %d", i+1)
 		}
 		if errs[i] != nil {
 			failed++
-			fmt.Fprintf(output, "FAIL  %s: %v\n", name, errs[i])
+			fmt.Fprintf(output, "FAIL  %s: %s\n", name, feedback.For("Import feed", errs[i]).Text())
 			continue
 		}
 		fmt.Fprintf(output, "ok    %s\n", name)
 	}
-	fmt.Fprintf(output, "%d imported, %d failed\n", len(feeds)-failed, failed)
+	fmt.Fprintf(output, "%d feeds processed successfully, %d failed\n", len(feeds)-failed, failed)
 	return failed
 }
