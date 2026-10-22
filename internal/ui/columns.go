@@ -16,8 +16,8 @@ func episodeColumns(width int) listColumns {
 	c := listColumns{inner: max(0, width-2), gutter: 4, tail: 8}
 	body := c.inner - c.gutter - c.tail - 1
 	if width >= 70 {
-		c.date = 10
-		body -= 12
+		c.date = 11
+		body -= 13
 	}
 	if width >= 56 {
 		c.channel = min(20, max(7, (body-2)/3))

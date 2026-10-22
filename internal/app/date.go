@@ -32,9 +32,6 @@ func FormatPublishedDate(t time.Time, now time.Time) string {
 	days := int(todayUTC.Sub(pubUTC) / (24 * time.Hour))
 
 	switch {
-	case days < 0:
-		// Future publication date: preserve standard absolute date.
-		return tLocal.Format("2006-01-02")
 	case days == 0:
 		return "Today"
 	case days == 1:
@@ -44,7 +41,7 @@ func FormatPublishedDate(t time.Time, now time.Time) string {
 	case days == 7:
 		return "A week back"
 	default:
-		return tLocal.Format("2006-01-02")
+		return t.Format("2006-01-02")
 	}
 }
 

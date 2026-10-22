@@ -152,7 +152,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	return model, nil
 }
 func (m libraryShell) Init() tea.Cmd {
-	return tea.Batch(m.shell.Init(), m.waitRefresh(), m.waitSignal(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return libraryStartup{} }, func() tea.Msg { return artProbe{} })
+	return tea.Batch(m.shell.Init(), m.waitRefresh(), m.waitSignal(), m.waitMidnight(), func() tea.Msg { return discoverStartup{} }, func() tea.Msg { return libraryStartup{} }, func() tea.Msg { return artProbe{} })
 }
 func (m libraryShell) waitSignal() tea.Cmd {
 	if m.signals == nil {
@@ -174,6 +174,29 @@ func (m libraryShell) waitRefresh() tea.Cmd {
 			return refreshUpdate{result, ok}
 		case <-m.s.ctx.Done():
 			return refreshUpdate{}
+		}
+	}
+}
+
+type midnightTick struct{}
+
+func (m libraryShell) waitMidnight() tea.Cmd {
+	ctx := m.s.ctx
+	return func() tea.Msg {
+		now := currentTime()
+		loc := now.Location()
+		nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 1, 0, loc)
+		delay := nextMidnight.Sub(now)
+		if delay <= 0 {
+			delay = time.Second
+		}
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-timer.C:
+			return midnightTick{}
 		}
 	}
 }
@@ -284,6 +307,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.Model = m.Model.WithSettings(m.s.settingsData())
 		}
 		return m, nil
+	case midnightTick:
+		m.renderLibrary()
+		m.renderDetails()
+		return m, m.waitMidnight()
 	case artProbe:
 		cmd = m.probeArt()
 	case artProbeTimeout:
