@@ -2,10 +2,10 @@ package library
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/store"
 )
@@ -30,7 +30,7 @@ func (s *Service) Preview(ctx context.Context, raw string) (feed.Resolved, error
 		return feed.Resolved{}, err
 	}
 	if result.Fetched.NotModified {
-		return feed.Resolved{}, fmt.Errorf("new feed returned no content")
+		return feed.Resolved{}, feedback.New(feedback.InvalidResponse, "new feed returned no content")
 	}
 	return result, nil
 }
@@ -46,7 +46,7 @@ func (s *Service) SubscribePreview(ctx context.Context, preview feed.Resolved) (
 	}
 	address.Fragment = ""
 	if preview.Fetched.NotModified {
-		return 0, fmt.Errorf("preview has no content")
+		return 0, feedback.New(feedback.InvalidResponse, "preview has no content")
 	}
 	sources, err := s.repo.Feeds(ctx, false)
 	if err != nil {

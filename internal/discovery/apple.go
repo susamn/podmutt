@@ -5,7 +5,6 @@ package discovery
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 )
 
@@ -23,9 +23,9 @@ const maxResponse = 1 << 20
 const maxResults = 25
 const maxTopResults = 100
 
-var ErrQuery = errors.New("show search requires 1–128 characters")
-var ErrUnavailable = errors.New("show directory unavailable (network, TLS, or redirect error)")
-var ErrRateLimited = errors.New("show directory rate limited; try again later")
+var ErrQuery = feedback.New(feedback.Input, "Enter a podcast name between 1 and 128 characters.")
+var ErrUnavailable = feedback.New(feedback.Network, "show directory unavailable (network, TLS, or redirect error)")
+var ErrRateLimited = feedback.New(feedback.RateLimited, "show directory rate limited; try again later")
 
 type Show struct {
 	Title       string
@@ -180,7 +180,7 @@ func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
 			}
 		}
 		if len(ids) == 0 {
-			return nil, errors.New("Apple chart contains no usable shows")
+			return nil, feedback.New(feedback.InvalidResponse, "Apple chart contains no usable shows")
 		}
 		endpoint, err := url.Parse(a.lookupEndpoint)
 		if err != nil {
@@ -203,7 +203,7 @@ func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
 		sort.SliceStable(records, func(i, j int) bool { return rank[records[i].CollectionID] < rank[records[j].CollectionID] })
 		shows := normalize(records, limit)
 		if len(shows) == 0 {
-			return nil, errors.New("Apple chart has no available RSS feeds")
+			return nil, feedback.New(feedback.InvalidResponse, "Apple chart has no available RSS feeds")
 		}
 		return shows, nil
 	})
@@ -274,23 +274,23 @@ func (a *Apple) readHeaders(ctx context.Context, address string, document any, h
 		return ErrRateLimited
 	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("show directory returned HTTP %d", response.StatusCode)
+		return feedback.StatusError(response.StatusCode)
 	}
 	if response.ContentLength > maxResponse {
-		return errors.New("show directory response too large")
+		return feedback.New(feedback.InvalidResponse, "show directory response too large")
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponse+1))
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return errors.New("show directory response read failed")
+		return feedback.New(feedback.InvalidResponse, "show directory response read failed")
 	}
 	if len(data) > maxResponse {
-		return errors.New("show directory response too large")
+		return feedback.New(feedback.InvalidResponse, "show directory response too large")
 	}
 	if err := json.Unmarshal(data, document); err != nil {
-		return errors.New("invalid show directory response")
+		return feedback.New(feedback.InvalidResponse, "invalid show directory response")
 	}
 	return nil
 }

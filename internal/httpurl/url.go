@@ -5,12 +5,13 @@ package httpurl
 import (
 	"fmt"
 	"net/url"
+	"podmutt/internal/feedback"
 )
 
 func Parse(raw string) (*url.URL, error) {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil {
-		return nil, fmt.Errorf("expected HTTP(S) URL without credentials")
+		return nil, feedback.New(feedback.InvalidURL, "expected HTTP(S) URL without credentials")
 	}
 	return u, nil
 }

@@ -218,7 +218,11 @@ func For(operation string, err error) Message {
 // failures, not malformed input, credentials/setup or local persistence errors.
 func Retry(m Message, action string) Message {
 	switch m.Code {
-	case Unknown, Timeout, Network, InvalidResponse, HTTP, RateLimited:
+	case Network:
+		m.Action = "Check your connection. " + action
+	case RateLimited:
+		m.Action = "Wait a moment before retrying. " + action
+	case Unknown, Timeout, InvalidResponse, HTTP:
 		m.Action = action
 	}
 	return m
