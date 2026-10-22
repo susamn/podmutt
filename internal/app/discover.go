@@ -38,6 +38,7 @@ type browseState struct {
 	previewCancel                               context.CancelFunc
 	searching, searchApple, urlInput, directURL bool
 	input, errorText                            string
+	retryPreview                                bool
 }
 type discoverStartup struct{}
 type directoryLoaded struct {
@@ -66,6 +67,7 @@ func (m *libraryShell) cancelPreview() {
 	}
 	m.browse.previewGeneration++
 	m.browse.preview = nil
+	m.browse.retryPreview = false
 	m.browse.previewKey = ""
 	if m.detailTarget != nil && m.detailTarget.ID == 0 {
 		m.detailTarget = nil
@@ -441,6 +443,8 @@ func (m *libraryShell) previewShow() tea.Cmd {
 		return nil
 	}
 	m.cancelPreview()
+	m.browse.retryPreview = true
+	m.browse.errorText = ""
 	m.notice = "Loading feed preview…"
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.previewCancel = cancel
@@ -466,7 +470,7 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		return
 	}
 	if msg.err != nil {
-		m.notice = discoveryFailure("Feed preview", msg.err, "Select the show and press Enter to retry, or U to enter a different URL.")
+		m.notice = discoveryFailure("Feed preview", msg.err, "Press R to retry this feed preview, or U to enter a different URL.")
 		m.browse.errorText = m.notice
 	} else {
 		m.browse.errorText = ""

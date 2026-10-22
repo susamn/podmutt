@@ -550,6 +550,11 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		case "R":
 			if m.browse.active {
+				if m.browse.retryPreview || m.browse.directURL {
+					cmd = m.previewShow()
+					m.renderLibrary()
+					break
+				}
 				cmd = m.searchDirectory(m.browse.query)
 				break
 			}
