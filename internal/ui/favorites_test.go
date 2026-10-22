@@ -70,6 +70,10 @@ func TestFavoritesLayoutColumnsAndDetailsHeart(t *testing.T) {
 		if !strings.Contains(viewFav, wantBadge) {
 			t.Fatalf("Details missing favorited badge for mode %q:\n%s", icons, viewFav)
 		}
+		// Verify Details rows have padding from left border wall
+		if !strings.Contains(viewFav, "│  Episode A") || !strings.Contains(viewFav, "│  "+wantBadge) {
+			t.Fatalf("Details missing left margin padding:\n%s", viewFav)
+		}
 
 		mNotFav := resize(New(Data{}).WithIcons(icons).WithEpisodeDetails(cardNotFav), 100, 24).WithFocus(Details)
 		viewNotFav := ansi.Strip(mNotFav.View().Content)

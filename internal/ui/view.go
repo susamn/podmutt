@@ -71,9 +71,9 @@ func (m Model) pane(panel Panel, width, height int) string {
 					art = m.artRows[i]
 				}
 				if i < len(rows) {
-					text = rows[i]
+					text = strings.TrimPrefix(rows[i], "  ")
 				}
-				merged[i] = art + strings.Repeat(" ", max(0, m.artColumns-ansi.StringWidth(art))) + " " + text
+				merged[i] = "  " + art + strings.Repeat(" ", max(0, m.artColumns-ansi.StringWidth(art))) + " " + text
 			}
 			rows = merged
 		}

@@ -36,10 +36,18 @@ func wrapDetails(text string, width int) []string {
 	return strings.Split(ansi.Wrap(clean(text, true), max(1, width), ""), "\n")
 }
 
+func detailLeftPadding(width int) string {
+	if width < 35 {
+		return " "
+	}
+	return "  "
+}
+
 // Keep a compact identity header and at least one reading row. Values that do
 // not fit the header remain accessible in the scrollable text, even at 30x12.
 func (m Model) detailLayout(width, height int) (header, body []string) {
-	width = max(1, m.descriptionWidth(width)-2)
+	pad := detailLeftPadding(width)
+	width = max(1, m.descriptionWidth(width)-2-ansi.StringWidth(pad))
 	card := m.data.EpisodeDetails
 	if card == nil {
 		text := m.data.Details
@@ -145,7 +153,16 @@ func (m Model) renderDetails(width, height int) (rows []string, indicator string
 	capacity := max(0, m.detailContentRows(height)-len(header))
 	start := min(m.detailScroll, max(0, len(body)-max(1, capacity)))
 	end := min(len(body), start+capacity)
-	rows = append(header, body[start:end]...)
+	raw := append(header, body[start:end]...)
+	pad := detailLeftPadding(width)
+	rows = make([]string, len(raw))
+	for i, r := range raw {
+		if strings.TrimSpace(r) == "" {
+			rows[i] = ""
+		} else {
+			rows[i] = pad + r
+		}
+	}
 	if capacity > 0 && len(body) > capacity {
 		indicator = fmt.Sprintf("%d/%d", end, len(body))
 	}
