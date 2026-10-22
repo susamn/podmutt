@@ -23,6 +23,28 @@ func (m *libraryShell) report(scope string, err error, retry string) {
 		m.Model = m.Model.WithFeedback(message)
 	}
 }
+func (m *libraryShell) recordBackgroundFailure(scope string, err error) {
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+	m.backgroundError = feedback.For(scope, err)
+	m.backgroundError.Severity = "warning"
+}
+func (m *libraryShell) clearBackgroundFailure(scope string) {
+	if m.backgroundError.Scope == scope {
+		m.backgroundError = feedback.Message{}
+	}
+}
+func (m libraryShell) backgroundFeedback() feedback.Message {
+	message := m.refreshFeedback()
+	if message.Summary == "" {
+		return m.backgroundError
+	}
+	if m.backgroundError.Summary != "" {
+		message.Action += "\n" + m.backgroundError.Text()
+	}
+	return message
+}
 func (m libraryShell) refreshFeedback() feedback.Message {
 	if len(m.refreshErrors) == 0 {
 		return feedback.Message{}

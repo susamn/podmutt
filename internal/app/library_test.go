@@ -225,7 +225,7 @@ func TestRefreshErrorsStaleRepliesAndIdentity(t *testing.T) {
 			t.Fatal("stale reply applied")
 		}
 		updateLibrary(&m, libraryLoaded{version: m.version, err: errors.New("read failed")})
-		if !strings.Contains(m.View().Content, "Load library failed") {
+		if !strings.Contains(m.backgroundFeedback().Text(), "Load library failed") {
 			t.Fatal("read error hidden")
 		}
 		updateLibrary(&m, refreshUpdate{result: feed.Result{FeedID: a}, ok: true})
