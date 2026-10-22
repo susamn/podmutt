@@ -87,7 +87,13 @@ func (m *libraryShell) discardIndexResults() {
 		m.browse.loaded = false
 	}
 }
+func (m *libraryShell) clearDiscoveryFeedback() {
+	for _, scope := range []string{"Apple Podcasts search", "Apple Podcasts chart", "Podcast Index search", "Feed preview", "Library search"} {
+		m.Model = m.Model.ClearFeedback(scope)
+	}
+}
 func (m *libraryShell) switchBrowse() tea.Cmd {
+	m.clearDiscoveryFeedback()
 	if m.browse.active {
 		m.discardIndexResults()
 	}
@@ -116,6 +122,7 @@ func (m libraryShell) directoryName() string {
 	return "Apple Podcasts"
 }
 func (m *libraryShell) searchDirectory(query string) tea.Cmd {
+	m.clearDiscoveryFeedback()
 	if query == "" {
 		m.browse.usingIndex = false
 	}
@@ -204,6 +211,7 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	})
 }
 func (m *libraryShell) searchLibrary(query string) tea.Cmd {
+	m.clearDiscoveryFeedback()
 	m.discardIndexResults()
 	m.cancelDirectory()
 	m.cancelPreview()
@@ -242,14 +250,18 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.renderLibrary()
 		return
 	}
+	scope, retry := m.directoryName()+" search", "Press R to retry, f for another search, or b for your saved Library."
+	if msg.local {
+		scope, retry = "Library search", "Press f to search your saved Library again."
+	} else if m.browse.query == "" {
+		scope = m.directoryName() + " chart"
+	}
+	if msg.err == nil {
+		m.Model = m.Model.ClearFeedback(scope)
+		m.browse.errorText = ""
+	}
 	if msg.err != nil {
-		scope, retry := m.directoryName()+" search", "Press R to retry, f for another search, or b for your saved Library."
-		if msg.local {
-			scope, retry = "Library search", "Press f to search your saved Library again."
-		} else if m.browse.query == "" {
-			scope = m.directoryName() + " chart"
-		}
-		m.notice = discoveryFailure(scope, msg.err, retry)
+		m.report(scope, msg.err, retry)
 		m.browse.errorText = m.notice
 	} else if msg.local {
 		m.browse.hits = msg.episodes
@@ -444,6 +456,7 @@ func (m *libraryShell) previewShow() tea.Cmd {
 	}
 	m.cancelPreview()
 	m.browse.retryPreview = true
+	m.Model = m.Model.ClearFeedback("Feed preview")
 	m.browse.errorText = ""
 	m.notice = "Loading feed preview…"
 	ctx, cancel := context.WithCancel(m.s.ctx)
@@ -470,9 +483,10 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		return
 	}
 	if msg.err != nil {
-		m.notice = discoveryFailure("Feed preview", msg.err, "Press R to retry this feed preview, or U to enter a different URL.")
+		m.report("Feed preview", msg.err, "Press R to retry this feed preview, or U to enter a different URL.")
 		m.browse.errorText = m.notice
 	} else {
+		m.Model = m.Model.ClearFeedback("Feed preview")
 		m.browse.errorText = ""
 		m.browse.preview = &msg.preview
 		m.browse.previewKey = msg.key

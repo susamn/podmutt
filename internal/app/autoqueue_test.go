@@ -106,7 +106,7 @@ func TestRefreshAndConditionalRefreshReconcileLatest(t *testing.T) {
 			t.Fatal("unchanged refresh resurrected")
 		}
 		updateLibrary(&m, latestQueued{err: errors.New("queue failure")})
-		if !strings.Contains(m.notice, "queue failure") {
+		if !strings.Contains(m.notice, "Update latest episodes failed") {
 			t.Fatal("queue error hidden")
 		}
 		if msg := subscriptionEdited(s.ctx, s.playback, a, true, errors.New("subscribe failure")); msg.err == nil {
