@@ -272,12 +272,17 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.reload && msg.themeName != m.s.config.Theme {
 			return m, nil
 		}
-		m.Model = m.Model.ClearFeedback("Save theme")
+		if !msg.reload {
+			m.Model = m.Model.ClearFeedback("Save theme")
+		}
 		m.s.theme = msg.palette
 		if msg.themeName != "" {
 			m.s.config.Theme = msg.themeName
 		}
-		m.Model = m.Model.WithTheme(msg.palette).WithSettings(m.s.settingsData())
+		m.Model = m.Model.WithTheme(msg.palette)
+		if !msg.reload {
+			m.Model = m.Model.WithSettings(m.s.settingsData())
+		}
 		return m, nil
 	case artProbe:
 		cmd = m.probeArt()
@@ -694,6 +699,8 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.adding = false
 		m.input = ""
+		m.notice = "Add feed canceled."
+		m.Model = m.Model.ClearFeedback("Add feed")
 	case "enter":
 		if _, err := httpurl.Parse(strings.TrimSpace(m.input)); err != nil {
 			m.report("Add feed", err, "")

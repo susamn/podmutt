@@ -207,7 +207,7 @@ func (p Paths) SetOnboarded() error {
 // Supplying the platform and environment explicitly also makes path policy testable.
 func Resolve(platform, home string, getenv func(string) string) (Paths, error) {
 	if !filepath.IsAbs(home) {
-		return Paths{}, fmt.Errorf("profile: home must be absolute")
+		return Paths{}, feedback.New(feedback.Input, "Set HOME to an absolute home directory before starting podmutt.")
 	}
 	switch platform {
 	case "linux":
@@ -227,7 +227,7 @@ func Resolve(platform, home string, getenv func(string) string) (Paths, error) {
 		state := filepath.Join(home, "Library", "Application Support", "podmutt")
 		return Paths{filepath.Join(state, "config.toml"), state, filepath.Join(state, "run")}, nil
 	default:
-		return Paths{}, fmt.Errorf("profile: unsupported platform %q", platform)
+		return Paths{}, feedback.New(feedback.Input, "podmutt supports Linux and macOS; this platform is not supported.")
 	}
 }
 

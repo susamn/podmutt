@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -66,6 +67,29 @@ func TestSettingsPersistBeforeUIStateAndReportFailures(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestThemeSignalDoesNotAcknowledgeAPendingOrFailedSave(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m := browserLibrary(t, s, &fixtureDirectory{})
+		m.Model = m.Model.WithSettings(ui.SettingsData{ActiveTheme: s.config.Theme, Themes: []string{"catppuccin"}}).OpenSettings()
+		pending := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter})
+		if pending == nil {
+			t.Fatal("no pending save")
+		}
+		m.report("Save theme", errors.New("write failure"), "")
+		updateLibrary(&m, themeReloadMsg{reload: true, themeName: s.config.Theme, palette: theme.Default()})
+		if duplicate := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}); duplicate != nil {
+			t.Fatal("signal reset pending save guard")
+		}
+		if !strings.Contains(m.View().Content, "Save theme failed") {
+			t.Fatal("signal cleared unrelated write failure")
+		}
+		updateLibrary(&m, pending())
+		if s.config.Theme != "catppuccin" || strings.Contains(m.View().Content, "Save theme failed") {
+			t.Fatal("actual acknowledgement did not resolve failure")
+		}
+	})
 }
 
 func TestThemeSignalCapturesCurrentChoiceAndDropsStaleReload(t *testing.T) {
