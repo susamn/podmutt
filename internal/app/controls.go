@@ -45,6 +45,10 @@ type playbackUpdate struct {
 	ok    bool
 }
 type actionError struct{ error }
+type settingsError struct {
+	setting string
+	err     error
+}
 type shell struct {
 	ui.Model
 	s     *session
@@ -57,19 +61,20 @@ type countryChangedMsg struct {
 
 func newShell(s *session) shell {
 	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(command string) tea.Cmd {
+		cfg := s.config
 		return work(s.ctx, commandLabel(command), func(ctx context.Context) tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {
 				chosen := strings.TrimPrefix(command, "theme:")
-				_ = profile.SetTheme(s.paths.Config, chosen)
-				s.config.Theme = chosen
+				if err := profile.SetTheme(s.paths.Config, chosen); err != nil {
+					return settingsError{"theme", err}
+				}
 				pal, themePath := theme.Load(s.paths.ConfigDir(), chosen)
-				s.theme = pal
 				return themeReloadMsg{palette: pal, themeName: chosen, themePath: themePath}
 			}
 			if strings.HasPrefix(command, "country:") {
 				countries := []string{"us", "de", "gb", "fr", "ca", "au", "jp", "es", "it", "nl"}
-				curr := strings.ToLower(s.config.Country)
+				curr := strings.ToLower(cfg.Country)
 				nextIndex := 0
 				for idx, c := range countries {
 					if c == curr {
@@ -78,8 +83,9 @@ func newShell(s *session) shell {
 					}
 				}
 				chosen := countries[nextIndex]
-				_ = profile.SetCountry(s.paths.Config, chosen)
-				s.config.Country = chosen
+				if err := profile.SetCountry(s.paths.Config, chosen); err != nil {
+					return settingsError{"country", err}
+				}
 				return countryChangedMsg{country: chosen}
 			}
 			if command == "seek-forward" || command == "seek-backward" {
