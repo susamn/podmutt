@@ -88,7 +88,14 @@ func TestHTTPAndRetryActions(t *testing.T) {
 	}
 	for _, code := range []Code{Unknown, Timeout, Network, InvalidResponse, HTTP, RateLimited} {
 		m := Retry(For("Search", &Fault{Code: code, Status: 500}), "Press R to retry.")
-		if m.Action != "Press R to retry." {
+		want := "Press R to retry."
+		if code == RateLimited {
+			want = "Wait a moment before retrying. " + want
+		}
+		if code == Network {
+			want = "Check your connection. " + want
+		}
+		if m.Action != want {
 			t.Fatal(m)
 		}
 	}
