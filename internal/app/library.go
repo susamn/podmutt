@@ -51,6 +51,11 @@ type refreshUpdate struct {
 	result feed.Result
 	ok     bool
 }
+type favoriteEdited struct {
+	added bool
+	err   error
+}
+
 type libraryShell struct {
 	art    artState
 	browse browseState
@@ -399,6 +404,16 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 			rebuild = true
 		}
+	case favoriteEdited:
+		if msg.err != nil {
+			m.report("Favorites update", msg.err, "")
+		} else if msg.added {
+			m.notice = "Added to favorites · ♥"
+			cmd = m.reload()
+		} else {
+			m.notice = "Removed from favorites"
+			cmd = m.reload()
+		}
 	case latestQueued:
 		if msg.err != nil {
 			m.recordBackgroundFailure("Update latest episodes", msg.err)
@@ -601,8 +616,16 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			cmd = m.enqueue(msg.String() == "A")
 		case "J", "K":
 			// Queue order is presentation-only; manual moves are no longer supported.
+		case "m":
+			if focus == ui.Queue {
+				cmd = m.openQueueActions()
+			}
 		case "d", "delete":
-			cmd = m.removeQueueItem()
+			if focus == ui.Favorites {
+				cmd = m.removeFavorite()
+			} else if focus == ui.Queue {
+				cmd = m.removeQueueItem()
+			}
 		case "D":
 			m.confirmClearQueue()
 		case "N":
@@ -668,7 +691,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				if cmd == nil {
 					cmd = m.reload()
 				}
-			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Details {
+			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Details || m.Model.Focus() == ui.Favorites {
 				cmd = m.playSelected()
 			}
 		default:
@@ -862,6 +885,10 @@ func (m *libraryShell) renderLibrary() {
 		item.Current = m.state.Current != nil && m.state.Current.ID == episode.ID
 		data.Episodes = append(data.Episodes, item)
 	}
+	for _, fav := range m.snapshot.Favorites {
+		item := episodeItem(fav, false)
+		data.Favorites = append(data.Favorites, item)
+	}
 	m.Model = m.Model.WithLibrary(data)
 	if m.wantLibraryID != "" {
 		m.Model = m.Model.Select(ui.Podcasts, m.wantLibraryID)
@@ -899,8 +926,8 @@ func (m *libraryShell) renderOnboarding() {
 			"  • Enter     Play selected episode (or preview show)\n" +
 			"  • Space     Pause / Resume playback from any pane\n" +
 			"  • , / .     Seek backward / forward 15 seconds\n" +
-			"  • a / d / u Enqueue episode / remove / undo removal\n" +
-			"  • Tab / 1-5 Switch panels (Podcasts, Episodes, Queue, Details, Player)\n" +
+			"  • a / d / u / m Enqueue episode / remove / undo removal / actions (favorite)\n" +
+			"  • Tab / 1-6 Switch panels (Podcasts, Episodes, Queue, Details, Favorites, Player)\n" +
 			"  • ?         Open full keybinding cheat sheet",
 		Hint: "Enter or Esc to start · q quit",
 	})

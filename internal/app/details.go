@@ -133,6 +133,7 @@ func (m *libraryShell) renderDetails() {
 		}
 	}
 	card := episodeDetails(episode, show, key, queued, inspecting)
+	card.Favorited = m.snapshot.FavoriteIDs[episode.ID]
 	if s, ok := m.selectedShow(); ok && s.Rating > 0 {
 		card.Rating = fmt.Sprintf("★ %.1f (%d reviews)", s.Rating, s.ReviewCount)
 	}

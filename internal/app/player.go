@@ -96,6 +96,7 @@ type playerEdited struct {
 type queueConfirmation struct {
 	ids       []int64 // D clears only this captured pending queue
 	episodeID int64   // d/Delete removes only this captured row
+	action    string  // "remove_queue", "clear_queue", "favorite", "unfavorite"
 }
 type queueEdited struct {
 	undo  bool
@@ -125,6 +126,18 @@ func (m libraryShell) contextEpisode() (store.Episode, bool) {
 		}
 		if current := m.state.Current; current != nil && item.ID == strconv.FormatInt(current.ID, 10) {
 			return *current, true
+		}
+		return store.Episode{}, false
+	}
+	if m.Model.Focus() == ui.Favorites {
+		item, ok := m.Model.Selected(ui.Favorites)
+		if !ok {
+			return store.Episode{}, false
+		}
+		for _, episode := range m.snapshot.Favorites {
+			if item.ID == strconv.FormatInt(episode.ID, 10) {
+				return episode, true
+			}
 		}
 		return store.Episode{}, false
 	}
@@ -158,7 +171,7 @@ func playEpisode(ctx context.Context, engine *playback.Engine, id int64, cached 
 
 func (m *libraryShell) openDetails() {
 	focus := m.Model.Focus()
-	if focus != ui.Episodes && focus != ui.Queue {
+	if focus != ui.Episodes && focus != ui.Queue && focus != ui.Favorites {
 		return
 	}
 	if episode, ok := m.contextEpisode(); ok {
@@ -191,7 +204,7 @@ func (m *libraryShell) enqueue(batch bool) tea.Cmd {
 			id, _ := strconv.ParseInt(item.ID, 10, 64)
 			ids = append(ids, id)
 		}
-	} else if !batch && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Details) {
+	} else if !batch && (m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Details || m.Model.Focus() == ui.Favorites) {
 		if episode, ok := m.contextEpisode(); ok {
 			ids = append(ids, episode.ID)
 		}
@@ -225,10 +238,51 @@ func (m *libraryShell) removeQueueItem() tea.Cmd {
 	if selected.Current {
 		label, state = "Stop & remove? y/n", string(m.state.Status)
 	}
-	m.confirming = &queueConfirmation{episodeID: episode.ID}
+	m.confirming = &queueConfirmation{episodeID: episode.ID, action: "remove_queue"}
 	m.Model = m.Model.WithDialog(&ui.Dialog{
 		Title:        label,
 		Body:         fmt.Sprintf("%s\n%s\n%s · %s/%s\nProgress/history kept.", cleanTitle(episode.Title), cleanShow(episode.FeedTitle), state, clock(episode.PositionSeconds), formatEpisodeDuration(episode.DurationSeconds)),
+		TruncateBody: true,
+		Hint:         "y remove · n/Esc cancel",
+	})
+	return nil
+}
+
+func (m *libraryShell) openQueueActions() tea.Cmd {
+	if m.Model.Focus() != ui.Queue || m.queueEditing {
+		return nil
+	}
+	episode, ok := m.contextEpisode()
+	if !ok || episode.ID <= 0 {
+		m.notice = "Select an episode in Queue first"
+		return nil
+	}
+	isFav := m.snapshot.FavoriteIDs[episode.ID]
+	action := "1. Mark as favorite"
+	if isFav {
+		action = "1. Already in favorites"
+	}
+	m.confirming = &queueConfirmation{episodeID: episode.ID, action: "favorite"}
+	m.Model = m.Model.WithDialog(&ui.Dialog{
+		Title: "Episode Actions",
+		Body:  cleanTitle(episode.Title) + "\n" + cleanShow(episode.FeedTitle) + "\n\n" + action,
+		Hint:  "Enter apply · Esc cancel",
+	})
+	return nil
+}
+
+func (m *libraryShell) removeFavorite() tea.Cmd {
+	if m.Model.Focus() != ui.Favorites || m.queueEditing {
+		return nil
+	}
+	episode, ok := m.contextEpisode()
+	if !ok || episode.ID <= 0 {
+		return nil
+	}
+	m.confirming = &queueConfirmation{episodeID: episode.ID, action: "unfavorite"}
+	m.Model = m.Model.WithDialog(&ui.Dialog{
+		Title:        "Remove from favorites? y/n",
+		Body:         cleanTitle(episode.Title) + "\n" + cleanShow(episode.FeedTitle) + "\n\nOnly un-favorites; playback, queue, and history are kept.",
 		TruncateBody: true,
 		Hint:         "y remove · n/Esc cancel",
 	})
@@ -249,7 +303,7 @@ func (m *libraryShell) confirmClearQueue() {
 	if m.Model.Focus() != ui.Queue || len(m.state.Queue) == 0 || m.queueEditing {
 		return
 	}
-	confirmation := &queueConfirmation{}
+	confirmation := &queueConfirmation{action: "clear_queue"}
 	for _, episode := range m.state.Queue {
 		confirmation.ids = append(confirmation.ids, episode.ID)
 	}
@@ -257,16 +311,60 @@ func (m *libraryShell) confirmClearQueue() {
 	m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm Up next edit", Body: "Clear pending episodes? Current playback and history are unchanged.", Hint: "y confirm · Esc/n cancel · q quit"})
 }
 func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
-	if key.String() == "q" || key.String() == "ctrl+c" {
+	k := key.String()
+	if k == "q" || k == "ctrl+c" {
 		return tea.Quit
 	}
-	if key.String() != "y" && key.String() != "esc" && key.String() != "n" {
+	confirmation := m.confirming
+	if confirmation == nil {
 		return nil
 	}
-	confirmation := m.confirming
+
+	if confirmation.action == "favorite" {
+		if k == "esc" || k == "n" {
+			m.confirming = nil
+			m.Model = m.Model.WithDialog(nil)
+			return nil
+		}
+		if k == "enter" || k == "1" || k == "y" {
+			m.confirming = nil
+			m.Model = m.Model.WithDialog(nil)
+			if m.snapshot.FavoriteIDs[confirmation.episodeID] {
+				m.notice = "Already in favorites"
+				return nil
+			}
+			service, ctx, id := m.service, m.s.ctx, confirmation.episodeID
+			return work(ctx, "Adding to favorites…", func(ctx context.Context) tea.Msg {
+				err := service.AddFavorite(ctx, id)
+				return favoriteEdited{added: true, err: err}
+			})
+		}
+		return nil
+	}
+
+	if confirmation.action == "unfavorite" {
+		if k != "y" && k != "esc" && k != "n" {
+			return nil
+		}
+		m.confirming = nil
+		m.Model = m.Model.WithDialog(nil)
+		if k != "y" {
+			m.notice = "Favorites unchanged"
+			return nil
+		}
+		service, ctx, id := m.service, m.s.ctx, confirmation.episodeID
+		return work(ctx, "Removing from favorites…", func(ctx context.Context) tea.Msg {
+			err := service.RemoveFavorite(ctx, id)
+			return favoriteEdited{added: false, err: err}
+		})
+	}
+
+	if k != "y" && k != "esc" && k != "n" {
+		return nil
+	}
 	m.confirming = nil
 	m.Model = m.Model.WithDialog(nil)
-	if key.String() != "y" {
+	if k != "y" {
 		m.notice = "Up next unchanged"
 		return nil
 	}
