@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -234,8 +235,19 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.browse.cancel = nil
 	}
 	m.browse.loading = false
+	if errors.Is(msg.err, context.Canceled) {
+		m.notice, m.browse.errorText = "", ""
+		m.renderLibrary()
+		return
+	}
 	if msg.err != nil {
-		m.notice = msg.err.Error()
+		scope, retry := m.directoryName()+" search", "Press R to retry, f for another search, or b for your saved Library."
+		if msg.local {
+			scope, retry = "Library search", "Press f to search your saved Library again."
+		} else if m.browse.query == "" {
+			scope = m.directoryName() + " chart"
+		}
+		m.notice = discoveryFailure(scope, msg.err, retry)
 		m.browse.errorText = m.notice
 	} else if msg.local {
 		m.browse.hits = msg.episodes
@@ -448,8 +460,13 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		m.browse.previewCancel()
 		m.browse.previewCancel = nil
 	}
+	if errors.Is(msg.err, context.Canceled) {
+		m.notice, m.browse.errorText = "", ""
+		m.renderLibrary()
+		return
+	}
 	if msg.err != nil {
-		m.notice = msg.err.Error()
+		m.notice = discoveryFailure("Feed preview", msg.err, "Select the show and press Enter to retry, or U to enter a different URL.")
 		m.browse.errorText = m.notice
 	} else {
 		m.browse.errorText = ""
@@ -512,7 +529,7 @@ func (m *libraryShell) renderDiscovery() {
 	if m.browse.loading {
 		data.PodcastEmpty = "Loading " + m.directoryName() + "…"
 	} else if m.browse.errorText != "" {
-		data.PodcastEmpty = "Search failed · 4 details"
+		data.PodcastEmpty = "Request failed · 4 details"
 	}
 	for _, show := range m.browse.shows {
 		marker := ""
@@ -569,7 +586,7 @@ func (m *libraryShell) renderPreviewDetails() {
 	if m.browse.loading {
 		details = "Loading " + m.directoryName() + "…\nQuery: " + m.browse.query + "\nEsc cancel · b cached subscriptions (offline)"
 	} else if m.browse.errorText != "" {
-		details = "Discovery failed: " + m.browse.errorText + "\nf search again · t top 25 · b cached subscriptions"
+		details = m.browse.errorText
 	} else if len(m.browse.shows) == 0 && !m.browse.directURL {
 		details += "\nNo matching shows. f Search podcasts · U RSS/website · t chart"
 	}

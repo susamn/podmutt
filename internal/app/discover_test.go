@@ -245,7 +245,7 @@ func TestDirectoryStaleRepliesSelectionAndPreviewCancellation(t *testing.T) {
 		d.err = errors.New("offline")
 		finishLibrary(&m, libraryKey(&m, 'b'))
 		finishLibrary(&m, libraryKey(&m, 'R'))
-		if !strings.Contains(m.notice, "offline") {
+		if !strings.Contains(m.notice, "Apple Podcasts search failed") {
 			t.Fatal("directory failure hidden", m.notice)
 		}
 		// A closed result or malformed scope cannot overwrite the current view.
