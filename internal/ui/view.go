@@ -111,7 +111,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 			} else if panel == Favorites {
 				empty = "No favorites · m in Queue to add"
 			}
-			rows = append(rows, empty)
+			rows = append(rows, "  "+strings.TrimLeft(empty, " "))
 		}
 	}
 	icon := panelIcon(panel)

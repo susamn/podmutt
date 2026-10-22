@@ -80,9 +80,9 @@ func TestFavoritesLayoutColumnsAndDetailsHeart(t *testing.T) {
 }
 
 func TestFavoritesEmptyStateAndFilter(t *testing.T) {
-	m := resize(New(Data{}), 100, 24).WithFocus(Favorites)
+	m := resize(New(Data{}), 140, 40).WithFocus(Favorites)
 	view := ansi.Strip(m.View().Content)
-	if !strings.Contains(view, "No favorites · m in Queue to add") {
+	if !strings.Contains(view, "No favorites · m in Queue to add") || !strings.Contains(view, "│  No favorites") {
 		t.Fatalf("unexpected empty state for favorites:\n%s", view)
 	}
 
