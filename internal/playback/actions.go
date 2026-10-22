@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
@@ -151,6 +152,7 @@ func (e *Engine) stop(ctx context.Context) error {
 		}
 	}
 	e.active, e.ready, e.state.Status = false, false, Stopped
+	e.state.Error = ""
 	return nil
 }
 
@@ -277,7 +279,8 @@ func (e *Engine) fail(ctx context.Context, err error) error {
 	err = errors.Join(err, e.save(cleanup, false))
 	err = errors.Join(err, e.closePlayer())
 	e.active, e.ready = false, false
-	e.state.Status, e.state.Error = Failed, err.Error()
+	e.state.Status, e.state.Error = Failed, feedback.For("Playback", err).Text()
+	e.state.ErrorRevision++
 	return err
 }
 
@@ -315,7 +318,7 @@ func (e *Engine) event(ctx context.Context, event player.Event) {
 				}
 			}
 		case "error":
-			e.fail(ctx, fmt.Errorf("playback: stream failed"))
+			e.fail(ctx, feedback.New(feedback.PlayerFailure, "playback: stream failed"))
 		case "stop", "quit":
 			if err := e.save(ctx, false); err != nil {
 				e.fail(ctx, err)

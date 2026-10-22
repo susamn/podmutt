@@ -29,7 +29,7 @@ func TestImportFeedsReportsEachFeedAndFailures(t *testing.T) {
 	if failed != 1 {
 		t.Fatalf("failed = %d", failed)
 	}
-	want := "ok    One\nFAIL  https://2.test: boom\nok    Three\n2 imported, 1 failed\n"
+	want := "ok    One\nFAIL  Feed 2: Import feed failed. Try the action again. If it keeps failing, report it at github.com/susamn/podmutt/issues with your podmutt version.\nok    Three\n2 feeds processed successfully, 1 failed\n"
 	if out.String() != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", out.String(), want)
 	}

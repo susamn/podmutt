@@ -16,6 +16,8 @@ import (
 	"podmutt/internal/artwork"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
+	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
@@ -23,7 +25,9 @@ import (
 	"podmutt/internal/ui"
 )
 
+type themeSignal struct{}
 type themeReloadMsg struct {
+	reload    bool
 	palette   theme.Palette
 	themeName string
 	themePath string
@@ -63,7 +67,8 @@ type libraryShell struct {
 	loadCancel               context.CancelFunc
 	notice, input            string
 	adding, mutating         bool
-	refreshErrors            map[int64]string
+	refreshErrors            map[int64]error
+	backgroundError          feedback.Message
 	lastPlayingID            int64
 	lastCompleted            bool
 	confirming               *queueConfirmation
@@ -114,7 +119,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 		return libraryShell{}, err
 	}
 	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: allDestination, wantLibraryID: allDestination,
-		notice: "Cached library", refreshErrors: make(map[int64]string)}
+		notice: "Cached library", refreshErrors: make(map[int64]error)}
 	appleDir := discovery.NewApple(nil)
 	appleDir.SetCountry(s.config.Country)
 	model.browse.directory = appleDir
@@ -158,10 +163,7 @@ func (m libraryShell) waitSignal() tea.Cmd {
 		case <-m.s.ctx.Done():
 			return nil
 		case <-m.signals:
-			return work(m.s.ctx, "Reloading theme…", func(context.Context) tea.Msg {
-				pal, themePath := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
-				return themeReloadMsg{palette: pal, themeName: m.s.config.Theme, themePath: themePath}
-			})()
+			return themeSignal{}
 		}
 	}
 }
@@ -245,19 +247,43 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			apple.SetCountry(msg.country)
 		}
 		m.Model = m.Model.WithSettings(m.s.settingsData())
-		m.notice = "Country set to " + strings.ToUpper(msg.country)
+		m.Model = m.Model.ClearFeedback("Save country")
+		m.notice = "Country saved: " + strings.ToUpper(msg.country)
 		if m.browse.active {
 			m.browse.loaded = false
 			return m, m.searchDirectory("")
 		}
 		return m, nil
+	case settingsError:
+		m.Model = m.Model.WithSettings(m.s.settingsData())
+		message := feedback.For("Save "+msg.setting, msg.err)
+		message.Summary = "Could not save " + msg.setting + " to config.toml."
+		message.Action = "Check free disk space and that config.toml is a writable file, not a directory. Previous setting remains active. Config: " + feedback.PublicLabel(m.s.paths.Config)
+		m.notice = message.Text()
+		m.Model = m.Model.WithFeedback(message)
+		return m, nil
+	case themeSignal:
+		name, paths, ctx := m.s.config.Theme, m.s.paths, m.s.ctx
+		return m, tea.Batch(m.waitSignal(), work(ctx, "Reloading theme…", func(context.Context) tea.Msg {
+			pal, path := theme.Load(paths.ConfigDir(), name)
+			return themeReloadMsg{palette: pal, themeName: name, themePath: path, reload: true}
+		}))
 	case themeReloadMsg:
+		if msg.reload && msg.themeName != m.s.config.Theme {
+			return m, nil
+		}
+		if !msg.reload {
+			m.Model = m.Model.ClearFeedback("Save theme")
+		}
 		m.s.theme = msg.palette
 		if msg.themeName != "" {
 			m.s.config.Theme = msg.themeName
 		}
-		m.Model = m.Model.WithTheme(msg.palette).WithSettings(m.s.settingsData())
-		return m, m.waitSignal()
+		m.Model = m.Model.WithTheme(msg.palette)
+		if !msg.reload {
+			m.Model = m.Model.WithSettings(m.s.settingsData())
+		}
+		return m, nil
 	case artProbe:
 		cmd = m.probeArt()
 	case artProbeTimeout:
@@ -334,8 +360,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.loadCancel = nil
 		}
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.recordBackgroundFailure("Load library", msg.err)
 		} else {
+			m.clearBackgroundFailure("Load library")
 			m.snapshot = msg.snapshot
 			if msg.details != nil && m.detailTarget != nil && m.detailKey(*m.detailTarget) == msg.detailKey {
 				m.detailTarget.PositionSeconds, m.detailTarget.Completed = msg.details.PositionSeconds, msg.details.Completed
@@ -347,7 +374,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 	case latestQueued:
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.recordBackgroundFailure("Update latest episodes", msg.err)
+		} else {
+			m.clearBackgroundFailure("Update latest episodes")
 		}
 	case queueEdited:
 		if msg.state != nil {
@@ -361,12 +390,15 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		pending := m.queueUndoPending
 		m.queueUndoPending = false
 		if errors.Is(msg.err, playback.ErrNoQueueUndo) {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Nothing to undo in Up next"
 		} else if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Queue edit", msg.err, "")
 		} else if msg.undo {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Restored to Up next"
 		} else {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Removed from Up next · u undo"
 			if pending {
 				cmd = tea.Batch(cmd, m.undoQueueRemoval())
@@ -389,19 +421,25 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			cmd = m.reload()
 		}
 		if errors.Is(msg.err, playback.ErrNoEpisode) {
-			m.notice = "No current episode · Enter plays the selected episode"
+			m.report("Playback", msg.err, "")
 		} else if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Playback", msg.err, "")
 		} else {
-			m.notice = "Playback/queue updated"
+			m.Model = m.Model.ClearFeedback("Playback")
+			m.notice = ""
 		}
 	case libraryEdited:
 		m.mutating = false
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Library update", msg.err, "")
+			var fault *feedback.Fault
+			if errors.As(msg.err, &fault) && fault.Code == feedback.Partial {
+				cmd = m.reload()
+			}
 			break
 		}
-		m.notice = "Library updated"
+		m.Model = m.Model.ClearFeedback("Library update")
+		m.notice = ""
 		if msg.state != nil {
 			m.shell = m.shell.withPlayback(*msg.state)
 		}
@@ -426,11 +464,15 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			return m, nil
 		}
 		if msg.result.Error != nil {
-			m.refreshErrors[msg.result.FeedID] = msg.result.Error.Error()
+			if !errors.Is(msg.result.Error, context.Canceled) {
+				m.refreshErrors[msg.result.FeedID] = msg.result.Error
+			}
 		} else {
 			delete(m.refreshErrors, msg.result.FeedID)
+			if msg.result.FeedID > 0 {
+				delete(m.refreshErrors, 0)
+			}
 		}
-		m.notice = "Refresh update"
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
 		if msg.result.Error == nil {
 			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
@@ -657,7 +699,14 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.adding = false
 		m.input = ""
+		m.notice = "Add feed canceled."
+		m.Model = m.Model.ClearFeedback("Add feed")
 	case "enter":
+		if _, err := httpurl.Parse(strings.TrimSpace(m.input)); err != nil {
+			m.report("Add feed", err, "")
+			return nil
+		}
+		m.Model = m.Model.ClearFeedback("Add feed")
 		m.adding = false
 		m.mutating = true
 		m.notice = "Adding feed…"
@@ -745,7 +794,7 @@ func (m *libraryShell) renderLibrary() {
 	case library.ContinueView:
 		data.EpisodeEmpty = "Nothing to resume · play an episode first"
 	case library.AllView:
-		data.EpisodeEmpty = "No subscribed episodes · f find a podcast"
+		data.EpisodeEmpty = "No saved episodes · f find a podcast"
 	}
 	if m.browse.localResults {
 		data.EpisodeEmpty = "No matching cached episodes"
@@ -806,16 +855,7 @@ func (m *libraryShell) renderLibrary() {
 
 func (m *libraryShell) renderStatus() {
 	notice, prompt := m.notice, ""
-	var errorID int64
-	var warning string
-	for id, text := range m.refreshErrors {
-		if warning == "" || id < errorID {
-			errorID, warning = id, text
-		}
-	}
-	if warning != "" {
-		notice = "Refresh failed: " + warning + " · " + notice
-	}
+	m.Model = m.Model.WithBackgroundFeedback(m.backgroundFeedback())
 	if m.adding {
 		prompt = "URL: " + m.input
 	}
@@ -828,7 +868,7 @@ func (m *libraryShell) renderOnboarding() {
 		Body: "A keyboard-driven podcast client for Linux and macOS.\n\n" +
 			"Quick Start:\n" +
 			"  • f         Find podcasts by name or paste an RSS/web URL\n" +
-			"  • b         Toggle between My Library and Discover (Top 25)\n" +
+			"  • b         Toggle between Library and Discover (Top 100)\n" +
 			"  • Enter     Play selected episode (or preview show)\n" +
 			"  • Space     Pause / Resume playback from any pane\n" +
 			"  • , / .     Seek backward / forward 15 seconds\n" +

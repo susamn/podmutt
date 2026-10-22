@@ -5,7 +5,6 @@ package discovery
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,9 +12,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 )
 
@@ -23,9 +24,9 @@ const maxResponse = 1 << 20
 const maxResults = 25
 const maxTopResults = 100
 
-var ErrQuery = errors.New("show search requires 1–128 characters")
-var ErrUnavailable = errors.New("show directory unavailable (network, TLS, or redirect error)")
-var ErrRateLimited = errors.New("show directory rate limited; try again later")
+var ErrQuery = feedback.New(feedback.Input, "Enter a podcast name between 1 and 128 characters.")
+var ErrUnavailable = feedback.New(feedback.Network, "show directory unavailable (network, TLS, or redirect error)")
+var ErrRateLimited = feedback.New(feedback.RateLimited, "show directory rate limited; try again later")
 
 type Show struct {
 	Title       string
@@ -52,6 +53,7 @@ type appleRecord struct {
 // Apple serializes requests per foreground instance. Canceled waits never
 // reserve future quota slots. Chart, lookup and search share quota/cache policy.
 type Apple struct {
+	mu                                      sync.Mutex // country is also read by background ratings commands
 	client                                  *http.Client
 	endpoint, chartEndpoint, lookupEndpoint string
 	country                                 string
@@ -97,12 +99,16 @@ func NewApple(client *http.Client) *Apple {
 }
 
 func (a *Apple) SetCountry(country string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if len(country) == 2 {
 		a.country = strings.ToLower(country)
 	}
 }
 
 func (a *Apple) Country() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.country == "" {
 		return "us"
 	}
@@ -180,7 +186,7 @@ func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
 			}
 		}
 		if len(ids) == 0 {
-			return nil, errors.New("Apple chart contains no usable shows")
+			return nil, feedback.New(feedback.InvalidResponse, "Apple chart contains no usable shows")
 		}
 		endpoint, err := url.Parse(a.lookupEndpoint)
 		if err != nil {
@@ -203,7 +209,7 @@ func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
 		sort.SliceStable(records, func(i, j int) bool { return rank[records[i].CollectionID] < rank[records[j].CollectionID] })
 		shows := normalize(records, limit)
 		if len(shows) == 0 {
-			return nil, errors.New("Apple chart has no available RSS feeds")
+			return nil, feedback.New(feedback.InvalidResponse, "Apple chart has no available RSS feeds")
 		}
 		return shows, nil
 	})
@@ -274,23 +280,23 @@ func (a *Apple) readHeaders(ctx context.Context, address string, document any, h
 		return ErrRateLimited
 	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("show directory returned HTTP %d", response.StatusCode)
+		return feedback.StatusError(response.StatusCode)
 	}
 	if response.ContentLength > maxResponse {
-		return errors.New("show directory response too large")
+		return feedback.New(feedback.InvalidResponse, "show directory response too large")
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponse+1))
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return errors.New("show directory response read failed")
+		return feedback.New(feedback.InvalidResponse, "show directory response read failed")
 	}
 	if len(data) > maxResponse {
-		return errors.New("show directory response too large")
+		return feedback.New(feedback.InvalidResponse, "show directory response too large")
 	}
 	if err := json.Unmarshal(data, document); err != nil {
-		return errors.New("invalid show directory response")
+		return feedback.New(feedback.InvalidResponse, "invalid show directory response")
 	}
 	return nil
 }
@@ -341,6 +347,16 @@ func normalize(records []appleRecord, limit int) []Show {
 func (a *Apple) Ratings(ctx context.Context, country, collectionID string) (float64, int, error) {
 	ctx, finish := activity.Begin(ctx, "Loading podcast ratings…", activity.Background)
 	defer finish()
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	// Ratings share readHeaders quota/backoff with search/chart. Serialize all
+	// three; otherwise concurrent ratings race on next/ratingCache and quota.
+	select {
+	case a.gate <- struct{}{}:
+	case <-ctx.Done():
+		return 0, 0, ctx.Err()
+	}
+	defer func() { <-a.gate }()
 	if collectionID == "" {
 		return 0, 0, nil
 	}

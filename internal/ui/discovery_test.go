@@ -9,7 +9,7 @@ import (
 
 func TestDiscoveryLabelsHintsAndFilterResetFitAllLayouts(t *testing.T) {
 	for _, size := range [][2]int{{160, 36}, {80, 24}, {30, 12}} {
-		m := resize(New(Data{PodcastLabel: "Discover · Apple Podcasts · US top 25\x1b[2J", ContextHint: "b My subscriptions · f search", Podcasts: []Item{{ID: "one", Title: "One"}, {ID: "two", Title: "Two"}}}), size[0], size[1])
+		m := resize(New(Data{PodcastLabel: "Discover · Apple Podcasts · US Top 100\x1b[2J", ContextHint: "b My subscriptions · f search", Podcasts: []Item{{ID: "one", Title: "One"}, {ID: "two", Title: "Two"}}}), size[0], size[1])
 		m = press(m, "/")
 		m = press(m, "O")
 		m = press(m, "n")

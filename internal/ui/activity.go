@@ -115,6 +115,13 @@ func (m Model) statusLine() string {
 			}
 		}
 	}
+	if message := m.feedbackStatus(); message != "" {
+		if m.message.Summary != "" || len(visible) == 0 {
+			text = message
+		} else {
+			text += " · ! warning"
+		}
+	}
 	if strings.TrimSpace(text) == "" {
 		return strings.Repeat(" ", m.width)
 	}

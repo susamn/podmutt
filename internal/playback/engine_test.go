@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"podmutt/internal/feedback"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
@@ -443,6 +444,6 @@ func TestInvalidPositionAndDisconnectedPlayer(t *testing.T) {
 	}
 	close(p.events)
 	eventually(t, func() bool {
-		return state(t, e).Status == Failed && state(t, e).Error == player.ErrDisconnected.Error()
+		return state(t, e).Status == Failed && state(t, e).Error == feedback.For("Playback", player.ErrDisconnected).Text()
 	})
 }

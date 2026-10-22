@@ -43,9 +43,15 @@ func TestForegroundServicesAndKeyboardShareActions(t *testing.T) {
 			for _, key := range []rune{'s', 'n'} {
 				updated, cmd = m.Update(tea.KeyPressMsg{Code: key, Text: string(key)})
 				m = updated.(shell)
-				if cmd == nil || cmd() != nil {
+				if cmd == nil {
+					t.Fatal("missing keyboard action")
+				}
+				done, ok := cmd().(actionSucceeded)
+				if !ok {
 					t.Fatal("keyboard action failed")
 				}
+				updated, _ = m.Update(done)
+				m = updated.(shell)
 			}
 			_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 			failure, ok := cmd().(actionError)
@@ -54,7 +60,7 @@ func TestForegroundServicesAndKeyboardShareActions(t *testing.T) {
 			}
 			updated, _ = m.Update(failure)
 			m = updated.(shell)
-			if !strings.Contains(m.View().Content, "no current episode") {
+			if !strings.Contains(m.View().Content, "No current episode") {
 				t.Fatal("action error hidden")
 			}
 			updated, cmd = m.Update(playbackUpdate{state: playback.State{Status: playback.Failed, Current: &store.Episode{Title: "Title"}, Error: "offline"}, ok: true})
@@ -94,7 +100,7 @@ func TestPlaybackRenderingPreservesQueueProgressAndMediaWarnings(t *testing.T) {
 	if !ok || queued.ID != "7" || queued.Index != 1 || len(m.Model.Visible(ui.Queue)) != 2 || !strings.Contains(queued.Title, "Queued episode") {
 		t.Fatalf("queue lost: %+v", queued)
 	}
-	for _, text := range []string{"0:42", "2:00", "stream failed", "session bus unavailable"} {
+	for _, text := range []string{"0:42", "2:00", "stream failed", "Desktop media keys are unavailable"} {
 		if !strings.Contains(m.View().Content, text) {
 			t.Fatalf("rendering lost %q", text)
 		}

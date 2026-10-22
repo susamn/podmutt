@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
+	"podmutt/internal/feedback"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
 	"podmutt/internal/theme"
@@ -20,7 +21,7 @@ import (
 func userPaths() (profile.Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return profile.Paths{}, err
+		return profile.Paths{}, &feedback.Fault{Code: feedback.Input, Safe: "Set HOME to your absolute home directory before starting podmutt.", Cause: err}
 	}
 	return profile.Resolve(runtime.GOOS, home, os.Getenv)
 }
@@ -45,6 +46,11 @@ type playbackUpdate struct {
 	ok    bool
 }
 type actionError struct{ error }
+type actionSucceeded struct{}
+type settingsError struct {
+	setting string
+	err     error
+}
 type shell struct {
 	ui.Model
 	s     *session
@@ -57,19 +63,20 @@ type countryChangedMsg struct {
 
 func newShell(s *session) shell {
 	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(command string) tea.Cmd {
+		cfg := s.config // capture on the UI thread; workers never mutate session settings
 		return work(s.ctx, commandLabel(command), func(ctx context.Context) tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {
 				chosen := strings.TrimPrefix(command, "theme:")
-				_ = profile.SetTheme(s.paths.Config, chosen)
-				s.config.Theme = chosen
+				if err := profile.SetTheme(s.paths.Config, chosen); err != nil {
+					return settingsError{"theme", err}
+				}
 				pal, themePath := theme.Load(s.paths.ConfigDir(), chosen)
-				s.theme = pal
 				return themeReloadMsg{palette: pal, themeName: chosen, themePath: themePath}
 			}
 			if strings.HasPrefix(command, "country:") {
 				countries := []string{"us", "de", "gb", "fr", "ca", "au", "jp", "es", "it", "nl"}
-				curr := strings.ToLower(s.config.Country)
+				curr := strings.ToLower(cfg.Country)
 				nextIndex := 0
 				for idx, c := range countries {
 					if c == curr {
@@ -78,8 +85,9 @@ func newShell(s *session) shell {
 					}
 				}
 				chosen := countries[nextIndex]
-				_ = profile.SetCountry(s.paths.Config, chosen)
-				s.config.Country = chosen
+				if err := profile.SetCountry(s.paths.Config, chosen); err != nil {
+					return settingsError{"country", err}
+				}
 				return countryChangedMsg{country: chosen}
 			}
 			if command == "seek-forward" || command == "seek-backward" {
@@ -96,7 +104,7 @@ func newShell(s *session) shell {
 			if err != nil {
 				return actionError{err}
 			}
-			return nil
+			return actionSucceeded{}
 		})
 	}), s: s}
 }
@@ -110,6 +118,11 @@ func currentInQueue(state playback.State) bool {
 func (m shell) withPlayback(state playback.State) shell {
 	if state.Revision != 0 && state.Revision < m.state.Revision {
 		return m
+	}
+	if state.Error != "" && (state.Error != m.state.Error || state.ErrorRevision != m.state.ErrorRevision) {
+		m.Model = m.Model.WithFeedback(feedback.Message{Scope: "Playback", Code: feedback.PlayerFailure, Severity: "error", Summary: state.Error})
+	} else if state.Error == "" && m.state.Error != "" {
+		m.Model = m.Model.ClearFeedback("Playback")
 	}
 	m.state = state
 	// Marking history complete does not itself stop current audio. Keep its
@@ -143,7 +156,7 @@ func (m shell) withPlayback(state playback.State) shell {
 	}
 	mediaError = errors.Join(mediaError, m.s.nativeMedia.Err())
 	if mediaError != nil {
-		player.Warning = mediaError.Error()
+		player.Warning = "Desktop media keys are unavailable. Use the in-app playback controls."
 	}
 	m.Model = m.Model.WithPlayback(queue, player)
 	return m
@@ -170,8 +183,12 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var progress tea.Cmd
 		m.Model, progress = m.Model.SyncProgress()
 		return m, tea.Batch(m.wait(), animation, progress)
+	case actionSucceeded:
+		m.Model = m.Model.ClearFeedback("Playback").WithPlayerError("")
+		return m, nil
 	case actionError:
-		m.Model = m.Model.WithPlayerError(msg.Error())
+		message := feedback.For("Playback", msg.error)
+		m.Model = m.Model.WithFeedback(message).WithPlayerError(message.Text())
 		return m, nil
 	}
 	updated, cmd := m.Model.Update(msg)

@@ -5,7 +5,6 @@ import (
 	"crypto/sha1" // Podcast Index's documented authentication protocol, not password hashing.
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 )
 
 // Searcher is the small shared provider contract. Charts remain Apple-specific.
@@ -23,7 +23,7 @@ type Searcher interface {
 const IndexKeyEnv = "PODMUTT_PODCAST_INDEX_KEY"
 const IndexSecretEnv = "PODMUTT_PODCAST_INDEX_SECRET"
 
-var ErrIndexCredentials = errors.New("Podcast Index requires your own PODMUTT_PODCAST_INDEX_KEY and PODMUTT_PODCAST_INDEX_SECRET; Apple and RSS need no key")
+var ErrIndexCredentials = feedback.New(feedback.Credentials, "Podcast Index requires your own PODMUTT_PODCAST_INDEX_KEY and PODMUTT_PODCAST_INDEX_SECRET; Apple and RSS need no key")
 
 // Index keeps no API response cache or durable directory records. The only
 // persistent content comes from separately fetching a user-selected public RSS.
@@ -84,7 +84,7 @@ func (i *Index) Search(ctx context.Context, query string) ([]Show, error) {
 		return nil, err
 	}
 	if string(response.Status) != "true" && string(response.Status) != `"true"` {
-		return nil, errors.New("Podcast Index rejected search; check your API access and system clock")
+		return nil, feedback.New(feedback.Authentication, "Podcast Index rejected search; check your API access and system clock")
 	}
 	records := make([]appleRecord, 0, min(len(response.Feeds), maxResults))
 	for _, record := range response.Feeds {

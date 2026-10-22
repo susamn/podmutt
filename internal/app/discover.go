@@ -10,13 +10,14 @@ import (
 	"podmutt/internal/activity"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/store"
 	"podmutt/internal/ui"
 )
 
-const discoveryActions = "f Search podcasts\nU RSS/website preview\nt Apple US top 25"
+const discoveryActions = "f Search podcasts\nU RSS/website preview\nt Apple Top 100"
 
 type showDirectory interface {
 	Top(context.Context) ([]discovery.Show, error)
@@ -37,7 +38,7 @@ type browseState struct {
 	previewGeneration                           uint64
 	previewCancel                               context.CancelFunc
 	searching, searchApple, urlInput, directURL bool
-	input, errorText                            string
+	input, errorText, inputError                string
 	retryPreview                                bool
 }
 type discoverStartup struct{}
@@ -87,7 +88,13 @@ func (m *libraryShell) discardIndexResults() {
 		m.browse.loaded = false
 	}
 }
+func (m *libraryShell) clearDiscoveryFeedback() {
+	for _, scope := range []string{"Apple Podcasts search", "Apple Podcasts chart", "Podcast Index search", "Feed preview", "Library search"} {
+		m.Model = m.Model.ClearFeedback(scope)
+	}
+}
 func (m *libraryShell) switchBrowse() tea.Cmd {
+	m.clearDiscoveryFeedback()
 	if m.browse.active {
 		m.discardIndexResults()
 	}
@@ -116,6 +123,7 @@ func (m libraryShell) directoryName() string {
 	return "Apple Podcasts"
 }
 func (m *libraryShell) searchDirectory(query string) tea.Cmd {
+	m.clearDiscoveryFeedback()
 	if query == "" {
 		m.browse.usingIndex = false
 	}
@@ -204,6 +212,7 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	})
 }
 func (m *libraryShell) searchLibrary(query string) tea.Cmd {
+	m.clearDiscoveryFeedback()
 	m.discardIndexResults()
 	m.cancelDirectory()
 	m.cancelPreview()
@@ -242,18 +251,25 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.renderLibrary()
 		return
 	}
+	scope, retry := m.directoryName()+" search", "Press R to retry, f for another search, or b for your saved Library."
+	if msg.local {
+		scope, retry = "Library search", "Press f to search your saved Library again."
+	} else if m.browse.query == "" {
+		scope = m.directoryName() + " chart"
+	}
+	if msg.err == nil {
+		m.Model = m.Model.ClearFeedback(scope)
+		m.browse.errorText = ""
+	}
 	if msg.err != nil {
-		scope, retry := m.directoryName()+" search", "Press R to retry, f for another search, or b for your saved Library."
-		if msg.local {
-			scope, retry = "Library search", "Press f to search your saved Library again."
-		} else if m.browse.query == "" {
-			scope = m.directoryName() + " chart"
-		}
-		m.notice = discoveryFailure(scope, msg.err, retry)
+		m.report(scope, msg.err, retry)
 		m.browse.errorText = m.notice
 	} else if msg.local {
 		m.browse.hits = msg.episodes
-		m.notice = fmt.Sprintf("Library search · %d cached episodes (max 100)", len(msg.episodes))
+		m.notice = fmt.Sprintf("Library search · %d saved episodes", len(msg.episodes))
+		if len(msg.episodes) == 100 {
+			m.notice += " · showing up to 100 matches"
+		}
 	} else {
 		m.browse.shows = msg.shows
 		m.browse.loaded = true
@@ -297,24 +313,30 @@ func (m *libraryShell) openSearch() {
 	m.browse.urlInput = false
 	m.browse.searchApple = m.browse.active
 	m.browse.searchIndex = m.browse.usingIndex
+	m.browse.inputError = ""
 	m.browse.input = ""
 	m.renderSearch()
 }
 func (m *libraryShell) openURL() {
 	m.browse.searching = true
 	m.browse.urlInput = true
+	m.browse.inputError = ""
 	m.browse.input = ""
 	m.renderSearch()
 }
 func (m *libraryShell) renderSearch() {
 	if m.browse.urlInput {
 		input := m.browse.input
+		body := "HTTP(S) podcast feed or website URL.\nRead-only preview. Enter plays; u subscribes."
+		if m.browse.inputError != "" {
+			body = m.browse.inputError
+		}
 		m.Model = m.Model.WithDialog(&ui.Dialog{
 			Title:      "RSS or Website Preview",
-			Body:       "HTTP(S) podcast feed or website URL.\nRead-only preview. Enter plays; u subscribes.",
+			Body:       body,
 			InputLabel: "URL",
 			InputValue: input,
-			Hint:       "Enter preview · Esc cancel · Ctrl+U clear",
+			Hint:       "Esc cancel · Enter preview · Ctrl+U clear",
 		})
 		return
 	}
@@ -328,12 +350,16 @@ func (m *libraryShell) renderSearch() {
 			scope = "Online shows directory (Podcast Index credentials)"
 		}
 	}
+	body := scope + "\nOr paste a feed/website URL for a read-only preview."
+	if m.browse.inputError != "" {
+		body = m.browse.inputError
+	}
 	m.Model = m.Model.WithDialog(&ui.Dialog{
 		Title:      title,
-		Body:       scope + "\nOr paste a feed/website URL for a read-only preview.",
+		Body:       body,
 		InputLabel: "Query or URL",
 		InputValue: m.browse.input,
-		Hint:       "Enter search/preview · Tab switch source · Esc cancel · Ctrl+U clear",
+		Hint:       "Esc cancel · Enter submit · Tab source · Ctrl+U clear",
 	})
 }
 func (m *libraryShell) appendSearch(text string) {
@@ -362,6 +388,11 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+c":
 		return tea.Quit
 	case "esc":
+		m.notice = "Search canceled."
+		if m.browse.urlInput {
+			m.notice = "URL preview canceled."
+		}
+		m.browse.input, m.browse.inputError = "", ""
 		m.browse.searching = false
 		m.Model = m.Model.WithDialog(nil)
 	case "tab":
@@ -386,7 +417,9 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		if m.searchingURL(m.browse.input) {
 			address, err := httpurl.Parse(strings.TrimSpace(m.browse.input))
 			if err != nil {
-				m.notice = err.Error()
+				m.browse.inputError = feedback.For("Feed preview", err).Summary
+				m.notice = m.browse.inputError
+				m.renderSearch()
 				return nil
 			}
 			m.browse.searching = false
@@ -409,6 +442,8 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		query := strings.Join(strings.Fields(m.browse.input), " ")
 		if m.browse.searchApple && m.browse.searchIndex && query == "" {
 			m.notice = "Podcast Index requires a search term"
+			m.browse.inputError = m.notice
+			m.renderSearch()
 			return nil
 		}
 		m.browse.searching = false
@@ -444,6 +479,7 @@ func (m *libraryShell) previewShow() tea.Cmd {
 	}
 	m.cancelPreview()
 	m.browse.retryPreview = true
+	m.Model = m.Model.ClearFeedback("Feed preview")
 	m.browse.errorText = ""
 	m.notice = "Loading feed preview…"
 	ctx, cancel := context.WithCancel(m.s.ctx)
@@ -470,9 +506,10 @@ func (m *libraryShell) applyPreview(msg previewLoaded) {
 		return
 	}
 	if msg.err != nil {
-		m.notice = discoveryFailure("Feed preview", msg.err, "Press R to retry this feed preview, or U to enter a different URL.")
+		m.report("Feed preview", msg.err, "Press R to retry this feed preview, or U to enter a different URL.")
 		m.browse.errorText = m.notice
 	} else {
+		m.Model = m.Model.ClearFeedback("Feed preview")
 		m.browse.errorText = ""
 		m.browse.preview = &msg.preview
 		m.browse.previewKey = msg.key
@@ -514,13 +551,13 @@ func (m libraryShell) previewEpisode() (store.Episode, bool) {
 	return store.Episode{}, false
 }
 func (m *libraryShell) renderDiscovery() {
-	topTag := "US top 25"
+	topTag := "US Top 100"
 	if m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
-		topTag = strings.ToUpper(m.s.config.Country) + " top"
+		topTag = strings.ToUpper(m.s.config.Country) + " Top 100"
 	}
 	label := "Discover · Apple Podcasts · " + topTag
 	if m.browse.query != "" {
-		label = "Discover · Apple search: " + m.browse.query
+		label = "Discover · Apple Podcasts search: " + m.browse.query
 		if m.browse.usingIndex {
 			label = "Discover · Podcast Index search: " + m.browse.query
 		}
@@ -574,7 +611,11 @@ func (m *libraryShell) renderDiscovery() {
 	m.renderStatus()
 }
 func (m *libraryShell) renderPreviewDetails() {
-	details := "Apple Podcasts · US top 25\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to My library.\nSource: https://podcasts.apple.com/us/charts"
+	country := strings.ToUpper(m.s.config.Country)
+	if country == "" {
+		country = "US"
+	}
+	details := "Apple Podcasts · " + country + " Top 100\nEnter a show to inspect its feed before subscribing.\nf searches Apple shows; b returns to Library.\nSource: https://podcasts.apple.com/" + strings.ToLower(country) + "/charts"
 	if m.browse.query != "" {
 		details = m.directoryName() + " search: " + m.browse.query + "\nOnline shows, not remote episode text."
 		if m.browse.usingIndex {
@@ -603,9 +644,9 @@ func (m *libraryShell) renderPreviewDetails() {
 			details += fmt.Sprintf("\nCustomer rating: ★ %.1f/5 (%d reviews)", show.Rating, show.ReviewCount)
 		}
 		if m.browse.source != "" {
-			details += "\nDirectory source: " + m.browse.source
+			details += "\nDirectory source: " + feedback.SourceURL(m.browse.source)
 		} else if m.browse.directURL {
-			details += "\nFeed: " + m.browse.preview.URL
+			details += "\nFeed: " + feedback.SourceURL(m.browse.preview.URL)
 		}
 	}
 	m.Model = m.Model.WithDetails(details)

@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/feedback"
 	"podmutt/internal/player"
 	"podmutt/internal/store"
 )
 
-var ErrClosed = errors.New("playback: session closed")
-var ErrNoEpisode = errors.New("playback: no current episode")
+var ErrClosed = feedback.New(feedback.SessionClosed, "playback: session closed")
+var ErrNoEpisode = feedback.New(feedback.NoEpisode, "playback: no current episode")
 
 const operationTimeout = 3 * time.Second
 
@@ -29,13 +30,14 @@ const (
 )
 
 type State struct {
-	Revision uint64    // monotonic within this actor lifetime; presentation rejects stale replies
-	ClockAt  time.Time // last moving position anchor; queue-only updates preserve it
-	Current  *store.Episode
-	Queue    []store.Episode
-	Status   Status
-	Error    string
-	CanSeek  bool
+	ErrorRevision uint64    // identifies a new failure, independent of progress/queue snapshots
+	Revision      uint64    // monotonic within this actor lifetime; presentation rejects stale replies
+	ClockAt       time.Time // last moving position anchor; queue-only updates preserve it
+	Current       *store.Episode
+	Queue         []store.Episode
+	Status        Status
+	Error         string
+	CanSeek       bool
 }
 
 type Repository interface {

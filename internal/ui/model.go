@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/feedback"
 	"podmutt/internal/theme"
 )
 
@@ -73,33 +74,37 @@ type SettingsData struct {
 }
 
 type Model struct {
-	version       string
-	theme         theme.Palette
-	settings      bool
-	settingsData  SettingsData
-	icons         string
-	animation     animation
-	activity      activityView
-	progress      progressClock
-	data          Data
-	width, height int
-	focus         Panel
-	lastVisible   Panel
-	selected      [3]int
-	colOffset     [3]int
-	filters       [3]string
-	editing       bool
-	previous      string
-	help          bool
-	actions       func(string) tea.Cmd
-	detailScroll  int
-	playerButton  int
-	decoration    bool
-	episodeOps    EpisodeActions
-	queueChannel  bool
-	queueTail     []string
-	artColumns    int
-	artRows       []string
+	message, backgroundMessage feedback.Message
+	messageOpen                bool
+	messageScroll              int
+	version                    string
+	theme                      theme.Palette
+	settings                   bool
+	settingsPending            bool
+	settingsData               SettingsData
+	icons                      string
+	animation                  animation
+	activity                   activityView
+	progress                   progressClock
+	data                       Data
+	width, height              int
+	focus                      Panel
+	lastVisible                Panel
+	selected                   [3]int
+	colOffset                  [3]int
+	filters                    [3]string
+	editing                    bool
+	previous                   string
+	help                       bool
+	actions                    func(string) tea.Cmd
+	detailScroll               int
+	playerButton               int
+	decoration                 bool
+	episodeOps                 EpisodeActions
+	queueChannel               bool
+	queueTail                  []string
+	artColumns                 int
+	artRows                    []string
 }
 
 func New(data Data) Model     { return Model{data: data} }
@@ -121,6 +126,7 @@ func (m Model) Theme() theme.Palette {
 }
 func (m Model) WithSettings(s SettingsData) Model {
 	m.settingsData = s
+	m.settingsPending = false
 	for i, t := range s.Themes {
 		if t == s.ActiveTheme {
 			m.settingsData.Selected = i
@@ -146,7 +152,7 @@ func (m Model) Select(panel Panel, id string) Model {
 	return m
 }
 func (m Model) Busy() bool {
-	return m.editing || m.help || m.settings || m.data.Dialog != nil || m.data.Prompt != ""
+	return m.editing || m.help || m.settings || m.messageOpen || m.data.Dialog != nil || m.data.Prompt != ""
 }
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
@@ -353,7 +359,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key == "q" {
 			return m, tea.Quit
 		}
+		if m.messageOpen {
+			switch key {
+			case "esc", "!":
+				m.messageOpen = false
+				m.message = feedback.Message{}
+				m.messageScroll = 0
+			case "j", "down", "pgdown", "ctrl+d":
+				m.scrollFeedback(1)
+			case "k", "up", "pgup", "ctrl+u":
+				m.scrollFeedback(-1)
+			}
+			return m, nil
+		}
 		if m.settings {
+			if m.settingsPending && key != "esc" && key != "e" {
+				return m, nil
+			}
 			switch key {
 			case "j", "down":
 				if m.settingsData.Selected < len(m.settingsData.Themes)-1 {
@@ -366,11 +388,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if len(m.settingsData.Themes) > 0 && m.actions != nil {
 					chosen := m.settingsData.Themes[m.settingsData.Selected]
-					m.settingsData.ActiveTheme = chosen
+					m.settingsPending = true
 					return m, m.actions("theme:" + chosen)
 				}
 			case "right", "left", "C":
 				if m.actions != nil {
+					m.settingsPending = true
 					return m, m.actions("country:cycle")
 				}
 			case "esc", "e":
@@ -388,6 +411,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch key {
+		case "!":
+			if m.activeMessage().Summary != "" {
+				m.messageOpen = true
+				m.messageScroll = 0
+			}
+			return m, nil
 		case "left", "right":
 			if m.focus == PlayerPanel {
 				step := 1

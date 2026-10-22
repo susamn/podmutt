@@ -2,11 +2,11 @@ package playback
 
 import (
 	"context"
-	"errors"
+	"podmutt/internal/feedback"
 	"slices"
 )
 
-var ErrNoQueueUndo = errors.New("playback: no queue removal to undo")
+var ErrNoQueueUndo = feedback.New(feedback.NoUndo, "playback: no queue removal to undo")
 
 type queueRemoval struct {
 	id, previous, next int64

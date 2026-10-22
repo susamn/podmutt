@@ -73,7 +73,7 @@ func (m Model) playerNotices(width int) []string {
 	var first, continuation []string
 	for _, notice := range []struct{ text, label, color string }{
 		{m.data.Player.Error, "Error: ", string(pal.BrightRed)},
-		{m.data.Player.Warning, "Media: ", string(pal.BrightYellow)},
+		{m.data.Player.Warning, "Media (!): ", string(pal.BrightYellow)},
 	} {
 		if notice.text == "" {
 			continue

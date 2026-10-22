@@ -6,16 +6,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"podmutt/internal/feedback"
 	"time"
 
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
 )
 
-var ErrNotRunning = errors.New("podmutt: not running for this profile")
+var ErrNotRunning = feedback.New(feedback.NotRunning, "podmutt: not running for this profile")
 
 const timeout = 5 * time.Second
 const maxRequest = 4096
@@ -97,16 +97,19 @@ func brief(episode store.Episode) Episode {
 
 func readFrame(reader io.Reader, limit int, value any) error {
 	line, err := bufio.NewReaderSize(reader, limit+1).ReadSlice('\n')
-	if err != nil || len(line) > limit {
-		return fmt.Errorf("invalid or oversized control frame")
+	if err != nil {
+		return feedback.Wrap(feedback.Protocol, err)
+	}
+	if len(line) > limit {
+		return feedback.New(feedback.Protocol, "invalid or oversized control frame")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(line))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(value); err != nil {
-		return fmt.Errorf("invalid control JSON")
+		return feedback.Wrap(feedback.Protocol, err)
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
-		return fmt.Errorf("extra control JSON")
+		return feedback.New(feedback.Protocol, "extra control JSON")
 	}
 	return nil
 }

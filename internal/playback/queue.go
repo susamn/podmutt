@@ -3,12 +3,13 @@ package playback
 import (
 	"context"
 	"errors"
+	"podmutt/internal/feedback"
 	"slices"
 
 	"podmutt/internal/store"
 )
 
-var ErrQueueChanged = errors.New("playback: queue changed; review it and try again")
+var ErrQueueChanged = feedback.New(feedback.QueueChanged, "playback: queue changed; review it and try again")
 
 func queueIDs(queue []store.Episode) []int64 {
 	ids := make([]int64, len(queue))

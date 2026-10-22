@@ -193,7 +193,7 @@ func TestViewsFitTerminal(t *testing.T) {
 		}
 	}
 	m := resize(New(Data{}), 120, 32)
-	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No items") || !strings.Contains(text, "No current episode") {
+	if text := ansi.Strip(m.View().Content); !strings.Contains(text, "No shows") || !strings.Contains(text, "No current episode") {
 		t.Fatal("empty-state placeholders missing")
 	}
 	m = resize(New(Data{}), 50, 15)
@@ -365,7 +365,7 @@ func TestRenderRowCharacterization(t *testing.T) {
 func TestBottomHintsContextual(t *testing.T) {
 	m := New(Data{PodcastLabel: "My subscriptions"}).WithTheme(theme.Default())
 	subHints := ansi.Strip(m.bottomHints())
-	for _, expected := range []string{"/:search", "o:sort episodes", "Tab/2:episodes", "f:find podcast"} {
+	for _, expected := range []string{"/:filter", "o:sort episodes", "Tab/2:episodes", "f:find podcast"} {
 		if !strings.Contains(subHints, expected) {
 			t.Fatalf("expected hint %q in subscriptions: %s", expected, subHints)
 		}
@@ -373,7 +373,7 @@ func TestBottomHintsContextual(t *testing.T) {
 
 	mDiscover := New(Data{PodcastLabel: "Discover · Apple"}).WithTheme(theme.Default())
 	discHints := ansi.Strip(mDiscover.bottomHints())
-	for _, expected := range []string{"/:search list", "f:find podcast", "b:library", "t:top25", ",/.:seek"} {
+	for _, expected := range []string{"/:filter list", "f:find podcast", "b:library", "t:top100", ",/.:seek"} {
 		if !strings.Contains(discHints, expected) {
 			t.Fatalf("expected hint %q in discover: %s", expected, discHints)
 		}

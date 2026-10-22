@@ -10,7 +10,7 @@ import (
 func TestDiscoveryActionsReserveViewportWithoutBecomingItems(t *testing.T) {
 	for _, size := range [][2]int{{160, 44}, {100, 24}, {70, 20}, {30, 12}} {
 		data := fixture()
-		data.PodcastHint = "f Search podcasts\nU RSS/website preview\nt Apple US top 25\x1b[2J"
+		data.PodcastHint = "f Search podcasts\nU RSS/website preview\nt Apple Top 100\x1b[2J"
 		m := resize(New(data), size[0], size[1])
 		m = m.Select(Podcasts, data.Podcasts[len(data.Podcasts)-1].ID)
 		if len(m.Visible(Podcasts)) != len(data.Podcasts) {

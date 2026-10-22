@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/BurntSushi/toml"
+	"podmutt/internal/feedback"
 )
 
 type Config struct {
@@ -34,37 +35,37 @@ func Load(path string) (Config, error) {
 		return cfg, nil
 	}
 	if err != nil {
-		return Config{}, err
+		return Config{}, &feedback.Fault{Code: feedback.Configuration, Safe: "config.toml could not be read. Check that it is a readable file, not a directory.", Cause: err}
 	}
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
-		return Config{}, fmt.Errorf("configuration: %w", err)
+		return Config{}, &feedback.Fault{Code: feedback.Configuration, Safe: "The TOML syntax or a setting's value type is invalid. Check quotes, value types and line syntax.", Cause: err}
 	}
 	if len(md.Undecoded()) != 0 {
-		return Config{}, fmt.Errorf("configuration: unknown key %s", md.Undecoded()[0])
+		return Config{}, feedback.New(feedback.Configuration, "An unknown option is present. Supported keys: refresh_minutes, mpv_path, telemetry, icons, theme, player_decoration, country.")
 	}
 	if cfg.RefreshMinutes < 1 || cfg.MPVPath == "" {
-		return Config{}, fmt.Errorf("configuration: refresh_minutes must be positive and mpv_path nonempty")
+		return Config{}, feedback.New(feedback.Configuration, "refresh_minutes must be positive (for example 30); mpv_path must be nonempty (for example mpv).")
 	}
 	if cfg.Icons != "unicode" && cfg.Icons != "nerd" && cfg.Icons != "plain" {
-		return Config{}, fmt.Errorf("configuration: icons must be unicode, nerd or plain")
+		return Config{}, feedback.New(feedback.Configuration, "icons must be unicode, nerd or plain.")
 	}
 	if cfg.Theme == "" {
 		cfg.Theme = "colors"
 	}
 	if filepath.Base(cfg.Theme) != cfg.Theme {
-		return Config{}, fmt.Errorf("configuration: theme must be a simple name")
+		return Config{}, feedback.New(feedback.Configuration, "theme must be a simple name, not a path (for example catppuccin).")
 	}
 	if cfg.Country == "" {
 		cfg.Country = DetectCountry(os.Getenv)
 	} else {
 		cfg.Country = strings.ToLower(strings.TrimSpace(cfg.Country))
 		if len(cfg.Country) != 2 || !isAlpha(cfg.Country) {
-			return Config{}, fmt.Errorf("configuration: country must be a 2-letter ISO code")
+			return Config{}, feedback.New(feedback.Configuration, "country must be a 2-letter code (for example us or de).")
 		}
 	}
 	if cfg.Telemetry {
-		return Config{}, fmt.Errorf("configuration: telemetry is not supported")
+		return Config{}, feedback.New(feedback.Configuration, "telemetry is not supported; remove the option or set it to false.")
 	}
 	return cfg, nil
 }
@@ -72,7 +73,7 @@ func Load(path string) (Config, error) {
 // SetTheme updates or appends the theme setting in config.toml.
 func SetTheme(path, themeName string) error {
 	if filepath.Base(themeName) != themeName {
-		return fmt.Errorf("configuration: theme must be a simple name")
+		return feedback.New(feedback.Configuration, "theme must be a simple name, not a path (for example catppuccin).")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -139,7 +140,7 @@ func isAlpha(s string) bool {
 func SetCountry(path, country string) error {
 	country = strings.ToLower(strings.TrimSpace(country))
 	if len(country) != 2 || !isAlpha(country) {
-		return fmt.Errorf("configuration: country must be a 2-letter ISO code")
+		return feedback.New(feedback.Configuration, "country must be a 2-letter code (for example us or de).")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -206,7 +207,7 @@ func (p Paths) SetOnboarded() error {
 // Supplying the platform and environment explicitly also makes path policy testable.
 func Resolve(platform, home string, getenv func(string) string) (Paths, error) {
 	if !filepath.IsAbs(home) {
-		return Paths{}, fmt.Errorf("profile: home must be absolute")
+		return Paths{}, feedback.New(feedback.Input, "Set HOME to an absolute home directory before starting podmutt.")
 	}
 	switch platform {
 	case "linux":
@@ -226,7 +227,7 @@ func Resolve(platform, home string, getenv func(string) string) (Paths, error) {
 		state := filepath.Join(home, "Library", "Application Support", "podmutt")
 		return Paths{filepath.Join(state, "config.toml"), state, filepath.Join(state, "run")}, nil
 	default:
-		return Paths{}, fmt.Errorf("profile: unsupported platform %q", platform)
+		return Paths{}, feedback.New(feedback.Input, "podmutt supports Linux and macOS; this platform is not supported.")
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"podmutt/internal/app"
 	"podmutt/internal/control"
+	"podmutt/internal/feedback"
 	"podmutt/internal/macmedia"
 )
 
@@ -26,16 +27,17 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer, startUI func() error, command func(string, io.Writer) error) int {
 	flags := flag.NewFlagSet("podmutt", flag.ContinueOnError)
-	flags.SetOutput(stderr)
+	flags.SetOutput(io.Discard) // flag.Parse may otherwise echo sensitive argument values
 	showVersion := flags.Bool("version", false, "print version and exit")
 	flags.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: podmutt [--version | --help | play | pause | stop | next | status | import-opml FILE]")
-		flags.PrintDefaults()
+		fmt.Fprintln(stderr, "  --version  Print version and exit\n  --help     Show this help")
 	}
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
 		}
+		fmt.Fprintln(stderr, "podmutt: Invalid command-line options. Use podmutt --help for supported commands.")
 		return 2
 	}
 	if flags.NArg() >= 1 && flags.Arg(0) == "import-opml" {
@@ -44,18 +46,18 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error, command 
 			return 2
 		}
 		if err := importOPML(flags.Arg(1), stdout); err != nil {
-			fmt.Fprintln(stderr, "podmutt:", err)
+			fmt.Fprintln(stderr, "podmutt:", feedback.For("OPML import", err).Text())
 			return 1
 		}
 		return 0
 	}
 	if flags.NArg() != 0 {
 		if flags.NArg() != 1 || *showVersion || !control.Valid(flags.Arg(0)) {
-			fmt.Fprintln(stderr, "podmutt: unexpected arguments")
+			fmt.Fprintln(stderr, "podmutt: unexpected arguments. Use podmutt --help for supported commands.")
 			return 2
 		}
 		if err := command(flags.Arg(0), stdout); err != nil {
-			fmt.Fprintln(stderr, "podmutt:", err)
+			fmt.Fprintln(stderr, "podmutt:", feedback.For("Playback command", err).Text())
 			if errors.Is(err, control.ErrNotRunning) {
 				return 3
 			}
@@ -68,7 +70,7 @@ func run(args []string, stdout, stderr io.Writer, startUI func() error, command 
 		return 0
 	}
 	if err := startUI(); err != nil {
-		fmt.Fprintln(stderr, "podmutt:", err)
+		fmt.Fprintln(stderr, "podmutt:", feedback.For("Start or close podmutt", err).Text())
 		return 1
 	}
 	return 0
