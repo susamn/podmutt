@@ -7,7 +7,29 @@ import (
 	"testing"
 
 	"podmutt/internal/feed"
+	"podmutt/internal/playback"
 )
+
+func TestRepeatedPlayerSnapshotsDoNotReplayAnOldFailure(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m := browserLibrary(t, s, &fixtureDirectory{})
+		state := playback.State{Revision: 1, ErrorRevision: 1, Status: playback.Failed, Error: "Playback failed. Try again."}
+		updateLibrary(&m, playbackUpdate{state: state, ok: true})
+		m.report("Apple Podcasts search", context.DeadlineExceeded, "Press R to retry.")
+		state.Revision++
+		updateLibrary(&m, playbackUpdate{state: state, ok: true})
+		if !strings.Contains(m.View().Content, "Apple Podcasts search timed out") {
+			t.Fatal("old player snapshot replaced current failure")
+		}
+		state.Revision++
+		state.ErrorRevision++
+		updateLibrary(&m, playbackUpdate{state: state, ok: true})
+		libraryKey(&m, '!')
+		if !strings.Contains(m.View().Content, "Playback failed. Try again.") {
+			t.Fatal("new identical player failure was suppressed")
+		}
+	})
+}
 
 func TestBackgroundFailuresCannotReplaceForegroundRecovery(t *testing.T) {
 	librarySession(t, func(s *session) {

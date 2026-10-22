@@ -30,13 +30,14 @@ const (
 )
 
 type State struct {
-	Revision uint64    // monotonic within this actor lifetime; presentation rejects stale replies
-	ClockAt  time.Time // last moving position anchor; queue-only updates preserve it
-	Current  *store.Episode
-	Queue    []store.Episode
-	Status   Status
-	Error    string
-	CanSeek  bool
+	ErrorRevision uint64    // identifies a new failure, independent of progress/queue snapshots
+	Revision      uint64    // monotonic within this actor lifetime; presentation rejects stale replies
+	ClockAt       time.Time // last moving position anchor; queue-only updates preserve it
+	Current       *store.Episode
+	Queue         []store.Episode
+	Status        Status
+	Error         string
+	CanSeek       bool
 }
 
 type Repository interface {
