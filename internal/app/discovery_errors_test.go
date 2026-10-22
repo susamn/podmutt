@@ -31,7 +31,7 @@ func TestDiscoveryFailureClassifiesWithoutEchoingRawErrors(t *testing.T) {
 		{"deadline", context.DeadlineExceeded, "Apple Podcasts search timed out.", true},
 		{"transport timeout", discoveryNetworkError{true}, "Apple Podcasts search timed out.", true},
 		{"connection", discoveryNetworkError{false}, "Check your connection.", true},
-		{"directory unavailable", fmt.Errorf("transport: %w", discovery.ErrUnavailable), "Could not reach the source", true},
+		{"directory unavailable", fmt.Errorf("transport: %w", discovery.ErrUnavailable), "Could not connect", true},
 		{"rate limit", discovery.ErrRateLimited, "Wait a moment", true},
 		{"query", discovery.ErrQuery, "between 1 and 128 characters", false},
 		{"Index setup", discovery.ErrIndexCredentials, "PODMUTT_PODCAST_INDEX_KEY", false},
