@@ -84,8 +84,19 @@ func (m Model) pane(panel Panel, width, height int) string {
 		}
 		rows = append(rows, m.renderList(panel, items, width, listCapacity(panel, height))...)
 		if len(items) == 0 {
-			empty := "No items"
-			if panel == Podcasts && m.data.PodcastEmpty != "" {
+			empty := "No episodes for this selection"
+			if panel == Podcasts {
+				empty = "No shows · f find a podcast"
+			}
+			if m.HasFilter(panel) {
+				if panel == Podcasts {
+					empty = "No matching shows"
+				} else if panel == Queue {
+					empty = "No matching queue episodes"
+				} else {
+					empty = "No matching episodes"
+				}
+			} else if panel == Podcasts && m.data.PodcastEmpty != "" {
 				empty = clean(m.data.PodcastEmpty, false)
 			} else if panel == Episodes && m.data.EpisodeEmpty != "" {
 				empty = clean(m.data.EpisodeEmpty, false)

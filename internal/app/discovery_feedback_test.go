@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"podmutt/internal/discovery"
+	"podmutt/internal/feedback"
 )
 
 func TestDirectoryFeedbackCancellationTimeoutAndStaleReplies(t *testing.T) {
@@ -14,7 +15,7 @@ func TestDirectoryFeedbackCancellationTimeoutAndStaleReplies(t *testing.T) {
 		for _, err := range []error{context.DeadlineExceeded, discovery.ErrUnavailable, discovery.ErrRateLimited, errors.New("https://user:private-secret@example.test?token=private-secret")} {
 			m := browserLibrary(t, s, &fixtureDirectory{err: err})
 			finishLibrary(&m, m.searchDirectory("science"))
-			want := discoveryFailure("Apple Podcasts search", err, "Press R to retry, f for another search, or b for your saved Library.")
+			want := feedback.Retry(feedback.For("Apple Podcasts search", err), "Press R to retry, f for another search, or b for your saved Library.").Text()
 			if m.notice != want || m.browse.errorText != want || strings.Contains(m.notice, "private-secret") {
 				t.Fatal(m.notice)
 			}
