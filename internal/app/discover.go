@@ -10,6 +10,7 @@ import (
 	"podmutt/internal/activity"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/store"
@@ -37,7 +38,7 @@ type browseState struct {
 	previewGeneration                           uint64
 	previewCancel                               context.CancelFunc
 	searching, searchApple, urlInput, directURL bool
-	input, errorText                            string
+	input, errorText, inputError                string
 	retryPreview                                bool
 }
 type discoverStartup struct{}
@@ -309,24 +310,30 @@ func (m *libraryShell) openSearch() {
 	m.browse.urlInput = false
 	m.browse.searchApple = m.browse.active
 	m.browse.searchIndex = m.browse.usingIndex
+	m.browse.inputError = ""
 	m.browse.input = ""
 	m.renderSearch()
 }
 func (m *libraryShell) openURL() {
 	m.browse.searching = true
 	m.browse.urlInput = true
+	m.browse.inputError = ""
 	m.browse.input = ""
 	m.renderSearch()
 }
 func (m *libraryShell) renderSearch() {
 	if m.browse.urlInput {
 		input := m.browse.input
+		body := "HTTP(S) podcast feed or website URL.\nRead-only preview. Enter plays; u subscribes."
+		if m.browse.inputError != "" {
+			body = m.browse.inputError
+		}
 		m.Model = m.Model.WithDialog(&ui.Dialog{
 			Title:      "RSS or Website Preview",
-			Body:       "HTTP(S) podcast feed or website URL.\nRead-only preview. Enter plays; u subscribes.",
+			Body:       body,
 			InputLabel: "URL",
 			InputValue: input,
-			Hint:       "Enter preview · Esc cancel · Ctrl+U clear",
+			Hint:       "Esc cancel · Enter preview · Ctrl+U clear",
 		})
 		return
 	}
@@ -340,12 +347,16 @@ func (m *libraryShell) renderSearch() {
 			scope = "Online shows directory (Podcast Index credentials)"
 		}
 	}
+	body := scope + "\nOr paste a feed/website URL for a read-only preview."
+	if m.browse.inputError != "" {
+		body = m.browse.inputError
+	}
 	m.Model = m.Model.WithDialog(&ui.Dialog{
 		Title:      title,
-		Body:       scope + "\nOr paste a feed/website URL for a read-only preview.",
+		Body:       body,
 		InputLabel: "Query or URL",
 		InputValue: m.browse.input,
-		Hint:       "Enter search/preview · Tab switch source · Esc cancel · Ctrl+U clear",
+		Hint:       "Esc cancel · Enter submit · Tab source · Ctrl+U clear",
 	})
 }
 func (m *libraryShell) appendSearch(text string) {
@@ -398,7 +409,9 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		if m.searchingURL(m.browse.input) {
 			address, err := httpurl.Parse(strings.TrimSpace(m.browse.input))
 			if err != nil {
-				m.notice = err.Error()
+				m.browse.inputError = feedback.For("Feed preview", err).Summary
+				m.notice = m.browse.inputError
+				m.renderSearch()
 				return nil
 			}
 			m.browse.searching = false
@@ -421,6 +434,8 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 		query := strings.Join(strings.Fields(m.browse.input), " ")
 		if m.browse.searchApple && m.browse.searchIndex && query == "" {
 			m.notice = "Podcast Index requires a search term"
+			m.browse.inputError = m.notice
+			m.renderSearch()
 			return nil
 		}
 		m.browse.searching = false
