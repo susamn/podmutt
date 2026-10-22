@@ -46,6 +46,7 @@ type playbackUpdate struct {
 	ok    bool
 }
 type actionError struct{ error }
+type actionSucceeded struct{}
 type settingsError struct {
 	setting string
 	err     error
@@ -62,7 +63,7 @@ type countryChangedMsg struct {
 
 func newShell(s *session) shell {
 	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(command string) tea.Cmd {
-		cfg := s.config
+		cfg := s.config // capture on the UI thread; workers never mutate session settings
 		return work(s.ctx, commandLabel(command), func(ctx context.Context) tea.Msg {
 			var err error
 			if strings.HasPrefix(command, "theme:") {
@@ -103,7 +104,7 @@ func newShell(s *session) shell {
 			if err != nil {
 				return actionError{err}
 			}
-			return nil
+			return actionSucceeded{}
 		})
 	}), s: s}
 }
@@ -117,6 +118,11 @@ func currentInQueue(state playback.State) bool {
 func (m shell) withPlayback(state playback.State) shell {
 	if state.Revision != 0 && state.Revision < m.state.Revision {
 		return m
+	}
+	if state.Error != "" {
+		m.Model = m.Model.WithFeedback(feedback.Message{Scope: "Playback", Code: feedback.PlayerFailure, Severity: "error", Summary: state.Error})
+	} else if m.state.Error != "" {
+		m.Model = m.Model.ClearFeedback("Playback")
 	}
 	m.state = state
 	// Marking history complete does not itself stop current audio. Keep its
@@ -150,7 +156,7 @@ func (m shell) withPlayback(state playback.State) shell {
 	}
 	mediaError = errors.Join(mediaError, m.s.nativeMedia.Err())
 	if mediaError != nil {
-		player.Warning = mediaError.Error()
+		player.Warning = "Desktop media keys are unavailable. Use the in-app playback controls."
 	}
 	m.Model = m.Model.WithPlayback(queue, player)
 	return m
@@ -177,8 +183,12 @@ func (m shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var progress tea.Cmd
 		m.Model, progress = m.Model.SyncProgress()
 		return m, tea.Batch(m.wait(), animation, progress)
+	case actionSucceeded:
+		m.Model = m.Model.ClearFeedback("Playback").WithPlayerError("")
+		return m, nil
 	case actionError:
-		m.Model = m.Model.WithPlayerError(msg.Error())
+		message := feedback.For("Playback", msg.error)
+		m.Model = m.Model.WithFeedback(message).WithPlayerError(message.Text())
 		return m, nil
 	}
 	updated, cmd := m.Model.Update(msg)
