@@ -14,7 +14,7 @@ type EpisodeDetails struct {
 	Key, Title, Show, Date, Duration string
 	State, Position, Description     string
 	Rating                           string
-	Queued, Inspecting               bool
+	Queued, Inspecting, Favorited    bool
 }
 
 func (m Model) WithEpisodeDetails(card EpisodeDetails) Model {
@@ -69,6 +69,13 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 		}
 	}
 	add(card.Show, lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.ChannelColor(card.Show)))))
+	if card.Favorited {
+		badge := "♥ Favorited"
+		if m.icons == "plain" {
+			badge = "[Fav] Favorited"
+		}
+		add(badge, lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Red))))
+	}
 	var metadata []string
 	for _, field := range []string{card.Date, card.Duration, card.State} {
 		if field != "" {

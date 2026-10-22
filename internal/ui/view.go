@@ -11,7 +11,7 @@ import (
 	"podmutt/internal/theme"
 )
 
-var titles = [4]string{"Library", "Episodes", "Queue", "Details"}
+var titles = [5]string{"Library", "Episodes", "Queue", "Details", "Favorites"}
 
 // clean removes terminal escapes and control characters from untrusted metadata.
 func clean(text string, multiline bool) string {
@@ -28,7 +28,7 @@ func clean(text string, multiline bool) string {
 
 func listCapacity(panel Panel, height int) int {
 	rows := height - 3
-	if panel == Episodes || panel == Queue {
+	if panel == Episodes || panel == Queue || panel == Favorites {
 		rows-- // pinned table header
 	}
 	return max(0, rows)
@@ -42,6 +42,8 @@ func (m Model) listPageSize() int {
 		height = g.episodes
 	} else if m.focus == Queue {
 		height = g.queue
+	} else if m.focus == Favorites {
+		height = g.favorites
 	}
 	if m.compact() {
 		top, middle, _ := m.compactHeights()
@@ -81,6 +83,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 			rows = append(rows, m.renderEpisodesHeader(width))
 		} else if panel == Queue {
 			rows = append(rows, m.renderQueueHeader(width))
+		} else if panel == Favorites {
+			rows = append(rows, m.renderFavoritesHeader(width))
 		}
 		rows = append(rows, m.renderList(panel, items, width, listCapacity(panel, height))...)
 		if len(items) == 0 {
@@ -93,6 +97,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 					empty = "No matching shows"
 				} else if panel == Queue {
 					empty = "No matching queue episodes"
+				} else if panel == Favorites {
+					empty = "No matching favorites"
 				} else {
 					empty = "No matching episodes"
 				}
@@ -102,9 +108,8 @@ func (m Model) pane(panel Panel, width, height int) string {
 				empty = clean(m.data.EpisodeEmpty, false)
 			} else if panel == Queue {
 				empty = "Queue empty · 2: Episodes"
-				if m.HasFilter(Queue) {
-					empty = "No matching queue episodes"
-				}
+			} else if panel == Favorites {
+				empty = "No favorites · m in Queue to add"
 			}
 			rows = append(rows, empty)
 		}
@@ -193,6 +198,8 @@ func (m Model) renderRow(panel Panel, item Item, width int, selected bool) strin
 		return m.renderEpisodeRow(item, width, selected)
 	case Queue:
 		return m.renderQueueRow(item, width, selected)
+	case Favorites:
+		return m.renderFavoritesRow(item, width, selected)
 	default:
 		return prefix + m.Icon(panelIcon(panel), clean(item.Title, false))
 	}
@@ -392,10 +399,25 @@ func (m Model) bottomHints() string {
 			{"?", "help"},
 			{"q", "quit"},
 		}
+	case Favorites:
+		hints = []hint{
+			{"Enter", "play"},
+			{"d/Del", "remove"},
+			{"j/k", "select"},
+			{"i", "details"},
+			{"/", "filter"},
+			{"Space", "pause/resume"},
+			{",/.", "seek"},
+			{"Tab", "pane"},
+			{"e", "settings"},
+			{"?", "help"},
+			{"q", "quit"},
+		}
 	case Queue:
 		hints = []hint{
 			{"d/Del", "remove"},
 			{"u", "undo"},
+			{"m", "actions"},
 			{"j/k", "select"},
 			{"Enter", "play"},
 			{"Space", "pause/resume"},
@@ -560,7 +582,7 @@ func (m Model) View() tea.View {
 			if top == 0 {
 				panel = m.lastVisible
 			}
-			if m.focus == Queue || m.focus == Details {
+			if m.focus == Queue || m.focus == Details || m.focus == Favorites {
 				panel = m.focus
 			}
 			parts := []string{}
@@ -572,7 +594,8 @@ func (m Model) View() tea.View {
 		} else {
 			g := m.wideLayout()
 			middle := lipgloss.JoinVertical(lipgloss.Left, m.pane(Episodes, g.episodeWidth, g.episodes), m.pane(Details, g.episodeWidth, g.details))
-			upper := lipgloss.JoinHorizontal(lipgloss.Top, middle, m.pane(Queue, g.queueWidth, g.queue))
+			right := lipgloss.JoinVertical(lipgloss.Left, m.pane(Queue, g.queueWidth, g.queue), m.pane(Favorites, g.queueWidth, g.favorites))
+			upper := lipgloss.JoinHorizontal(lipgloss.Top, middle, right)
 			body := lipgloss.JoinVertical(lipgloss.Left, upper, m.playerPane(g.playerWidth, g.player))
 			content = lipgloss.JoinHorizontal(lipgloss.Top, m.pane(Podcasts, g.libraryWidth, available), body)
 		}
@@ -632,16 +655,16 @@ func (m Model) View() tea.View {
 					"j/k arrows · g/G first/last item",
 					"Details: Enter play/resume · a queue · c complete",
 					"Preview completion requires subscription",
-					"h/Left back · l/Right open · Tab lists · 1-5 focus",
-					"Now playing (5): ,/. seek ±15s · arrows select · Enter activate",
+					"h/Left back · l/Right open · Tab lists · 1-6 focus",
+					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
 					"!             Full error/warning · j/k scroll · Esc dismiss",
 					"Space pause/resume current · s stop · n next",
-					"Episodes Enter play · i details · a enqueue · A enqueue visible",
-					"Queue: o visual sort · d/Del confirm removal · u undo",
-					"Pending: Enter play · D clear (confirm)",
+					"Episodes: Enter play · i details · a enqueue · A enqueue visible",
+					"Queue: m actions (favorite) · d/Del remove · u undo · D clear",
+					"Favorites (5): Enter play · d/Del un-favorite",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",
 					"U RSS/website preview · t Apple Top 100",

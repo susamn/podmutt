@@ -122,9 +122,9 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 - In **Queue (3)**, press **`d`** or **Delete** on an episode, then **`y`** to remove it or **`n` / Esc** to cancel. Removing current audio stops it without starting another episode; progress/history are kept. **`u`** restores the last removal as pending, without autoplay.
 
 ### 5. Switching Panels & Horizontal Panning
-- **`Tab`** cycles forward through the main lists: **Podcasts (1) → Episodes (2) → Up next (3)**.
+- **`Tab`** cycles forward through the main lists: **Podcasts (1) → Episodes (2) → Queue (3) → Favorites (5)**.
 - **`Shift+Tab`** cycles backward.
-- **`1`**, **`2`**, **`3`**, **`4`**, **`5`** jump directly to any panel.
+- **`1`**, **`2`**, **`3`**, **`4`**, **`5`**, **`6`** jump directly to any panel (`1` Podcasts, `2` Episodes, `3` Queue, `4` Details, `5` Favorites, `6` Player).
 - **`h` / `l`** (or `←` / `→`) scroll wide titles horizontally on compact screens.
 
 ### 6. Personalizing
@@ -141,8 +141,8 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 
 | Key | Action |
 | :--- | :--- |
-| `Tab` / `Shift+Tab` | Cycle main panels (**Podcasts → Episodes → Queue**) |
-| `1`–`5` | Directly focus pane (`1` Podcasts, `2` Episodes, `3` Queue, `4` Details, `5` Player) |
+| `Tab` / `Shift+Tab` | Cycle main lists (**Podcasts → Episodes → Queue → Favorites**) |
+| `1`–`6` | Directly focus pane (`1` Podcasts, `2` Episodes, `3` Queue, `4` Details, `5` Favorites, `6` Player) |
 | `j` / `k` or `↑` / `↓` | Move selection up / down |
 | `h` / `l` or `←` / `→` | Scroll content horizontally on narrow screens |
 | `g` / `G` | Jump to first / last item |
@@ -165,7 +165,8 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 | :--- | :--- |
 | `a` | Enqueue selected episode to Up Next |
 | `A` | Enqueue all visible episodes in current list |
-| `d` / `Delete` | Confirm removal of selected Queue episode; stops it if current |
+| `m` | Open episode actions menu in Queue (Mark as favorite) |
+| `d` / `Delete` | Confirm removal of selected Queue episode (stops if current) or un-favorite in Favorites |
 | `u` | Undo last removal (in Queue) / Toggle subscription (in Podcasts) |
 | `D` | Clear all pending queue items (with confirmation) |
 | `o` | Cycle sorting (newest, oldest, title) |

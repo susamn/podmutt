@@ -110,3 +110,45 @@ func (m Model) renderQueueColumns(item Item, width int, remaining string) string
 	}
 	return c.row(prefix, title, m.channelCell(item.Channel), "", remaining)
 }
+
+func favoritesColumns(width int) listColumns {
+	c := listColumns{inner: max(0, width-2), gutter: 4}
+	body := c.inner - c.gutter - 1
+	if width >= 50 {
+		c.date = 11
+		body -= 13
+	}
+	if width >= 40 {
+		c.channel = min(20, max(7, (body-2)/3))
+		body -= c.channel + 2
+	}
+	c.title = max(0, body)
+	return c
+}
+
+func (m Model) renderFavoritesHeader(width int) string {
+	c := favoritesColumns(width)
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "Channel", "Date", ""))
+}
+
+func (m Model) renderFavoritesRow(item Item, width int, selected bool) string {
+	c := favoritesColumns(width)
+	gutter := "♥ "
+	if m.icons == "plain" {
+		gutter = "* "
+	}
+	title := clean(item.PlainTitle, false)
+	if title == "" {
+		title = clean(item.Title, false)
+	}
+	if offset := m.colOffset[Favorites]; offset > 0 {
+		runes := []rune(title)
+		if offset < len(runes) {
+			title = string(runes[offset:])
+		} else {
+			title = ""
+		}
+	}
+	gutterStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Red)))
+	return c.row("  "+gutterStyle.Render(gutter), title, m.channelCell(item.Channel), clean(item.Date, false), "")
+}

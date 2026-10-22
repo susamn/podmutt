@@ -4,7 +4,7 @@ package ui
 const playerBaseRows = 7 // borders, identity/timeline/transport, top/bottom padding
 type wideGeometry struct {
 	libraryWidth, episodeWidth, queueWidth, playerWidth int
-	episodes, details, player, queue                    int
+	episodes, details, player, queue, favorites         int
 }
 
 func (m Model) wideLayout() wideGeometry {
@@ -21,7 +21,9 @@ func (m Model) wideLayout() wideGeometry {
 		g.player += 2
 		g.details -= 2
 	}
-	g.queue = available - g.player
+	totalRight := available - g.player
+	g.favorites = totalRight * 40 / 100
+	g.queue = totalRight - g.favorites
 	return g
 }
 
