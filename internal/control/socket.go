@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"podmutt/internal/feedback"
 	"sync"
 	"syscall"
 
@@ -20,7 +21,7 @@ func privateSocket(path string) (os.FileInfo, error) {
 		return nil, err
 	}
 	if info.Mode()&os.ModeSocket == 0 || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Geteuid()) {
-		return nil, fmt.Errorf("control endpoint must be a private socket owned by current user")
+		return nil, feedback.New(feedback.Profile, "control endpoint must be a private socket owned by current user")
 	}
 	return info, nil
 }
@@ -42,7 +43,7 @@ func Listen(ctx context.Context, paths profile.Paths, actions Actions) (*Server,
 		probe, err := net.DialTimeout("unix", path, timeout)
 		if err == nil {
 			probe.Close()
-			return nil, fmt.Errorf("control endpoint already active")
+			return nil, feedback.New(feedback.AlreadyRunning, "control endpoint already active")
 		}
 		if !errors.Is(err, syscall.ECONNREFUSED) {
 			return nil, err
@@ -119,7 +120,7 @@ func serve(parent context.Context, conn net.Conn, actions Actions) {
 	}
 	reply := response{State: &result}
 	if err != nil {
-		reply = response{Error: err.Error()}
+		reply = response{Error: encodeError(err)}
 	}
 	if err := writeFrame(conn, maxResponse, reply); err != nil {
 		writeFrame(conn, maxResponse, response{Error: "control response could not be encoded"})
@@ -134,9 +135,9 @@ func Call(ctx context.Context, paths profile.Paths, command string) (Status, err
 	}
 	if err := paths.CheckRuntime(); err != nil {
 		if os.IsNotExist(err) {
-			err = ErrNotRunning
+			return Status{}, ErrNotRunning
 		}
-		return Status{}, err
+		return Status{}, feedback.Wrap(feedback.Profile, err)
 	}
 	if _, err := privateSocket(endpoint(paths)); err != nil {
 		if os.IsNotExist(err) {
@@ -148,6 +149,9 @@ func Call(ctx context.Context, paths profile.Paths, command string) (Status, err
 	defer cancel()
 	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", endpoint(paths))
 	if err != nil {
+		if ctx.Err() != nil {
+			return Status{}, ctx.Err()
+		}
 		if errors.Is(err, syscall.ECONNREFUSED) || os.IsNotExist(err) {
 			err = ErrNotRunning
 		}
@@ -159,17 +163,23 @@ func Call(ctx context.Context, paths profile.Paths, command string) (Status, err
 	deadline, _ := ctx.Deadline()
 	conn.SetDeadline(deadline)
 	if err := writeFrame(conn, maxRequest, request{command}); err != nil {
-		return Status{}, err
+		if ctx.Err() != nil {
+			return Status{}, ctx.Err()
+		}
+		return Status{}, feedback.Wrap(feedback.Protocol, err)
 	}
 	var reply response
 	if err := readFrame(conn, maxResponse, &reply); err != nil {
-		return Status{}, err
+		if ctx.Err() != nil {
+			return Status{}, ctx.Err()
+		}
+		return Status{}, feedback.Wrap(feedback.Protocol, err)
 	}
 	if reply.Error != "" {
-		return Status{}, errors.New(reply.Error)
+		return Status{}, decodeError(reply.Error)
 	}
 	if reply.State == nil {
-		return Status{}, fmt.Errorf("missing control state")
+		return Status{}, feedback.New(feedback.Protocol, "missing control state")
 	}
 	return *reply.State, nil
 }
