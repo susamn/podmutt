@@ -37,7 +37,7 @@ func TestVisibleRSSWebsitePreviewIsReadOnlyUntilExplicitPlayOrSubscribe(t *testi
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
 		view := ansi.Strip(m.View().Content)
-		if !strings.Contains(view, "f:find podcast") || !strings.Contains(view, "/:search") {
+		if !strings.Contains(view, "f:find podcast") || !strings.Contains(view, "/:filter") {
 			t.Fatal("entry points hidden")
 		}
 		libraryKey(&m, 'U')
@@ -139,7 +139,7 @@ func TestSearchAndChartHaveSeparateSourceQueryAndFailureStates(t *testing.T) {
 		d.err = nil
 		d.shows = []discovery.Show{{Title: "Chart result", FeedURL: "https://example.test/rss"}}
 		finishLibrary(&m, libraryKey(&m, 't'))
-		if m.browse.query != "" || d.query != "" || !strings.Contains(m.View().Content, "US top 25") {
+		if m.browse.query != "" || d.query != "" || !strings.Contains(m.View().Content, "US Top 100") {
 			t.Fatal("chart not distinct from search")
 		}
 		for _, size := range [][2]int{{70, 20}, {30, 12}} {
