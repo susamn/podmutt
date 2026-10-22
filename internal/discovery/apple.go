@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"podmutt/internal/activity"
@@ -52,6 +53,7 @@ type appleRecord struct {
 // Apple serializes requests per foreground instance. Canceled waits never
 // reserve future quota slots. Chart, lookup and search share quota/cache policy.
 type Apple struct {
+	mu                                      sync.Mutex // country is also read by background ratings commands
 	client                                  *http.Client
 	endpoint, chartEndpoint, lookupEndpoint string
 	country                                 string
@@ -97,12 +99,16 @@ func NewApple(client *http.Client) *Apple {
 }
 
 func (a *Apple) SetCountry(country string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if len(country) == 2 {
 		a.country = strings.ToLower(country)
 	}
 }
 
 func (a *Apple) Country() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.country == "" {
 		return "us"
 	}
@@ -341,6 +347,16 @@ func normalize(records []appleRecord, limit int) []Show {
 func (a *Apple) Ratings(ctx context.Context, country, collectionID string) (float64, int, error) {
 	ctx, finish := activity.Begin(ctx, "Loading podcast ratings…", activity.Background)
 	defer finish()
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	// Ratings share readHeaders quota/backoff with search/chart. Serialize all
+	// three; otherwise concurrent ratings race on next/ratingCache and quota.
+	select {
+	case a.gate <- struct{}{}:
+	case <-ctx.Done():
+		return 0, 0, ctx.Err()
+	}
+	defer func() { <-a.gate }()
 	if collectionID == "" {
 		return 0, 0, nil
 	}
