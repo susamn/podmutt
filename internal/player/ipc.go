@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
+	"podmutt/internal/feedback"
 	"sync"
 	"time"
 )
 
-var ErrDisconnected = errors.New("mpv: IPC disconnected")
-var ErrEventOverflow = errors.New("mpv: event consumer fell behind")
+var ErrDisconnected = feedback.New(feedback.PlayerFailure, "mpv: IPC disconnected")
+var ErrEventOverflow = feedback.New(feedback.PlayerFailure, "mpv: event consumer fell behind")
 
 type Event struct {
 	PlaylistEntryID *int64          `json:"playlist_entry_id"`
@@ -74,7 +74,7 @@ func (c *ipc) read() {
 			RequestID uint64 `json:"request_id"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &frame); err != nil {
-			c.fail(fmt.Errorf("mpv: invalid IPC message"))
+			c.fail(&feedback.Fault{Code: feedback.PlayerFailure, Safe: "mpv: invalid IPC message", Cause: err})
 			return
 		}
 		if frame.RequestID != 0 {
@@ -82,7 +82,7 @@ func (c *ipc) read() {
 			if response, ok := c.pending[frame.RequestID]; ok {
 				result := reply{data: frame.Data}
 				if frame.Error != "success" {
-					result.err = fmt.Errorf("mpv: command failed (%s)", frame.Error)
+					result.err = &feedback.Fault{Code: feedback.PlayerFailure, Safe: "mpv: command failed", Cause: errors.New(frame.Error)}
 				}
 				response <- result
 				delete(c.pending, frame.RequestID)

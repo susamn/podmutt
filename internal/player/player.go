@@ -5,12 +5,12 @@ package player
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net"
 	"os"
 	"os/exec"
+	"podmutt/internal/feedback"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var ErrUnavailable = errors.New("mpv is unavailable: install mpv using your package manager (macOS: brew install mpv), or set mpv_path")
+var ErrUnavailable = feedback.New(feedback.PlayerMissing, "mpv is unavailable: install mpv using your package manager (macOS: brew install mpv), or set mpv_path")
 
 const shutdownTimeout = 3 * time.Second
 
@@ -54,7 +54,11 @@ func Start(ctx context.Context, path string) (*Player, error) {
 	}
 	cmd := exec.CommandContext(ctx, binary, platformArguments(runtime.GOOS)...)
 	cmd.Env = mediaEnvironment(os.Environ())
-	return launch(ctx, cmd, shutdownTimeout)
+	p, err := launch(ctx, cmd, shutdownTimeout)
+	if err != nil {
+		return nil, feedback.Wrap(feedback.PlayerFailure, err)
+	}
+	return p, nil
 }
 
 // The owned external decoder has no reason to receive directory credentials.
