@@ -17,6 +17,7 @@ import (
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/feedback"
+	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
@@ -688,6 +689,11 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 		m.adding = false
 		m.input = ""
 	case "enter":
+		if _, err := httpurl.Parse(strings.TrimSpace(m.input)); err != nil {
+			m.report("Add feed", err, "")
+			return nil
+		}
+		m.Model = m.Model.ClearFeedback("Add feed")
 		m.adding = false
 		m.mutating = true
 		m.notice = "Adding feed…"
