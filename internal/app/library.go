@@ -24,7 +24,9 @@ import (
 	"podmutt/internal/ui"
 )
 
+type themeSignal struct{}
 type themeReloadMsg struct {
+	reload    bool
 	palette   theme.Palette
 	themeName string
 	themePath string
@@ -159,10 +161,7 @@ func (m libraryShell) waitSignal() tea.Cmd {
 		case <-m.s.ctx.Done():
 			return nil
 		case <-m.signals:
-			return work(m.s.ctx, "Reloading theme…", func(context.Context) tea.Msg {
-				pal, themePath := theme.Load(m.s.paths.ConfigDir(), m.s.config.Theme)
-				return themeReloadMsg{palette: pal, themeName: m.s.config.Theme, themePath: themePath}
-			})()
+			return themeSignal{}
 		}
 	}
 }
@@ -246,19 +245,38 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			apple.SetCountry(msg.country)
 		}
 		m.Model = m.Model.WithSettings(m.s.settingsData())
-		m.notice = "Country set to " + strings.ToUpper(msg.country)
+		m.Model = m.Model.ClearFeedback("Save country")
+		m.notice = "Country saved: " + strings.ToUpper(msg.country)
 		if m.browse.active {
 			m.browse.loaded = false
 			return m, m.searchDirectory("")
 		}
 		return m, nil
+	case settingsError:
+		m.Model = m.Model.WithSettings(m.s.settingsData())
+		message := feedback.For("Save "+msg.setting, msg.err)
+		message.Summary = "Could not save " + msg.setting + " to config.toml."
+		message.Action = "Check free disk space and that config.toml is a writable file, not a directory. Previous setting remains active. Config: " + feedback.PublicLabel(m.s.paths.Config)
+		m.notice = message.Text()
+		m.Model = m.Model.WithFeedback(message)
+		return m, nil
+	case themeSignal:
+		name, paths, ctx := m.s.config.Theme, m.s.paths, m.s.ctx
+		return m, tea.Batch(m.waitSignal(), work(ctx, "Reloading theme…", func(context.Context) tea.Msg {
+			pal, path := theme.Load(paths.ConfigDir(), name)
+			return themeReloadMsg{palette: pal, themeName: name, themePath: path, reload: true}
+		}))
 	case themeReloadMsg:
+		if msg.reload && msg.themeName != m.s.config.Theme {
+			return m, nil
+		}
+		m.Model = m.Model.ClearFeedback("Save theme")
 		m.s.theme = msg.palette
 		if msg.themeName != "" {
 			m.s.config.Theme = msg.themeName
 		}
 		m.Model = m.Model.WithTheme(msg.palette).WithSettings(m.s.settingsData())
-		return m, m.waitSignal()
+		return m, nil
 	case artProbe:
 		cmd = m.probeArt()
 	case artProbeTimeout:
