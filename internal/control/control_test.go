@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"podmutt/internal/feedback"
 	"strings"
 	"sync"
 	"testing"
@@ -107,7 +108,7 @@ func TestActionAndSnapshotErrors(t *testing.T) {
 	for _, command := range []string{"play", "pause", "stop", "next", "status"} {
 		p := paths(t)
 		start(t, p, &fakeActions{fail: command})
-		if _, err := Call(background, p, command); err == nil || err.Error() != failed.Error() {
+		if _, err := Call(background, p, command); err == nil || feedback.For("Playback command", err).Code != feedback.Unknown {
 			t.Fatalf("%s: %v", command, err)
 		}
 	}
