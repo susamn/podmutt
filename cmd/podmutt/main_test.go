@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"podmutt/internal/feedback"
 	"strings"
 	"testing"
 )
@@ -18,7 +19,7 @@ func TestRun(t *testing.T) {
 	}{
 		{name: "version", args: []string{"--version"}, stdout: "podmutt dev\n"},
 		{name: "help", args: []string{"--help"}, stderr: "Usage: podmutt"},
-		{name: "unknown flag", args: []string{"--unknown"}, code: 2, stderr: "flag provided but not defined"},
+		{name: "unknown flag", args: []string{"--unknown"}, code: 2, stderr: "Invalid command-line options"},
 		{name: "unexpected argument", args: []string{"unknown"}, code: 2, stderr: "unexpected arguments"},
 		{name: "version with argument", args: []string{"--version", "extra"}, code: 2, stderr: "unexpected arguments"},
 		{name: "import-opml missing file", args: []string{"import-opml"}, code: 2, stderr: "import-opml requires exactly one file path"},
@@ -48,8 +49,8 @@ func TestRun(t *testing.T) {
 
 func TestRunReportsStartupFailure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(nil, &stdout, &stderr, func() error { return errors.New("profile already running") }, nil)
-	if code != 1 || !strings.Contains(stderr.String(), "profile already running") {
+	code := run(nil, &stdout, &stderr, func() error { return feedback.New(feedback.AlreadyRunning, "profile already running") }, nil)
+	if code != 1 || !strings.Contains(stderr.String(), "already running") {
 		t.Fatalf("startup error: code=%d, stderr=%q", code, stderr.String())
 	}
 }
@@ -77,7 +78,7 @@ func TestRunImportOPML(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	code = run([]string{"import-opml", "error.opml"}, &stdout, &stderr, nil, nil)
-	if code != 1 || !strings.Contains(stderr.String(), "parse error") {
+	if code != 1 || !strings.Contains(stderr.String(), "OPML import failed") {
 		t.Fatalf("failure: code=%d stderr=%q", code, stderr.String())
 	}
 }
