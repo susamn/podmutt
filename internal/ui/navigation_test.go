@@ -14,7 +14,7 @@ func TestListPagingMatchesVisibleRowsAndClamps(t *testing.T) {
 		width, height int
 		pages         [3]int
 	}{
-		{140, 44, [3]int{39, 17, 31}},
+		{140, 44, [3]int{39, 17, 17}},
 		{70, 20, [3]int{8, 7, 7}},
 		{30, 12, [3]int{2, 1, 1}},
 	} {
@@ -56,13 +56,13 @@ func TestListPagingMatchesVisibleRowsAndClamps(t *testing.T) {
 func TestTabCyclesListsAndBackLeavesSupportingPanes(t *testing.T) {
 	for _, size := range [][2]int{{140, 44}, {70, 20}, {30, 12}} {
 		m := resize(New(fixture()), size[0], size[1])
-		for _, want := range []Panel{Episodes, Queue, Podcasts} {
+		for _, want := range []Panel{Episodes, Queue, Favorites, Podcasts} {
 			m = press(m, "tab")
 			if m.Focus() != want {
 				t.Fatal("Tab traversed supporting pane", m.Focus(), want)
 			}
 		}
-		for _, want := range []Panel{Queue, Episodes, Podcasts} {
+		for _, want := range []Panel{Favorites, Queue, Episodes, Podcasts} {
 			m = press(m, "shift+tab")
 			if m.Focus() != want {
 				t.Fatal("reverse Tab traversed supporting pane", m.Focus(), want)
@@ -112,7 +112,7 @@ func TestTabCyclesListsAndBackLeavesSupportingPanes(t *testing.T) {
 				t.Fatal("Tab failed to return to lists")
 			}
 			m = press(m.WithFocus(panel), "shift+tab")
-			if m.Focus() != Queue {
+			if m.Focus() != Favorites {
 				t.Fatal("reverse Tab failed to return to lists")
 			}
 		}

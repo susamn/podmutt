@@ -280,7 +280,7 @@ func TestFocusedPlayerControlsTransportNotSelectedLibraryEpisode(t *testing.T) {
 			t.Fatal(err)
 		}
 		syncPlayer(t, &m)
-		libraryKey(&m, '5')
+		libraryKey(&m, '6')
 		if m.Model.Focus() != ui.PlayerPanel {
 			t.Fatal("cannot focus player")
 		}
