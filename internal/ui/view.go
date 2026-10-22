@@ -562,13 +562,15 @@ func (m Model) View() tea.View {
 		}
 		hints := m.bottomHints()
 		content += "\n" + m.statusLine() + "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
+		if m.messageOpen || m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
 			width, height := min(72, m.width-2), min(16, available-2)
-			if m.help || m.settings || m.data.Dialog != nil {
+			if m.messageOpen || m.help || m.settings || m.data.Dialog != nil {
 				height = min(22, available-2)
 			}
 			var modal string
-			if m.data.Dialog != nil {
+			if m.messageOpen {
+				modal = m.feedbackModal(width, height)
+			} else if m.data.Dialog != nil {
 				modal = m.renderDialogModal(m.data.Dialog, width, height)
 			} else if m.data.Prompt != "" {
 				modal = m.renderPromptModal(clean(m.data.Prompt, false), width, height)
@@ -619,6 +621,7 @@ func (m Model) View() tea.View {
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
+					"!             Full error/warning · j/k scroll · Esc dismiss",
 					"Space pause/resume current · s stop · n next",
 					"Episodes Enter play · i details · a enqueue · A enqueue visible",
 					"Queue: o visual sort · d/Del confirm removal · u undo",
