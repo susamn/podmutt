@@ -51,9 +51,10 @@ func TestVisibleCurrentIsProtectedFromPendingEditsAcrossLayouts(t *testing.T) {
 					t.Fatal("current duplicated")
 				}
 				m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(first.ID))
-				if libraryKey(&m, 'd') != nil || m.queueEditing {
-					t.Fatal("current is editable")
+				if libraryKey(&m, 'd') != nil || m.queueEditing || m.confirming == nil {
+					t.Fatal("current removal must await confirmation")
 				}
+				libraryKey(&m, 'n')
 			}
 		}
 		syncPlayer(t, &m)
@@ -68,6 +69,7 @@ func TestVisibleCurrentIsProtectedFromPendingEditsAcrossLayouts(t *testing.T) {
 			t.Fatal("view operations mutated actor queue")
 		}
 		finishLibrary(&m, libraryKey(&m, 'd'))
+		finishLibrary(&m, libraryKey(&m, 'y'))
 		if state := syncPlayer(t, &m); len(state.Queue) != 1 || state.Current.ID != first.ID || state.Status != playback.Playing {
 			t.Fatal("pending deletion changed transport", state)
 		}

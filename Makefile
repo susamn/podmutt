@@ -1,6 +1,6 @@
 GO ?= go
 MPV ?= mpv
-COVERAGE_MIN ?= 90
+COVERAGE_MIN ?= 95
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS = -X main.version=$(VERSION)
 

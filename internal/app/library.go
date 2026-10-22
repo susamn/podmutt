@@ -350,6 +350,13 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.notice = msg.err.Error()
 		}
 	case queueEdited:
+		if msg.state != nil {
+			if m.state.Current != nil && (msg.state.Current == nil || m.state.Current.ID != msg.state.Current.ID) {
+				cmd = m.reload()
+			}
+			m.shell = m.shell.withPlayback(*msg.state)
+			rebuild = true
+		}
 		m.queueEditing = false
 		pending := m.queueUndoPending
 		m.queueUndoPending = false
@@ -362,7 +369,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		} else {
 			m.notice = "Removed from Up next · u undo"
 			if pending {
-				cmd = m.undoQueueRemoval()
+				cmd = tea.Batch(cmd, m.undoQueueRemoval())
 			}
 		}
 	case playerEdited:

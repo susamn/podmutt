@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"time"
 
@@ -102,10 +101,14 @@ type playerEdited struct {
 	state    *playback.State
 	enqueued []int64
 }
-type queueConfirmation struct{ ids []int64 }
+type queueConfirmation struct {
+	ids       []int64 // D clears only this captured pending queue
+	episodeID int64   // d/Delete removes only this captured row
+}
 type queueEdited struct {
-	undo bool
-	err  error
+	undo  bool
+	err   error
+	state *playback.State
 }
 
 func clock(seconds float64) string {
@@ -226,15 +229,18 @@ func (m *libraryShell) removeQueueItem() tea.Cmd {
 		return nil
 	}
 	selected, _ := m.Model.Selected(ui.Queue)
-	if selected.Current || !slices.ContainsFunc(m.state.Queue, func(item store.Episode) bool { return item.ID == episode.ID }) {
-		m.notice = "Current audio is not a pending queue item"
-		return nil
+	label, state := "Remove episode? y/n", "Pending"
+	if selected.Current {
+		label, state = "Stop & remove? y/n", string(m.state.Status)
 	}
-	m.queueEditing = true
-	engine, ctx := m.s.playback, m.s.ctx
-	return work(ctx, "Updating Up next…", func(ctx context.Context) tea.Msg {
-		return queueEdited{err: engine.RemoveQueuedUndoable(ctx, episode.ID)}
+	m.confirming = &queueConfirmation{episodeID: episode.ID}
+	m.Model = m.Model.WithDialog(&ui.Dialog{
+		Title:        label,
+		Body:         fmt.Sprintf("%s\n%s\n%s · %s/%s\nProgress/history kept.", cleanTitle(episode.Title), cleanShow(episode.FeedTitle), state, clock(episode.PositionSeconds), formatEpisodeDuration(episode.DurationSeconds)),
+		TruncateBody: true,
+		Hint:         "y remove · n/Esc cancel",
 	})
+	return nil
 }
 
 func (m *libraryShell) undoQueueRemoval() tea.Cmd {
@@ -273,5 +279,18 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	engine, ctx := m.s.playback, m.s.ctx
+	if confirmation.episodeID != 0 {
+		m.queueEditing = true
+		return work(ctx, "Removing episode from Queue…", func(ctx context.Context) tea.Msg {
+			reply := queueEdited{err: engine.RemoveQueueItemUndoable(ctx, confirmation.episodeID)}
+			state, err := engine.Snapshot(ctx)
+			if err == nil {
+				reply.state = &state
+			} else if reply.err == nil {
+				reply.err = err
+			}
+			return reply
+		})
+	}
 	return work(ctx, "Clearing Up next…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.ClearQueue(ctx, confirmation.ids)} })
 }

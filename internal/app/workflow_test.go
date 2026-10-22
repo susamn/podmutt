@@ -183,6 +183,7 @@ func TestOfflineWorkflowRefreshSearchPlaybackQueueRestart(t *testing.T) {
 	}
 	model.Model = model.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(episodes[1].ID))
 	finishLibrary(&model, updateLibrary(&model, tea.KeyPressMsg{Code: tea.KeyDelete}))
+	finishLibrary(&model, libraryKey(&model, 'y'))
 	if state := syncPlayer(t, &model); len(state.Queue) != 0 || state.Current.ID != episodes[0].ID || state.Status != playback.Paused {
 		t.Fatal("queue deletion changed paused current", state)
 	}

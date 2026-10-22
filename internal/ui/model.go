@@ -39,11 +39,12 @@ type Item struct {
 }
 
 type Dialog struct {
-	Title      string
-	Body       string
-	InputLabel string
-	InputValue string
-	Hint       string
+	TruncateBody bool // preserve one explicit detail per row in compact confirmations
+	Title        string
+	Body         string
+	InputLabel   string
+	InputValue   string
+	Hint         string
 }
 
 type Data struct {

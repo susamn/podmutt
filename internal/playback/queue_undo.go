@@ -27,22 +27,49 @@ func (e *Engine) invalidateRequeuedUndo() {
 // RemoveQueuedUndoable records one successful pending-only removal inside the
 // actor. A stale selection or failed write never replaces the previous undo.
 func (e *Engine) RemoveQueuedUndoable(ctx context.Context, id int64) error {
+	_, err := e.submit(ctx, func(ctx context.Context) error { return e.removeQueuedUndoable(ctx, id) })
+	return err
+}
+
+func (e *Engine) removeQueuedUndoable(ctx context.Context, id int64) error {
+	ids := queueIDs(e.state.Queue)
+	index := slices.Index(ids, id)
+	if index < 0 {
+		return ErrQueueChanged
+	}
+	removed := &queueRemoval{id: id}
+	if index > 0 {
+		removed.previous = ids[index-1]
+	}
+	if index+1 < len(ids) {
+		removed.next = ids[index+1]
+	}
+	if err := e.removeQueued(ctx, []int64{id}); err != nil {
+		return err
+	}
+	e.removed = removed
+	return nil
+}
+
+// RemoveQueueItemUndoable removes a confirmed identity from the visible stack.
+// If it is current at execution time, save and stop before clearing the durable
+// pointer. Never advance or mark complete. Undo restores pending work, not audio.
+func (e *Engine) RemoveQueueItemUndoable(ctx context.Context, id int64) error {
 	_, err := e.submit(ctx, func(ctx context.Context) error {
-		ids := queueIDs(e.state.Queue)
-		index := slices.Index(ids, id)
-		if index < 0 {
-			return ErrQueueChanged
+		if e.state.Current == nil || e.state.Current.ID != id {
+			return e.removeQueuedUndoable(ctx, id)
 		}
-		removed := &queueRemoval{id: id}
-		if index > 0 {
-			removed.previous = ids[index-1]
-		}
-		if index+1 < len(ids) {
-			removed.next = ids[index+1]
-		}
-		if err := e.removeQueued(ctx, []int64{id}); err != nil {
+		if err := e.stop(ctx); err != nil {
 			return err
 		}
+		if err := e.repo.ClearCurrent(ctx, id); err != nil {
+			return err
+		}
+		removed := &queueRemoval{id: id}
+		if len(e.state.Queue) > 0 {
+			removed.next = e.state.Queue[0].ID
+		}
+		e.state.Current, e.state.Error = nil, ""
 		e.removed = removed
 		return nil
 	})

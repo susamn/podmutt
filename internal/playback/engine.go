@@ -43,6 +43,7 @@ type Repository interface {
 	Episode(context.Context, int64) (store.Episode, error)
 	Queue(context.Context) ([]store.Episode, error)
 	Checkpoint(context.Context, int64, float64) error
+	ClearCurrent(context.Context, int64) error
 	SetCompleted(context.Context, int64, bool) error
 	ReplaceQueue(context.Context, []int64) error
 	Activate(context.Context, int64, float64, []int64) error
