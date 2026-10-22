@@ -6,16 +6,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"time"
 
+	"podmutt/internal/feedback"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
 )
 
-var ErrNotRunning = errors.New("podmutt: not running for this profile")
+var ErrNotRunning = feedback.New(feedback.NotRunning, "podmutt: not running for this profile")
 
 const timeout = 5 * time.Second
 const maxRequest = 4096

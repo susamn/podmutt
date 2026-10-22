@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"podmutt/internal/feedback"
 	"syscall"
 )
 
-var ErrAlreadyRunning = errors.New("podmutt: already running for this profile")
+var ErrAlreadyRunning = feedback.New(feedback.AlreadyRunning, "podmutt: already running for this profile")
 
 // Lock holds ownership until Close or process exit. Never unlink its file:
 // replacing a locked inode would allow two owners of the same profile.
