@@ -80,6 +80,7 @@ type Model struct {
 	version                    string
 	theme                      theme.Palette
 	settings                   bool
+	settingsPending            bool
 	settingsData               SettingsData
 	icons                      string
 	animation                  animation
@@ -125,6 +126,7 @@ func (m Model) Theme() theme.Palette {
 }
 func (m Model) WithSettings(s SettingsData) Model {
 	m.settingsData = s
+	m.settingsPending = false
 	for i, t := range s.Themes {
 		if t == s.ActiveTheme {
 			m.settingsData.Selected = i
@@ -371,6 +373,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.settings {
+			if m.settingsPending && key != "esc" && key != "e" {
+				return m, nil
+			}
 			switch key {
 			case "j", "down":
 				if m.settingsData.Selected < len(m.settingsData.Themes)-1 {
@@ -383,11 +388,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if len(m.settingsData.Themes) > 0 && m.actions != nil {
 					chosen := m.settingsData.Themes[m.settingsData.Selected]
-					m.settingsData.ActiveTheme = chosen
+					m.settingsPending = true
 					return m, m.actions("theme:" + chosen)
 				}
 			case "right", "left", "C":
 				if m.actions != nil {
+					m.settingsPending = true
 					return m, m.actions("country:cycle")
 				}
 			case "esc", "e":

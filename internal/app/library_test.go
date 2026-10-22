@@ -309,8 +309,8 @@ func TestThemeReloadAndSignal(t *testing.T) {
 			cmd := m.waitSignal()
 			if cmd != nil {
 				msg := cmd()
-				if _, ok := msg.(themeReloadMsg); !ok {
-					t.Fatalf("expected themeReloadMsg from signal, got %T", msg)
+				if _, ok := msg.(themeSignal); !ok {
+					t.Fatalf("expected themeSignal from signal, got %T", msg)
 				}
 			}
 		}
