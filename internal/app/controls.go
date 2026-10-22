@@ -119,9 +119,9 @@ func (m shell) withPlayback(state playback.State) shell {
 	if state.Revision != 0 && state.Revision < m.state.Revision {
 		return m
 	}
-	if state.Error != "" {
+	if state.Error != "" && (state.Error != m.state.Error || state.ErrorRevision != m.state.ErrorRevision) {
 		m.Model = m.Model.WithFeedback(feedback.Message{Scope: "Playback", Code: feedback.PlayerFailure, Severity: "error", Summary: state.Error})
-	} else if m.state.Error != "" {
+	} else if state.Error == "" && m.state.Error != "" {
 		m.Model = m.Model.ClearFeedback("Playback")
 	}
 	m.state = state

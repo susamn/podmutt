@@ -280,6 +280,7 @@ func (e *Engine) fail(ctx context.Context, err error) error {
 	err = errors.Join(err, e.closePlayer())
 	e.active, e.ready = false, false
 	e.state.Status, e.state.Error = Failed, feedback.For("Playback", err).Text()
+	e.state.ErrorRevision++
 	return err
 }
 
