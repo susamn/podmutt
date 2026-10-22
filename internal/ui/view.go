@@ -90,7 +90,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 			} else if panel == Episodes && m.data.EpisodeEmpty != "" {
 				empty = clean(m.data.EpisodeEmpty, false)
 			} else if panel == Queue {
-				empty = "Queue is empty · a adds an episode"
+				empty = "Queue empty · 2: Episodes"
 				if m.HasFilter(Queue) {
 					empty = "No matching queue episodes"
 				}
@@ -390,7 +390,7 @@ func (m Model) bottomHints() string {
 			{"Space", "pause/resume"},
 			{"i", "details"},
 			{"o", "sort view"},
-			{"/", "search"},
+			{"/", "filter"},
 			{"D", "clear"},
 			{",/.", "seek"},
 			{"Tab", "pane"},
@@ -400,14 +400,14 @@ func (m Model) bottomHints() string {
 		}
 	default:
 		if m.focus == Podcasts && !isDiscover {
-			hints = []hint{{"j/k", "show"}, {"/", "search"}, {"o", "sort episodes"}, {"Tab/2", "episodes"}, {"f", "find podcast"}, {"Space", "pause/resume"}, {"?", "help"}, {"q", "quit"}}
+			hints = []hint{{"j/k", "show"}, {"/", "filter"}, {"o", "sort episodes"}, {"Tab/2", "episodes"}, {"f", "find podcast"}, {"Space", "pause/resume"}, {"?", "help"}, {"q", "quit"}}
 		} else if isDiscover {
 			hints = []hint{
-				{"/", "search list"},
+				{"/", "filter list"},
 				{"f", "find podcast"},
 				{"Tab", "episodes"},
 				{"b", "library"},
-				{"t", "top25"},
+				{"t", "top100"},
 				{"Enter", "open/play"},
 				{"Space", "pause/resume"},
 				{"i", "details"},
@@ -421,7 +421,7 @@ func (m Model) bottomHints() string {
 			}
 		} else {
 			hints = []hint{
-				{"/", "search"},
+				{"/", "filter"},
 				{"Tab", "pane"},
 				{"f", "find podcast"},
 				{"b", "discover"},
@@ -467,7 +467,7 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 	if label == "" {
 		label = "Input"
 	}
-	fieldWidth := max(16, width-6-ansi.StringWidth(label)-4)
+	fieldWidth := max(1, width-6-ansi.StringWidth(label)-4)
 	valTrunc := ansi.Truncate(value, fieldWidth-1, "…")
 	inputArea := valTrunc + "▌"
 	pad := max(0, fieldWidth-ansi.StringWidth(inputArea))
@@ -498,6 +498,11 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	}
 
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
+		reserved := 2
+		if dialog.Hint != "" {
+			reserved += 2
+		}
+		rows = rows[:min(len(rows), max(0, height-2-reserved))]
 		rows = append(rows, "", renderInputBox(dialog.InputLabel, dialog.InputValue, width, pal))
 	}
 
@@ -628,7 +633,7 @@ func (m Model) View() tea.View {
 					"Pending: Enter play · D clear (confirm)",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",
-					"U RSS/website preview · t Apple US top 25",
+					"U RSS/website preview · t Apple Top 100",
 					"Podcasts: u subscribe/unsubscribe · N add",
 					"Library views / a show · o sort",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",

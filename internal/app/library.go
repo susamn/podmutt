@@ -17,6 +17,7 @@ import (
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/feedback"
+	"podmutt/internal/httpurl"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
@@ -688,6 +689,11 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 		m.adding = false
 		m.input = ""
 	case "enter":
+		if _, err := httpurl.Parse(strings.TrimSpace(m.input)); err != nil {
+			m.report("Add feed", err, "")
+			return nil
+		}
+		m.Model = m.Model.ClearFeedback("Add feed")
 		m.adding = false
 		m.mutating = true
 		m.notice = "Adding feed…"
@@ -775,7 +781,7 @@ func (m *libraryShell) renderLibrary() {
 	case library.ContinueView:
 		data.EpisodeEmpty = "Nothing to resume · play an episode first"
 	case library.AllView:
-		data.EpisodeEmpty = "No subscribed episodes · f find a podcast"
+		data.EpisodeEmpty = "No saved episodes · f find a podcast"
 	}
 	if m.browse.localResults {
 		data.EpisodeEmpty = "No matching cached episodes"
@@ -849,7 +855,7 @@ func (m *libraryShell) renderOnboarding() {
 		Body: "A keyboard-driven podcast client for Linux and macOS.\n\n" +
 			"Quick Start:\n" +
 			"  • f         Find podcasts by name or paste an RSS/web URL\n" +
-			"  • b         Toggle between My Library and Discover (Top 25)\n" +
+			"  • b         Toggle between Library and Discover (Top 100)\n" +
 			"  • Enter     Play selected episode (or preview show)\n" +
 			"  • Space     Pause / Resume playback from any pane\n" +
 			"  • , / .     Seek backward / forward 15 seconds\n" +
