@@ -2,13 +2,13 @@ package playback
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
+	"podmutt/internal/feedback"
 	"time"
 )
 
-var ErrSeekUnavailable = errors.New("playback: seeking unavailable until an episode is loaded")
+var ErrSeekUnavailable = feedback.New(feedback.SeekUnavailable, "playback: seeking unavailable until an episode is loaded")
 
 type seeker interface {
 	SeekTo(context.Context, float64) error
@@ -67,7 +67,7 @@ func (e *Engine) seek(ctx context.Context, value float64, relative bool) error {
 			position = min(position, float64(duration))
 		}
 		if err := device.SeekTo(ctx, position); err != nil {
-			e.state.Error = "Seek failed: " + err.Error()
+			e.state.Error = feedback.For("Seek", err).Text()
 			return err
 		}
 		e.state.Current.PositionSeconds = position
