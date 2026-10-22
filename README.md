@@ -104,7 +104,7 @@ On first run, a Quick Start overlay appears with essential hotkeys. Press **Ente
 - Press **`f`** from anywhere:
   - **By Name**: Type any podcast title (e.g. `The Daily`, `Zeit Verbrechen`) and press **Enter** to search.
   - **By URL**: Paste any direct RSS/Atom feed or podcast website URL (e.g. `https://feeds.simplecast.com/...`).
-- `podmutt` searches your local SQLite cache first (**0ms**), then queries remote directories automatically.
+- Press **Tab** in the search dialog to choose **Library**, **Apple Podcasts**, or **Podcast Index**. Library searches saved subscriptions and episode text offline; online providers search show names. Podcast Index requires your own credentials; see [setup](docs/podcast-index.md).
 
 ### Importing subscriptions from OPML
 Export your subscriptions from another podcast app as an `.opml` file, then close podmutt and run:
@@ -189,9 +189,27 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 | :--- | :--- |
 | `e` | Settings (Theme picker, Country switcher) |
 | `?` | Open keybinding cheat sheet |
+| `!` | Read the full error/warning; `j` / `k` scroll, `Esc` dismisses |
 | `q` / `Ctrl+C` | Quit |
 
 ---
+
+## Status and recovery
+
+The fixed row above key hints shows ongoing work and actionable failures, including
+on small terminals. Background refreshes do not replace a failed user action.
+Press **`!`** to read the full error or feed-refresh warning, **`j` / `k`** to scroll,
+and **Esc** to dismiss. Close text input or another dialog first; its keys still
+belong to that input/dialog. **`R`** retries the active Discover search/chart or feed
+preview; in Library it refreshes subscribed feeds. Failed refreshes do not prevent
+browsing already saved metadata. Media warnings expose the same full details
+through their **`Media (!)`** label. The maintained developer inventory is in
+[User-facing messages](docs/user-messages.md).
+
+If an older binary reports that the database was upgraded by a newer podmutt,
+upgrade the executable or run the newer binary used previously. **Do not delete
+the database, edit its schema version, or run podmutt as root.** Other database
+failures need their own diagnosis; upgrading is not a universal database fix.
 
 ## Configuration
 
