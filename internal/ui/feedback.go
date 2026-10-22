@@ -26,7 +26,7 @@ func (m Model) ClearFeedback(scope string) Model {
 }
 func (m Model) WithBackgroundFeedback(message feedback.Message) Model {
 	m.backgroundMessage = message
-	if message.Summary == "" && m.message.Summary == "" {
+	if m.activeMessage().Summary == "" {
 		m.messageOpen = false
 	}
 	return m
@@ -35,7 +35,13 @@ func (m Model) activeMessage() feedback.Message {
 	if m.message.Summary != "" {
 		return m.message
 	}
-	return m.backgroundMessage
+	if m.backgroundMessage.Summary != "" {
+		return m.backgroundMessage
+	}
+	if m.data.Player.Warning != "" {
+		return feedback.Message{Scope: "Media controls", Severity: "warning", Summary: "Media controls unavailable.", Action: m.data.Player.Warning}
+	}
+	return feedback.Message{}
 }
 func (m *Model) scrollFeedback(delta int) {
 	width, height := min(72, m.width-2), min(22, m.height-statusRows-2)
@@ -44,7 +50,11 @@ func (m *Model) scrollFeedback(delta int) {
 }
 func (m Model) messageRows(width int) []string {
 	message := m.activeMessage()
-	return wrapDetails(message.Summary+"\n\n"+message.Action, max(1, width-4))
+	text := message.Summary + "\n\n" + message.Action
+	if m.data.Player.Warning != "" && message.Scope != "Media controls" {
+		text += "\n\nMedia controls:\n" + m.data.Player.Warning
+	}
+	return wrapDetails(text, max(1, width-4))
 }
 func (m Model) feedbackModal(width, height int) string {
 	rows := m.messageRows(width)
@@ -61,6 +71,9 @@ func (m Model) feedbackModal(width, height int) string {
 }
 func (m Model) feedbackStatus() string {
 	message := m.activeMessage()
+	if message.Scope == "Media controls" && m.message.Summary == "" && m.backgroundMessage.Summary == "" {
+		return ""
+	}
 	if message.Summary == "" {
 		return ""
 	}

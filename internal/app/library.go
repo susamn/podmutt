@@ -68,6 +68,7 @@ type libraryShell struct {
 	notice, input            string
 	adding, mutating         bool
 	refreshErrors            map[int64]error
+	backgroundError          feedback.Message
 	lastPlayingID            int64
 	lastCompleted            bool
 	confirming               *queueConfirmation
@@ -271,12 +272,17 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.reload && msg.themeName != m.s.config.Theme {
 			return m, nil
 		}
-		m.Model = m.Model.ClearFeedback("Save theme")
+		if !msg.reload {
+			m.Model = m.Model.ClearFeedback("Save theme")
+		}
 		m.s.theme = msg.palette
 		if msg.themeName != "" {
 			m.s.config.Theme = msg.themeName
 		}
-		m.Model = m.Model.WithTheme(msg.palette).WithSettings(m.s.settingsData())
+		m.Model = m.Model.WithTheme(msg.palette)
+		if !msg.reload {
+			m.Model = m.Model.WithSettings(m.s.settingsData())
+		}
 		return m, nil
 	case artProbe:
 		cmd = m.probeArt()
@@ -354,9 +360,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.loadCancel = nil
 		}
 		if msg.err != nil {
-			m.report("Load library", msg.err, "")
+			m.recordBackgroundFailure("Load library", msg.err)
 		} else {
-			m.Model = m.Model.ClearFeedback("Load library")
+			m.clearBackgroundFailure("Load library")
 			m.snapshot = msg.snapshot
 			if msg.details != nil && m.detailTarget != nil && m.detailKey(*m.detailTarget) == msg.detailKey {
 				m.detailTarget.PositionSeconds, m.detailTarget.Completed = msg.details.PositionSeconds, msg.details.Completed
@@ -368,7 +374,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 	case latestQueued:
 		if msg.err != nil {
-			m.report("Update latest episodes", msg.err, "")
+			m.recordBackgroundFailure("Update latest episodes", msg.err)
+		} else {
+			m.clearBackgroundFailure("Update latest episodes")
 		}
 	case queueEdited:
 		if msg.state != nil {
@@ -461,6 +469,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			}
 		} else {
 			delete(m.refreshErrors, msg.result.FeedID)
+			if msg.result.FeedID > 0 {
+				delete(m.refreshErrors, 0)
+			}
 		}
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
 		if msg.result.Error == nil {
@@ -688,6 +699,8 @@ func (m *libraryShell) inputKey(key tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.adding = false
 		m.input = ""
+		m.notice = "Add feed canceled."
+		m.Model = m.Model.ClearFeedback("Add feed")
 	case "enter":
 		if _, err := httpurl.Parse(strings.TrimSpace(m.input)); err != nil {
 			m.report("Add feed", err, "")
@@ -842,7 +855,7 @@ func (m *libraryShell) renderLibrary() {
 
 func (m *libraryShell) renderStatus() {
 	notice, prompt := m.notice, ""
-	m.Model = m.Model.WithBackgroundFeedback(m.refreshFeedback())
+	m.Model = m.Model.WithBackgroundFeedback(m.backgroundFeedback())
 	if m.adding {
 		prompt = "URL: " + m.input
 	}

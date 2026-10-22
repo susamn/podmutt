@@ -68,6 +68,7 @@ func (e *Engine) seek(ctx context.Context, value float64, relative bool) error {
 		}
 		if err := device.SeekTo(ctx, position); err != nil {
 			e.state.Error = feedback.For("Seek", err).Text()
+			e.state.ErrorRevision++
 			return err
 		}
 		e.state.Current.PositionSeconds = position
