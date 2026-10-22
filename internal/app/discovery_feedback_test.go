@@ -41,7 +41,7 @@ func TestPreviewFeedbackUsesPreviewOperationAndIgnoresCancellation(t *testing.T)
 		m.renderLibrary()
 		msg := previewLoaded{generation: m.browse.previewGeneration, key: "https://example.test/rss", err: context.DeadlineExceeded}
 		m.applyPreview(msg)
-		if !strings.Contains(m.notice, "Feed preview timed out") || !strings.Contains(m.notice, "Enter to retry") || strings.Contains(m.notice, "context deadline") {
+		if !strings.Contains(m.notice, "Feed preview timed out") || !strings.Contains(m.notice, "R to retry this feed preview") || strings.Contains(m.notice, "context deadline") {
 			t.Fatal(m.notice)
 		}
 		msg.err = context.Canceled
