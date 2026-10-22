@@ -164,7 +164,7 @@ func TestRSSInputAddAndInvalidFeed(t *testing.T) {
 		libraryKey(&m, 'N')
 		updateLibrary(&m, tea.PasteMsg{Content: server.URL + "/bad"})
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
-		if len(m.snapshot.Feeds) != 1 || !strings.Contains(m.View().Content, "RSS/Atom links") {
+		if len(m.snapshot.Feeds) != 1 || !strings.Contains(m.View().Content, "unreadable or unsupported") {
 			t.Fatal("invalid add lost cache or hid error")
 		}
 		libraryKey(&m, 'N')
@@ -217,7 +217,7 @@ func TestRefreshErrorsStaleRepliesAndIdentity(t *testing.T) {
 			t.Fatal("incremental refresh lost identity")
 		}
 		updateLibrary(&m, refreshUpdate{result: feed.Result{FeedID: 99}, ok: true})
-		if !strings.Contains(m.View().Content, "offline") {
+		if !strings.Contains(m.View().Content, "feeds could not be refreshed") || m.refreshErrors[a] == nil {
 			t.Fatal("unrelated success cleared error")
 		}
 		updateLibrary(&m, libraryLoaded{version: m.version - 1, err: errors.New("stale")})
@@ -225,11 +225,11 @@ func TestRefreshErrorsStaleRepliesAndIdentity(t *testing.T) {
 			t.Fatal("stale reply applied")
 		}
 		updateLibrary(&m, libraryLoaded{version: m.version, err: errors.New("read failed")})
-		if !strings.Contains(m.View().Content, "read failed") {
+		if !strings.Contains(m.View().Content, "Load library failed") {
 			t.Fatal("read error hidden")
 		}
 		updateLibrary(&m, refreshUpdate{result: feed.Result{FeedID: a}, ok: true})
-		if strings.Contains(m.View().Content, "offline") {
+		if len(m.refreshErrors) != 0 {
 			t.Fatal("recovered feed retained error")
 		}
 		results := make(chan feed.Result, 1)
@@ -276,7 +276,7 @@ func TestLibraryGuardsAndPlainDetails(t *testing.T) {
 		}
 		m.mutating = false
 		updateLibrary(&m, libraryEdited{err: errors.New("edit failed")})
-		if !strings.Contains(m.View().Content, "edit failed") {
+		if !strings.Contains(m.View().Content, "Library update failed") {
 			t.Fatal("edit error hidden")
 		}
 		m.Model = m.Model.WithFocus(ui.Podcasts)

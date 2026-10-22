@@ -16,6 +16,7 @@ import (
 	"podmutt/internal/artwork"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
+	"podmutt/internal/feedback"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
@@ -63,7 +64,7 @@ type libraryShell struct {
 	loadCancel               context.CancelFunc
 	notice, input            string
 	adding, mutating         bool
-	refreshErrors            map[int64]string
+	refreshErrors            map[int64]error
 	lastPlayingID            int64
 	lastCompleted            bool
 	confirming               *queueConfirmation
@@ -114,7 +115,7 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 		return libraryShell{}, err
 	}
 	model := libraryShell{art: newArt(), shell: newShell(s), service: service, refresher: refresher, snapshot: snapshot, libraryID: allDestination, wantLibraryID: allDestination,
-		notice: "Cached library", refreshErrors: make(map[int64]string)}
+		notice: "Cached library", refreshErrors: make(map[int64]error)}
 	appleDir := discovery.NewApple(nil)
 	appleDir.SetCountry(s.config.Country)
 	model.browse.directory = appleDir
@@ -334,8 +335,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.loadCancel = nil
 		}
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Load library", msg.err, "")
 		} else {
+			m.Model = m.Model.ClearFeedback("Load library")
 			m.snapshot = msg.snapshot
 			if msg.details != nil && m.detailTarget != nil && m.detailKey(*m.detailTarget) == msg.detailKey {
 				m.detailTarget.PositionSeconds, m.detailTarget.Completed = msg.details.PositionSeconds, msg.details.Completed
@@ -347,7 +349,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 	case latestQueued:
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Update latest episodes", msg.err, "")
 		}
 	case queueEdited:
 		if msg.state != nil {
@@ -361,12 +363,15 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		pending := m.queueUndoPending
 		m.queueUndoPending = false
 		if errors.Is(msg.err, playback.ErrNoQueueUndo) {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Nothing to undo in Up next"
 		} else if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Queue edit", msg.err, "")
 		} else if msg.undo {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Restored to Up next"
 		} else {
+			m.Model = m.Model.ClearFeedback("Queue edit")
 			m.notice = "Removed from Up next · u undo"
 			if pending {
 				cmd = tea.Batch(cmd, m.undoQueueRemoval())
@@ -389,19 +394,25 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			cmd = m.reload()
 		}
 		if errors.Is(msg.err, playback.ErrNoEpisode) {
-			m.notice = "No current episode · Enter plays the selected episode"
+			m.report("Playback", msg.err, "")
 		} else if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Playback", msg.err, "")
 		} else {
-			m.notice = "Playback/queue updated"
+			m.Model = m.Model.ClearFeedback("Playback")
+			m.notice = ""
 		}
 	case libraryEdited:
 		m.mutating = false
 		if msg.err != nil {
-			m.notice = msg.err.Error()
+			m.report("Library update", msg.err, "")
+			var fault *feedback.Fault
+			if errors.As(msg.err, &fault) && fault.Code == feedback.Partial {
+				cmd = m.reload()
+			}
 			break
 		}
-		m.notice = "Library updated"
+		m.Model = m.Model.ClearFeedback("Library update")
+		m.notice = ""
 		if msg.state != nil {
 			m.shell = m.shell.withPlayback(*msg.state)
 		}
@@ -426,11 +437,12 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			return m, nil
 		}
 		if msg.result.Error != nil {
-			m.refreshErrors[msg.result.FeedID] = msg.result.Error.Error()
+			if !errors.Is(msg.result.Error, context.Canceled) {
+				m.refreshErrors[msg.result.FeedID] = msg.result.Error
+			}
 		} else {
 			delete(m.refreshErrors, msg.result.FeedID)
 		}
-		m.notice = "Refresh update"
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
 		if msg.result.Error == nil {
 			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
@@ -806,16 +818,7 @@ func (m *libraryShell) renderLibrary() {
 
 func (m *libraryShell) renderStatus() {
 	notice, prompt := m.notice, ""
-	var errorID int64
-	var warning string
-	for id, text := range m.refreshErrors {
-		if warning == "" || id < errorID {
-			errorID, warning = id, text
-		}
-	}
-	if warning != "" {
-		notice = "Refresh failed: " + warning + " · " + notice
-	}
+	m.Model = m.Model.WithBackgroundFeedback(m.refreshFeedback())
 	if m.adding {
 		prompt = "URL: " + m.input
 	}
