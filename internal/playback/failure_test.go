@@ -49,6 +49,12 @@ func (r *faultRepository) Checkpoint(ctx context.Context, id int64, position flo
 	}
 	return r.Repository.Checkpoint(ctx, id, position)
 }
+func (r *faultRepository) ClearCurrent(ctx context.Context, id int64) error {
+	if err := r.check("clear-current"); err != nil {
+		return err
+	}
+	return r.Repository.ClearCurrent(ctx, id)
+}
 func (r *faultRepository) SetCompleted(ctx context.Context, id int64, completed bool) error {
 	if err := r.check("complete"); err != nil {
 		return err

@@ -490,7 +490,11 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 			rows = append(rows, "")
 			continue
 		}
-		rows = append(rows, strings.Split(ansi.Wrap(l, max(1, width-4), ""), "\n")...)
+		if dialog.TruncateBody {
+			rows = append(rows, ansi.Truncate(l, max(1, width-2), "…"))
+		} else {
+			rows = append(rows, strings.Split(ansi.Wrap(l, max(1, width-4), ""), "\n")...)
+		}
 	}
 
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
@@ -498,6 +502,10 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	}
 
 	if dialog.Hint != "" {
+		// Keep decision keys visible in compact row-based confirmations.
+		if dialog.TruncateBody {
+			rows = rows[:min(len(rows), max(0, height-4))]
+		}
 		rows = append(rows, "")
 		hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
 		rows = append(rows, "  "+hintStyle.Render(clean(dialog.Hint, false)))
@@ -613,7 +621,7 @@ func (m Model) View() tea.View {
 					"e             Settings · live theme switch",
 					"Space pause/resume current · s stop · n next",
 					"Episodes Enter play · i details · a enqueue · A enqueue visible",
-					"Queue: o visual sort · d/Del remove pending · u undo",
+					"Queue: o visual sort · d/Del confirm removal · u undo",
 					"Pending: Enter play · D clear (confirm)",
 					"b My subscriptions / Discover",
 					"f Search · Tab library/Apple/Podcast Index",

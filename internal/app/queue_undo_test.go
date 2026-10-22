@@ -23,8 +23,12 @@ func TestQueueDeleteAndUndoAcrossLayouts(t *testing.T) {
 			for _, key := range []tea.KeyPressMsg{{Code: 'd', Text: "d"}, {Code: tea.KeyDelete}} {
 				m.Model = m.Model.Select(ui.Queue, fmt.Sprint(pending))
 				finishLibrary(&m, updateLibrary(&m, key))
+				if m.confirming == nil || m.queueEditing {
+					t.Fatal("removal must await confirmation")
+				}
+				finishLibrary(&m, libraryKey(&m, 'y'))
 				if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current.ID != current || state.Status != playback.Playing || m.confirming != nil || m.Model.Busy() {
-					t.Fatal("single delete was not immediate/pending-only", state)
+					t.Fatal("confirmed pending deletion changed transport", state)
 				}
 				if !strings.Contains(m.notice, "u undo") {
 					t.Fatal("missing undo guidance", m.notice)
@@ -65,7 +69,8 @@ func TestUndoPressedWhileRemovalIsInFlightIsNotLost(t *testing.T) {
 		finishLibrary(&m, libraryKey(&m, 'A'))
 		syncPlayer(t, &m)
 		m.Model = m.Model.WithFocus(ui.Queue)
-		remove := libraryKey(&m, 'd')
+		libraryKey(&m, 'd')
+		remove := libraryKey(&m, 'y')
 		if remove == nil || !m.queueEditing {
 			t.Fatal("remove not scheduled")
 		}
@@ -86,7 +91,7 @@ func TestUndoPressedWhileRemovalIsInFlightIsNotLost(t *testing.T) {
 	})
 }
 
-func TestStaleRemovalCannotDeleteCurrentOrUndoADifferentItem(t *testing.T) {
+func TestConfirmedRemovalFollowsCapturedIdentityWhenItBecomesCurrent(t *testing.T) {
 	librarySession(t, func(s *session) {
 		m, _ := playerLibrary(t, s)
 		finishLibrary(&m, libraryKey(&m, 'A'))
@@ -95,21 +100,21 @@ func TestStaleRemovalCannotDeleteCurrentOrUndoADifferentItem(t *testing.T) {
 		first := m.state.Queue[0].ID
 		m.Model = m.Model.Select(ui.Queue, fmt.Sprint(first))
 		finishLibrary(&m, libraryKey(&m, 'd'))
+		finishLibrary(&m, libraryKey(&m, 'y'))
 		syncPlayer(t, &m)
 		second := m.state.Queue[0].ID
 		m.Model = m.Model.Select(ui.Queue, fmt.Sprint(second))
-		remove := libraryKey(&m, 'd')
+		libraryKey(&m, 'd')
 		if err := s.playback.PlayEpisode(s.ctx, second); err != nil {
 			t.Fatal(err)
 		}
-		libraryKey(&m, 'u')
-		finishLibrary(&m, remove)
-		if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current.ID != second || !strings.Contains(m.notice, "queue changed") {
-			t.Fatal("stale remove affected current or undid earlier work", state, m.notice)
+		finishLibrary(&m, libraryKey(&m, 'y'))
+		if state := syncPlayer(t, &m); len(state.Queue) != 0 || state.Current != nil || state.Status != playback.Stopped {
+			t.Fatal("confirmed identity was not removed after promotion", state, m.notice)
 		}
 		finishLibrary(&m, libraryKey(&m, 'u'))
-		if state := syncPlayer(t, &m); len(state.Queue) != 1 || state.Queue[0].ID != first {
-			t.Fatal("previous successful undo lost", state)
+		if state := syncPlayer(t, &m); len(state.Queue) != 1 || state.Queue[0].ID != second || state.Current != nil {
+			t.Fatal("undo must restore last removal as pending without autoplay", state)
 		}
 	})
 }

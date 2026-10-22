@@ -40,7 +40,7 @@ Responsive layout adapting automatically when terminal dimensions shrink.
 - **Stream Without Subscribing**: Preview show notes and stream/enqueue episodes directly from RSS without polluting your subscription catalog.
 - **Fixed Player HUD**: Real-time progress bar, responsive layout, and dedicated ±15-second seeking hotkeys (`,`/`.`).
 - **Shared Activity Status**: A fixed row above key hints shows ongoing searches, previews, feed refresh counts, artwork/ratings loads, and other finite background work without blocking navigation.
-- **Queue Management**: Immediate queue deletion (`d`) with single-step session undo (`u`).
+- **Queue Management**: Remove the selected Queue episode (`d`) after confirmation, including current audio, with single-step session undo (`u`). Progress and history are preserved.
 - **Podcast Artwork**: Crisp cover art via Kitty graphics protocol with automatic image-derived ASCII fallback.
 - **Live Theming**: Color presets (Catppuccin, Solarized Dark, Cyberpunk) with live `SIGUSR1` reloading.
 - **Desktop Media Integration**: Native MPRIS D-Bus support on Linux for desktop media keys.
@@ -119,7 +119,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 - **`Space`** pauses/resumes current audio from **any** panel.
 - **`,`** and **`.`** seek backward and forward **15 seconds**.
 - Press **`a`** to add an episode to your **Up next (3)** queue.
-- In **Up next (3)**, press **`d`** to remove a pending item, and **`u`** to undo the removal.
+- In **Queue (3)**, press **`d`** or **Delete** on an episode, then **`y`** to remove it or **`n` / Esc** to cancel. Removing current audio stops it without starting another episode; progress/history are kept. **`u`** restores the last removal as pending, without autoplay.
 
 ### 5. Switching Panels & Horizontal Panning
 - **`Tab`** cycles forward through the main lists: **Podcasts (1) → Episodes (2) → Up next (3)**.
@@ -165,7 +165,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 | :--- | :--- |
 | `a` | Enqueue selected episode to Up Next |
 | `A` | Enqueue all visible episodes in current list |
-| `d` / `Delete` | Remove pending episode from Up Next |
+| `d` / `Delete` | Confirm removal of selected Queue episode; stops it if current |
 | `u` | Undo last removal (in Queue) / Toggle subscription (in Podcasts) |
 | `D` | Clear all pending queue items (with confirmation) |
 | `o` | Cycle sorting (newest, oldest, title) |
@@ -229,7 +229,7 @@ podmutt status   # outputs JSON status of running instance
 ## Development
 
 ```sh
-make check       # formatting, module consistency, vet, tests, >=90% coverage
+make check       # formatting, module consistency, vet, tests, >=95% coverage
 make race        # native race-detector tests
 make mpv-test    # real-mpv lifecycle/playback tests, null audio (requires mpv)
 make mpris-test  # private D-Bus protocol tests (requires dbus-daemon)

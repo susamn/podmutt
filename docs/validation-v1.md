@@ -6,7 +6,7 @@ and feature dependencies are verified. Features #13/#14/#16 are separate MRs.
 
 ## Repeatable gates
 
-- `make check`: format/modules/vet, all tests, >=90% aggregate first-party Go
+- `make check`: format/modules/vet, all tests, >=95% aggregate first-party Go
   statement coverage (including CLI code).
 - `make race`: native Go race detector, all tests.
 - `make recovery-test`: local HTTP feed/website preview + explicit subscribe,

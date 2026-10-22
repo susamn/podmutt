@@ -197,6 +197,7 @@ func TestQueueEditingConfirmationAndCompactDetails(t *testing.T) {
 			t.Fatal("cancel failed")
 		}
 		finishLibrary(&m, libraryKey(&m, 'd'))
+		finishLibrary(&m, libraryKey(&m, 'y'))
 		if len(syncPlayer(t, &m).Queue) != 1 || m.confirming != nil {
 			t.Fatal("remove failed")
 		}

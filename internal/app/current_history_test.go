@@ -23,9 +23,10 @@ func TestCompletedHistoryDoesNotHideStillActiveCurrentAudio(t *testing.T) {
 				t.Fatal("history marking hid current audio", state, rows)
 			}
 			m.Model = m.Model.WithFocus(ui.Queue)
-			if libraryKey(&m, 'd') != nil || m.queueEditing {
-				t.Fatal("current became removable")
+			if libraryKey(&m, 'd') != nil || m.queueEditing || m.confirming == nil {
+				t.Fatal("current removal must await confirmation")
 			}
+			libraryKey(&m, 'n')
 			if err := s.playback.Pause(s.ctx); err != nil {
 				t.Fatal(err)
 			}

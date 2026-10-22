@@ -57,6 +57,13 @@ func (s *Store) Current(ctx context.Context) (Playback, error) {
 	return playback, err
 }
 
+// ClearCurrent removes only the captured current pointer, retaining all history.
+// A stale identity cannot clear a different episode.
+func (s *Store) ClearCurrent(ctx context.Context, episodeID int64) error {
+	var removed int64
+	return s.db.QueryRowContext(ctx, "DELETE FROM current_episode WHERE singleton=1 AND episode_id=? RETURNING episode_id", episodeID).Scan(&removed)
+}
+
 // ReplaceQueue deduplicates in first-occurrence order. Unknown episode IDs cause
 // the whole replacement to roll back. A nil/empty slice clears the queue.
 func (s *Store) ReplaceQueue(ctx context.Context, episodeIDs []int64) error {

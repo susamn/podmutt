@@ -59,12 +59,17 @@ func TestQueueProjectsCurrentAndPreservesInterruptedPlayback(t *testing.T) {
 		if len(m.Model.Visible(ui.Queue)) != 1 || m.state.Current.ID != first.ID || m.state.Status != playback.Playing {
 			t.Fatal("clear affected current audio", m.state)
 		}
-		for _, key := range []rune{'J', 'K', 'd', 'D'} {
+		for _, key := range []rune{'J', 'K', 'D'} {
 			finishLibrary(&m, libraryKey(&m, key))
 			if m.Model.Focus() != ui.Queue || m.confirming != nil {
 				t.Fatal("empty Up next targeted current", string(key))
 			}
 		}
+		libraryKey(&m, 'd')
+		if m.confirming == nil {
+			t.Fatal("current row must support confirmed removal")
+		}
+		libraryKey(&m, 'n')
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 		if state := syncPlayer(t, &m); state.Current.ID != first.ID || state.Status != playback.Playing {
 			t.Fatal("empty Up next Enter changed current", state)

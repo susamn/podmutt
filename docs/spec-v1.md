@@ -83,11 +83,14 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
   insertion order; stable persisted order breaks ties. Next does not complete skipped audio.
   Subscription arrivals consider the two latest cached releases, not historical backfill.
 - Controls: play, pause, stop. Queue is persistent and supports batch enqueue without
-  duplicates. Presentation projects current audio without making it editable as pending
+  duplicates. Presentation projects current audio separately from pending
   work. Manual additions append/select/focus Queue without autoplay or subscription;
-  visual sort never writes back. Direct playback preserves pending work. d/Delete removes
-  pending work immediately; Queue u merges one session-local removal into the live queue.
-  D clear still requires confirmation and never clears current audio (ADRs 044, 048).
+  visual sort never writes back. Direct playback preserves pending work. Queue d/Delete
+  confirms the captured selected episode before removal, including current audio in any
+  playback state. Removing current saves/stops and clears its pointer without completion
+  or autoplay; Queue u restores the last removal as pending without restarting audio.
+  D clear still requires confirmation and only clears pending audio (ADR 053 supersedes
+  the single-row removal rules in ADRs 044 and 048).
 - Playback failure: persistent notification and stop; no automatic retry or skip.
 - CLI controls/status target the running TUI for use in external keybindings;
   they must not create a background player when no TUI is running.
@@ -115,7 +118,7 @@ superseded by the explicit streaming-only scope.
   Playing metadata beyond what media-key integration needs is not yet committed.
 - License: MIT.
 - TOML configuration; no telemetry by default; redact secrets from logs.
-- Makefile, GitLab CI, automated tests and >=90% aggregate first-party statement
+- Makefile, GitLab CI, automated tests and >=95% aggregate first-party statement
   coverage, including command code. Native macOS CI availability remains open.
 - Desired distribution: binaries, source, Homebrew, AUR, Nix. Architecture,
   compatibility, packaging ownership, and signing matrix remain open.
