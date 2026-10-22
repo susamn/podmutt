@@ -388,6 +388,11 @@ func (m *libraryShell) searchKey(key tea.KeyPressMsg) tea.Cmd {
 	case "ctrl+c":
 		return tea.Quit
 	case "esc":
+		m.notice = "Search canceled."
+		if m.browse.urlInput {
+			m.notice = "URL preview canceled."
+		}
+		m.browse.input, m.browse.inputError = "", ""
 		m.browse.searching = false
 		m.Model = m.Model.WithDialog(nil)
 	case "tab":
@@ -639,9 +644,9 @@ func (m *libraryShell) renderPreviewDetails() {
 			details += fmt.Sprintf("\nCustomer rating: ★ %.1f/5 (%d reviews)", show.Rating, show.ReviewCount)
 		}
 		if m.browse.source != "" {
-			details += "\nDirectory source: " + m.browse.source
+			details += "\nDirectory source: " + feedback.SourceURL(m.browse.source)
 		} else if m.browse.directURL {
-			details += "\nFeed: " + m.browse.preview.URL
+			details += "\nFeed: " + feedback.SourceURL(m.browse.preview.URL)
 		}
 	}
 	m.Model = m.Model.WithDetails(details)

@@ -26,5 +26,10 @@ func TestInvalidURLStaysEditableWithVisibleFeedback(t *testing.T) {
 		if cmd := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}); cmd != nil || !m.adding || !strings.Contains(m.notice, "HTTP(S)") {
 			t.Fatal("invalid Add URL closed input")
 		}
+		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})
+		if m.notice != "Add feed canceled." || strings.Contains(m.View().Content, "Use an HTTP(S)") {
+			t.Fatal("canceled validation retained stale feedback")
+		}
+
 	})
 }
