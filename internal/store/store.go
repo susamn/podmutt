@@ -26,7 +26,10 @@ var autoqueueSchema string
 //go:embed discovery.sql
 var discoverySchema string
 
-var migrations = []string{schema, autoqueueSchema, discoverySchema}
+//go:embed favorites.sql
+var favoritesSchema string
+
+var migrations = []string{schema, autoqueueSchema, discoverySchema, favoritesSchema}
 
 // Store serializes database access through one connection. The profile directory
 // must already exist and be private; profile.Paths.Prepare establishes that.
