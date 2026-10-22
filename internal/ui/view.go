@@ -467,7 +467,7 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 	if label == "" {
 		label = "Input"
 	}
-	fieldWidth := max(16, width-6-ansi.StringWidth(label)-4)
+	fieldWidth := max(1, width-6-ansi.StringWidth(label)-4)
 	valTrunc := ansi.Truncate(value, fieldWidth-1, "…")
 	inputArea := valTrunc + "▌"
 	pad := max(0, fieldWidth-ansi.StringWidth(inputArea))
@@ -498,6 +498,11 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	}
 
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
+		reserved := 2
+		if dialog.Hint != "" {
+			reserved += 2
+		}
+		rows = rows[:min(len(rows), max(0, height-2-reserved))]
 		rows = append(rows, "", renderInputBox(dialog.InputLabel, dialog.InputValue, width, pal))
 	}
 
