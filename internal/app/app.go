@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 
+	"podmutt/internal/feedback"
 	"podmutt/internal/profile"
 	"podmutt/internal/theme"
 )
@@ -36,11 +37,14 @@ func withProfile(run func(profile.Config, profile.Paths) error) (err error) {
 		return err
 	}
 	if err := paths.Prepare(); err != nil {
-		return err
+		return feedback.Wrap(feedback.Profile, err)
 	}
 	owner, err := paths.Acquire()
 	if err != nil {
-		return err
+		if errors.Is(err, profile.ErrAlreadyRunning) {
+			return err
+		}
+		return feedback.Wrap(feedback.Profile, err)
 	}
 	defer func() { err = errors.Join(err, owner.Close()) }()
 	_ = theme.EnsureFiles(paths.ConfigDir())
