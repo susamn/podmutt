@@ -19,6 +19,10 @@ type Repository interface {
 	UpsertFeed(context.Context, store.Feed) (int64, error)
 	UpsertEpisodes(context.Context, int64, []store.Episode) error
 	SetSubscribed(context.Context, int64, bool) error
+	FavoriteEpisodes(context.Context) ([]store.Episode, error)
+	FavoriteIDs(context.Context) (map[int64]bool, error)
+	AddFavorite(context.Context, int64) error
+	RemoveFavorite(context.Context, int64) error
 }
 type Fetcher interface {
 	Fetch(context.Context, store.Feed) (feed.Fetched, error)
@@ -33,6 +37,8 @@ func New(repo Repository, fetcher Fetcher) *Service { return &Service{repo, fetc
 type Snapshot struct {
 	Feeds                    []store.Feed
 	New, Continue, All, Show []store.Episode
+	Favorites                []store.Episode
+	FavoriteIDs              map[int64]bool
 }
 
 type View int
@@ -65,6 +71,14 @@ func (s *Service) Read(ctx context.Context, feedID int64) (Snapshot, error) {
 		return result, err
 	}
 	result.New = notStarted(all)
+	result.Favorites, err = s.repo.FavoriteEpisodes(ctx)
+	if err != nil {
+		return result, err
+	}
+	result.FavoriteIDs, err = s.repo.FavoriteIDs(ctx)
+	if err != nil {
+		return result, err
+	}
 	if feedID > 0 {
 		result.Show, err = s.repo.Episodes(ctx, feedID)
 	}
@@ -107,6 +121,14 @@ func (snapshot Snapshot) WithCurrent(current *store.Episode) Snapshot {
 
 func (s *Service) Subscribe(ctx context.Context, id int64, subscribed bool) error {
 	return s.repo.SetSubscribed(ctx, id, subscribed)
+}
+
+func (s *Service) AddFavorite(ctx context.Context, id int64) error {
+	return s.repo.AddFavorite(ctx, id)
+}
+
+func (s *Service) RemoveFavorite(ctx context.Context, id int64) error {
+	return s.repo.RemoveFavorite(ctx, id)
 }
 
 // Add validates/fetches before creating a row. Existing URLs resubscribe without

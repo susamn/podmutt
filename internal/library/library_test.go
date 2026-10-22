@@ -174,14 +174,50 @@ func (r *brokenRepo) SetSubscribed(ctx context.Context, id int64, yes bool) erro
 	}
 	return r.Repository.SetSubscribed(ctx, id, yes)
 }
+func (r *brokenRepo) FavoriteEpisodes(ctx context.Context) ([]store.Episode, error) {
+	if r.op == "favorites" {
+		return nil, failure
+	}
+	return r.Repository.FavoriteEpisodes(ctx)
+}
+func (r *brokenRepo) FavoriteIDs(ctx context.Context) (map[int64]bool, error) {
+	if r.op == "favorite_ids" {
+		return nil, failure
+	}
+	return r.Repository.FavoriteIDs(ctx)
+}
+func (r *brokenRepo) AddFavorite(ctx context.Context, id int64) error {
+	if r.op == "add_favorite" {
+		return failure
+	}
+	return r.Repository.AddFavorite(ctx, id)
+}
+func (r *brokenRepo) RemoveFavorite(ctx context.Context, id int64) error {
+	if r.op == "remove_favorite" {
+		return failure
+	}
+	return r.Repository.RemoveFavorite(ctx, id)
+}
 
 func TestReadAndWriteFailures(t *testing.T) {
-	for _, op := range []string{"feeds", "all", "show", "continue", "feed", "episodes", "validators", "subscribe"} {
+	for _, op := range []string{"feeds", "all", "show", "continue", "favorites", "favorite_ids", "feed", "episodes", "validators", "subscribe", "add_favorite", "remove_favorite"} {
 		t.Run(op, func(t *testing.T) {
 			db := database(t)
 			s := New(&brokenRepo{Repository: db, op: op}, &fixtureFetcher{})
-			if op == "all" || op == "show" || op == "continue" {
+			if op == "all" || op == "show" || op == "continue" || op == "favorites" || op == "favorite_ids" {
 				if _, err := s.Read(ctx, 1); !errors.Is(err, failure) {
+					t.Fatal(err)
+				}
+				return
+			}
+			if op == "add_favorite" {
+				if err := s.AddFavorite(ctx, 1); !errors.Is(err, failure) {
+					t.Fatal(err)
+				}
+				return
+			}
+			if op == "remove_favorite" {
+				if err := s.RemoveFavorite(ctx, 1); !errors.Is(err, failure) {
 					t.Fatal(err)
 				}
 				return
@@ -246,5 +282,68 @@ func TestAddHealsEmptyFeed(t *testing.T) {
 	episodes, err = db.Episodes(ctx, id)
 	if err != nil || len(episodes) != 2 {
 		t.Fatalf("expected 2 episodes populated, got %v", episodes)
+	}
+}
+
+func TestLibraryServiceFavorites(t *testing.T) {
+	db := database(t)
+	service := New(db, &fixtureFetcher{})
+
+	feedID, err := service.Add(ctx, "https://example.test/feed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	episodes, err := db.Episodes(ctx, feedID)
+	if err != nil || len(episodes) != 2 {
+		t.Fatalf("episodes: %v, %v", episodes, err)
+	}
+	e1, e2 := episodes[0].ID, episodes[1].ID
+
+	// Initial Read: no favorites
+	snap, err := service.Read(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Favorites) != 0 || len(snap.FavoriteIDs) != 0 {
+		t.Fatalf("initial favorites non-empty: %+v, %+v", snap.Favorites, snap.FavoriteIDs)
+	}
+
+	// Add favorite e1
+	if err := service.AddFavorite(ctx, e1); err != nil {
+		t.Fatal(err)
+	}
+	snap, err = service.Read(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Favorites) != 1 || snap.Favorites[0].ID != e1 || !snap.FavoriteIDs[e1] {
+		t.Fatalf("expected e1 in favorites: %+v, %+v", snap.Favorites, snap.FavoriteIDs)
+	}
+
+	// Add favorite e2
+	if err := service.AddFavorite(ctx, e2); err != nil {
+		t.Fatal(err)
+	}
+	snap, err = service.Read(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Favorites) != 2 || snap.Favorites[0].ID != e2 || snap.Favorites[1].ID != e1 {
+		t.Fatalf("expected [e2, e1] in favorites: %+v", snap.Favorites)
+	}
+	if !snap.FavoriteIDs[e1] || !snap.FavoriteIDs[e2] {
+		t.Fatalf("missing in FavoriteIDs: %+v", snap.FavoriteIDs)
+	}
+
+	// Remove favorite e1
+	if err := service.RemoveFavorite(ctx, e1); err != nil {
+		t.Fatal(err)
+	}
+	snap, err = service.Read(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Favorites) != 1 || snap.Favorites[0].ID != e2 || snap.FavoriteIDs[e1] || !snap.FavoriteIDs[e2] {
+		t.Fatalf("expected only e2 in favorites: %+v, %+v", snap.Favorites, snap.FavoriteIDs)
 	}
 }
