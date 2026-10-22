@@ -27,7 +27,7 @@ func TestWidePlayerBorrowsDetailsBottomAndQueueGainsWidth(t *testing.T) {
 						if g.queueWidth != size[0]*35/100 || g.queueWidth <= oldQueue || g.episodeWidth != oldMiddle-(g.queueWidth-oldQueue) {
 							t.Fatal("width transfer is not shared by Episodes/Details", size, g)
 						}
-						if g.playerWidth != g.episodeWidth+g.queueWidth || g.episodes != (size[1]-statusRows)/2 || g.episodes+g.details != g.queue || g.details < 4 {
+						if g.playerWidth != g.episodeWidth+g.queueWidth || g.episodes != (size[1]-statusRows)/2 || g.episodes+g.details != g.queue+g.favorites || g.details < 4 {
 							t.Fatal("inconsistent shared bottom geometry", size, g)
 						}
 						if w, h := m.detailsSize(); w != g.episodeWidth || h != g.details {
@@ -35,10 +35,10 @@ func TestWidePlayerBorrowsDetailsBottomAndQueueGainsWidth(t *testing.T) {
 						}
 						view := m.View().Content
 						lines := strings.Split(ansi.Strip(view), "\n")
-						if len(lines) != size[1] || rowContaining(t, view, "Now playing") != g.queue || rowContaining(t, view, "Details") != g.episodes || rowContaining(t, view, "Queue") != 0 {
+						if len(lines) != size[1] || rowContaining(t, view, "Now playing") != g.queue+g.favorites || rowContaining(t, view, "Details") != g.episodes || rowContaining(t, view, "Queue") != 0 || rowContaining(t, view, "Favorites") != g.queue {
 							t.Fatal("panels did not share bottom Player", size, g)
 						}
-						playerHeader := ansi.Cut(lines[g.queue], g.libraryWidth, size[0])
+						playerHeader := ansi.Cut(lines[g.queue+g.favorites], g.libraryWidth, size[0])
 						if !strings.Contains(playerHeader, "Now playing") || !strings.HasSuffix(playerHeader, "╮") || ansi.StringWidth(playerHeader) != g.playerWidth {
 							t.Fatal("Player does not span both columns", size, playerHeader)
 						}
@@ -56,7 +56,7 @@ func TestWidePlayerBorrowsDetailsBottomAndQueueGainsWidth(t *testing.T) {
 							}
 						}
 						m = press(m, "G")
-						if m.detailScroll == 0 || rowContaining(t, m.View().Content, "Now playing") != g.queue || !strings.Contains(ansi.Strip(m.View().Content), "Pinned identity") {
+						if m.detailScroll == 0 || rowContaining(t, m.View().Content, "Now playing") != g.queue+g.favorites || !strings.Contains(ansi.Strip(m.View().Content), "Pinned identity") {
 							t.Fatal("reading moved Player or lost pin", size)
 						}
 					}

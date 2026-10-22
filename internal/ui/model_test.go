@@ -61,15 +61,15 @@ func TestNavigationAndBounds(t *testing.T) {
 	if m.selected[Podcasts] != 1 {
 		t.Fatal("first/last navigation failed")
 	}
-	m = press(m, "tab", "tab", "tab")
+	m = press(m, "tab", "tab", "tab", "tab")
 	if m.focus != Podcasts {
 		t.Fatalf("Tab did not skip supporting panes: %v", m.focus)
 	}
-	m = press(m, "5", "j", "G", "/", "4", "1", "2", "3")
+	m = press(m, "6", "j", "G", "5", "4", "1", "2", "3")
 	if m.focus != Queue {
 		t.Fatal("numbered pane navigation failed")
 	}
-	m = press(m, "tab")
+	m = press(m, "tab", "tab")
 	if m.focus != Podcasts {
 		t.Fatal("focus did not wrap")
 	}
@@ -284,8 +284,12 @@ func TestUnicodeBoxHeadersAndVersion(t *testing.T) {
 		t.Fatalf("unexpected queue header with version: %s", queuePane)
 	}
 	playerPane := ansi.Strip(m.pane(PlayerPanel, 40, 8))
-	if !strings.Contains(playerPane, "╭──Now playing") || !strings.Contains(playerPane, "[5]─╮") {
+	if !strings.Contains(playerPane, "╭──Now playing") || !strings.Contains(playerPane, "[6]─╮") {
 		t.Fatalf("unexpected player header: %s", playerPane)
+	}
+	favoritesPane := ansi.Strip(m.pane(Favorites, 40, 8))
+	if !strings.Contains(favoritesPane, "╭──Favorites") || !strings.Contains(favoritesPane, "[5]─╮") {
+		t.Fatalf("unexpected favorites header: %s", favoritesPane)
 	}
 	for _, w := range []int{1, 2, 5, 10, 20} {
 		p := m.pane(Queue, w, 5)

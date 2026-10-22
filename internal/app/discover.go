@@ -606,6 +606,10 @@ func (m *libraryShell) renderDiscovery() {
 			data.Episodes = append(data.Episodes, item)
 		}
 	}
+	for _, fav := range m.snapshot.Favorites {
+		item := episodeItem(fav, false)
+		data.Favorites = append(data.Favorites, item)
+	}
 	m.Model = m.Model.WithLibrary(data)
 	m.renderDetails()
 	m.renderStatus()

@@ -17,6 +17,7 @@ const (
 	Episodes
 	Queue
 	Details
+	Favorites
 	PlayerPanel
 )
 
@@ -51,6 +52,7 @@ type Dialog struct {
 type Data struct {
 	Dialog                     *Dialog
 	Podcasts, Episodes, Queue  []Item
+	Favorites                  []Item
 	Details                    string
 	EpisodeDetails             *EpisodeDetails
 	Player                     Player
@@ -90,9 +92,9 @@ type Model struct {
 	width, height              int
 	focus                      Panel
 	lastVisible                Panel
-	selected                   [3]int
-	colOffset                  [3]int
-	filters                    [3]string
+	selected                   [6]int
+	colOffset                  [6]int
+	filters                    [6]string
 	editing                    bool
 	previous                   string
 	help                       bool
@@ -179,19 +181,23 @@ func (m Model) Selected(panel Panel) (Item, bool) {
 	}
 	return items[m.selected[panel]], true
 }
+func (m Model) isList(panel Panel) bool {
+	return panel == Podcasts || panel == Episodes || panel == Queue || panel == Favorites
+}
+
 func (m Model) HasFilter(panel Panel) bool {
-	return panel >= Podcasts && panel <= Queue && m.filters[panel] != ""
+	return m.isList(panel) && m.filters[panel] != ""
 }
 
 func (m Model) ClearFilter(panel Panel) Model {
-	if panel >= Podcasts && panel <= Queue {
+	if m.isList(panel) {
 		m.filters[panel] = ""
 		m.clamp()
 	}
 	return m
 }
 func (m Model) Reset(panel Panel) Model {
-	if panel >= Podcasts && panel <= Queue {
+	if m.isList(panel) {
 		m.selected[panel] = 0
 		m.colOffset[panel] = 0
 	}
@@ -230,6 +236,8 @@ func (m Model) items(panel Panel) []Item {
 		source = m.data.Episodes
 	case Queue:
 		source = m.data.Queue
+	case Favorites:
+		source = m.data.Favorites
 	default:
 		return nil
 	}
@@ -247,7 +255,7 @@ func (m Model) items(panel Panel) []Item {
 }
 
 func (m *Model) clamp() {
-	for panel := Podcasts; panel <= Queue; panel++ {
+	for _, panel := range []Panel{Podcasts, Episodes, Queue, Favorites} {
 		m.selected[panel] = max(0, min(m.selected[panel], len(m.items(panel))-1))
 	}
 }
@@ -257,14 +265,14 @@ func (m *Model) setFocus(panel Panel) {
 		return
 	}
 	m.focus = panel
-	if panel == Podcasts || panel == Episodes {
+	if panel == Podcasts || panel == Episodes || panel == Favorites {
 		m.lastVisible = panel
 	}
 }
 
 // back leaves supporting panes without changing the selected episode.
 func (m *Model) back() {
-	if m.focus == Episodes {
+	if m.focus == Episodes || m.focus == Favorites {
 		m.setFocus(Podcasts)
 	} else if m.focus >= Queue {
 		m.setFocus(m.lastVisible)
@@ -308,7 +316,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Data:
 		layoutChanged := msg.Player.Error != m.data.Player.Error || msg.Player.Warning != m.data.Player.Warning
 		// Keep the selected identity as asynchronous data replaces list contents.
-		for panel := Podcasts; panel <= Queue; panel++ {
+		for _, panel := range []Panel{Podcasts, Episodes, Queue, Favorites} {
 			old := m.items(panel)
 			if len(old) == 0 {
 				continue
@@ -424,7 +432,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					step = -1
 				}
 				m.playerButton = (m.playerButton + step + 3) % 3
-			} else if m.focus < Details {
+			} else if m.isList(m.focus) {
 				step := 4
 				if key == "left" {
 					step = -4
@@ -447,7 +455,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delta = -delta
 				}
 				m.scrollDetails(delta)
-			} else if m.focus <= Queue {
+			} else if m.isList(m.focus) {
 				delta := m.listPageSize()
 				if key == "ctrl+d" || key == "ctrl+u" {
 					delta = max(1, delta/2)
@@ -477,38 +485,52 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.actions("seek-forward")
 			}
 		case "h":
-			if m.focus < Details {
+			if m.isList(m.focus) {
 				m.colOffset[m.focus] = max(0, m.colOffset[m.focus]-4)
 			}
 			return m, nil
 		case "l":
-			if m.focus < Details {
+			if m.isList(m.focus) {
 				m.colOffset[m.focus] += 4
 			}
 			return m, nil
 		case "tab":
-			if m.focus >= Queue {
+			switch m.focus {
+			case Podcasts:
+				m.setFocus(Episodes)
+			case Episodes:
+				m.setFocus(Queue)
+			case Queue:
+				m.setFocus(Favorites)
+			case Favorites:
 				m.setFocus(Podcasts)
-			} else {
-				m.setFocus(m.focus + 1)
+			default:
+				m.setFocus(Podcasts)
 			}
 		case "shift+tab":
-			if m.focus == Podcasts || m.focus > Queue {
+			switch m.focus {
+			case Podcasts:
+				m.setFocus(Favorites)
+			case Episodes:
+				m.setFocus(Podcasts)
+			case Queue:
+				m.setFocus(Episodes)
+			case Favorites:
 				m.setFocus(Queue)
-			} else {
-				m.setFocus(m.focus - 1)
+			default:
+				m.setFocus(Favorites)
 			}
-		case "1", "2", "3", "4", "5":
+		case "1", "2", "3", "4", "5", "6":
 			m.setFocus(Panel(key[0] - '1'))
 		case "esc":
-			if m.focus < Details && m.filters[m.focus] != "" {
+			if m.isList(m.focus) && m.filters[m.focus] != "" {
 				m.filters[m.focus] = ""
 				m.clamp()
 			} else {
 				m.back()
 			}
 		case "/":
-			if m.focus < Details {
+			if m.isList(m.focus) {
 				m.editing, m.previous = true, m.filters[m.focus]
 			}
 		case "j", "down", "k", "up", "g", "G", "home", "end":
@@ -524,7 +546,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					width, _ := m.detailsSize()
 					m.scrollDetails(len(m.detailRows(width)))
 				}
-			} else if m.focus < Details {
+			} else if m.isList(m.focus) {
 				switch key {
 				case "j", "down":
 					m.selected[m.focus]++

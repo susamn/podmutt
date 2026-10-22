@@ -14,14 +14,15 @@ const (
 	StoppedIcon
 	FailedIcon
 	QueueIcon
+	FavoriteIcon
 )
 
-var unicodeIcons = [...]string{"◉", "♪", "⌕", "↗", "▶", "Ⅱ", "■", "!", "○"}
-var nerdIcons = [...]string{"\uf2ce", "\uf001", "\uf002", "\uf09e", "\uf04b", "\uf04c", "\uf04d", "\uf071", "\uf017"}
+var unicodeIcons = [...]string{"◉", "♪", "⌕", "↗", "▶", "Ⅱ", "■", "!", "○", "♥"}
+var nerdIcons = [...]string{"\uf2ce", "\uf001", "\uf002", "\uf09e", "\uf04b", "\uf04c", "\uf04d", "\uf071", "\uf017", "\uf004"}
 
 func (m Model) WithIcons(mode string) Model { m.icons = mode; return m }
 func (m Model) Icon(icon Icon, label string) string {
-	if icon > QueueIcon || m.icons == "plain" {
+	if icon > FavoriteIcon || m.icons == "plain" {
 		return label
 	}
 	glyph := ""
@@ -42,6 +43,8 @@ func panelIcon(panel Panel) Icon {
 		return ShowIcon
 	case Episodes, Details:
 		return EpisodeIcon
+	case Favorites:
+		return FavoriteIcon
 	default:
 		return QueueIcon
 	}
