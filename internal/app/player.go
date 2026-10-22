@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"context"
@@ -27,13 +26,6 @@ func cleanShow(show string) string {
 		return "Unknown show"
 	}
 	return plain
-}
-
-func formatPublishedDate(t time.Time) string {
-	if t.Unix() > 0 {
-		return t.Format("2006-01-02")
-	}
-	return ""
 }
 
 func formatEpisodeDuration(seconds int64) string {
