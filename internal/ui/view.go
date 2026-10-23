@@ -592,11 +592,7 @@ func (m Model) View() tea.View {
 			if top > 0 {
 				parts = append(parts, m.pane(Podcasts, m.width, top))
 			}
-			if panel == Queue {
-				parts = append(parts, m.pane(panel, m.width, middle), m.playerPane(m.width, player))
-			} else {
-				parts = append(parts, m.playerPane(m.width, player), m.pane(panel, m.width, middle))
-			}
+			parts = append(parts, m.pane(panel, m.width, middle), m.playerPane(m.width, player))
 			content = lipgloss.JoinVertical(lipgloss.Left, parts...)
 		} else {
 			g := m.wideLayout()
