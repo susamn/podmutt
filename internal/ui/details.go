@@ -13,7 +13,7 @@ import (
 type EpisodeDetails struct {
 	Key, Title, Show, Date, Duration string
 	State, Position, Description     string
-	Rating                           string
+	Rating, Chapters                 string
 	Queued, Inspecting, Favorited    bool
 }
 
@@ -92,6 +92,9 @@ func (m Model) detailLayout(width, height int) (header, body []string) {
 	}
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
 	add(strings.Join(metadata, " · "), muted)
+	if card.Chapters != "" {
+		add(card.Chapters, muted)
+	}
 	if card.Rating != "" {
 		add("Rating: "+card.Rating, lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightYellow))))
 	}

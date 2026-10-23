@@ -38,6 +38,7 @@ type State struct {
 	Status        Status
 	Error         string
 	CanSeek       bool
+	PlaybackID    uint64 // changes whenever audio is loaded, even for the same episode
 }
 
 type Repository interface {
@@ -88,6 +89,7 @@ type Engine struct {
 	removed      *queueRemoval
 	clock        positionClock
 	entryID      int64
+	playbackID   uint64
 	seenID       int64
 	seen         bool
 	active       bool
@@ -226,6 +228,7 @@ func (e *Engine) snapshot() State {
 	state := e.state
 	_, seeking := e.player.(seeker)
 	state.CanSeek = e.active && e.ready && seeking && state.Current != nil
+	state.PlaybackID = e.playbackID
 	if state.Current != nil {
 		current := *state.Current
 		state.Current = &current

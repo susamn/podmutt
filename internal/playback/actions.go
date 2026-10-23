@@ -90,6 +90,7 @@ func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) er
 		e.removed = nil
 	}
 	e.entryID, e.active = entryID, true
+	e.playbackID++
 	return nil
 }
 

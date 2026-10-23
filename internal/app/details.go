@@ -18,6 +18,13 @@ func episodeDetails(episode store.Episode, show, key string, queued, inspecting 
 	if episode.DurationSeconds > 0 {
 		card.Duration = formatEpisodeDuration(episode.DurationSeconds)
 	}
+	if list := episode.ParsedChapters(); len(list) > 0 {
+		card.Chapters = fmt.Sprintf("[Ch] %d chapters available", len(list))
+	} else if episode.ChaptersURL != "" {
+		card.Chapters = "[Ch] Chapters published · not loaded"
+	} else if episode.ChaptersJSON != "" {
+		card.Chapters = "[Ch] Chapter data unavailable"
+	}
 	if episode.Completed {
 		card.State = "Completed"
 	} else if episode.PositionSeconds > 0 {
@@ -50,6 +57,11 @@ func (m libraryShell) detailHistory(episode store.Episode) store.Episode {
 			}
 			if matches {
 				episode.ID, episode.PositionSeconds, episode.Completed = saved.ID, saved.PositionSeconds, saved.Completed
+				if episode.ChaptersURL == "" && episode.ChaptersJSON == "" {
+					episode.ChaptersURL, episode.ChaptersJSON = saved.ChaptersURL, saved.ChaptersJSON
+				} else if episode.ChaptersJSON == "" && episode.ChaptersURL == saved.ChaptersURL {
+					episode.ChaptersJSON = saved.ChaptersJSON
+				}
 				return episode
 			}
 		}
