@@ -515,40 +515,55 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 
 func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	pal := m.Theme()
-	var rows []string
-
-	bodyLines := strings.Split(clean(dialog.Body, true), "\n")
-	for _, l := range bodyLines {
-		if strings.TrimSpace(l) == "" {
-			rows = append(rows, "")
-			continue
+	compact := height < 12
+	var body []string
+	if dialog.Body != "" {
+		if !compact {
+			body = append(body, m.modalLabel("Details", width))
 		}
 		if dialog.TruncateBody {
-			rows = append(rows, ansi.Truncate(l, max(1, width-2), "…"))
+			for _, line := range strings.Split(clean(dialog.Body, true), "\n") {
+				body = append(body, m.modalLine(line, width))
+			}
 		} else {
-			rows = append(rows, strings.Split(ansi.Wrap(l, max(1, width-4), ""), "\n")...)
+			body = append(body, m.modalWrapped(dialog.Body, width)...)
 		}
 	}
 
+	var input []string
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
-		reserved := 2
-		if dialog.Hint != "" {
-			reserved += 2
+		if !compact {
+			input = append(input, m.modalLabel("Input", width))
 		}
-		rows = rows[:min(len(rows), max(0, height-2-reserved))]
-		rows = append(rows, "", renderInputBox(dialog.InputLabel, dialog.InputValue, width, pal))
+		input = append(input, renderInputBox(dialog.InputLabel, dialog.InputValue, width, pal))
 	}
 
+	footer := ""
 	if dialog.Hint != "" {
-		// Keep decision keys visible in compact row-based confirmations.
-		if dialog.TruncateBody {
-			rows = rows[:min(len(rows), max(0, height-4))]
-		}
-		rows = append(rows, "")
-		hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
-		rows = append(rows, "  "+hintStyle.Render(clean(dialog.Hint, false)))
+		footer = m.modalFooter(dialog.Hint, width)
 	}
-
+	reserved := len(input)
+	if len(body) > 0 && len(input) > 0 {
+		reserved++
+	}
+	if footer != "" {
+		reserved++
+		if !compact {
+			reserved++
+		}
+	}
+	body = body[:min(len(body), max(0, modalBodyCapacity(height)-reserved))]
+	rows := body
+	if len(rows) > 0 && len(input) > 0 {
+		rows = append(rows, "")
+	}
+	rows = append(rows, input...)
+	if footer != "" {
+		if !compact && len(rows) > 0 {
+			rows = append(rows, "")
+		}
+		rows = append(rows, footer)
+	}
 	modalHeight := min(height, len(rows)+2)
 	return m.box(clean(dialog.Title, false), rows, width, modalHeight, true, "", "")
 }
@@ -618,63 +633,9 @@ func (m Model) View() tea.View {
 			} else if m.settings {
 				height = min(20, available-2)
 				width = min(64, m.width-4)
-				var rows []string
-				rows = append(rows, "Themes (j/k select, Enter apply):")
-				for i, t := range m.settingsData.Themes {
-					mark := " "
-					if t == m.settingsData.ActiveTheme {
-						mark = "●"
-					}
-					row := fmt.Sprintf("  [%s] %s", mark, t)
-					if i == m.settingsData.Selected {
-						row = m.highlightRow(row, width-2)
-					}
-					rows = append(rows, row)
-				}
-				rows = append(rows, "")
-				rows = append(rows, "Configuration:")
-				if m.settingsData.ThemePath != "" {
-					rows = append(rows, "  Active file: "+clean(m.settingsData.ThemePath, false))
-				}
-				if m.settingsData.ConfigPath != "" {
-					rows = append(rows, "  Config:      "+clean(m.settingsData.ConfigPath, false))
-				}
-				if m.settingsData.RefreshMin > 0 {
-					rows = append(rows, fmt.Sprintf("  Refresh:     %d min", m.settingsData.RefreshMin))
-				}
-				if m.settingsData.Icons != "" {
-					rows = append(rows, "  Icons:       "+clean(m.settingsData.Icons, false))
-				}
-				if m.settingsData.Country != "" {
-					rows = append(rows, "  Country:     "+clean(strings.ToUpper(m.settingsData.Country), false)+" (Left/Right to change)")
-				}
-				if m.settingsData.MPVPath != "" {
-					rows = append(rows, "  MPV:         "+clean(m.settingsData.MPVPath, false))
-				}
-				modal = m.box("Settings · Left/Right country · e/Esc to close", rows, width, height, true, "", "")
+				modal = m.renderSettingsModal(width, height)
 			} else if m.help {
-				modal = m.box("Keys · Esc closes", []string{
-					"j/k arrows · g/G first/last item",
-					"Details: Enter play/resume · a queue · c complete",
-					"Preview completion requires subscription",
-					"h/Left back · l/Right open · Tab lists · 1-6 focus",
-					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
-					"C Chapters for current playback · Ch: ✓ advertised/cached",
-					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
-					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
-					"e             Settings · live theme switch",
-					"!             Full error/warning · j/k scroll · Esc dismiss",
-					"Space pause/resume current · s stop · n next",
-					"Episodes: Enter play · i details · a enqueue · A enqueue visible",
-					"Queue: m actions (favorite) · d/Del remove · u undo · D clear",
-					"Favorites (5): Enter play · d/Del un-favorite",
-					"b My subscriptions / Discover",
-					"f Search · Tab library/Apple/Podcast Index",
-					"U RSS/website preview · t Apple Top 100",
-					"Podcasts: u subscribe/unsubscribe · N add",
-					"Library views / a show · o sort",
-					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
-				}, width, height, true, "", "")
+				modal = m.renderHelpModal(width, height)
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
 				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((available-height)/2).Z(1)).Render()
