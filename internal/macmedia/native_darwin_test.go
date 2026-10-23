@@ -60,9 +60,21 @@ func TestNativeRegisteredObjectiveCCommandsAndLateDelivery(t *testing.T) {
 		t.Fatal("invalid native command accepted")
 	}
 	invalid.release()
+	// Invalid command IDs and stale callback IDs must never reach the actor.
+	for _, action := range []int{-1, 7, 99} {
+		if podmuttMediaEventForTest(d.id, action) {
+			t.Fatal("accepted invalid command", action)
+		}
+	}
+	if podmuttMediaEventForTest(d.id+1, 0) {
+		t.Fatal("accepted unknown callback ID")
+	}
 	late := d.capture(2)
 	defer late.release()
 	s.Close()
+	if podmuttMediaEventForTest(d.id, 0) {
+		t.Fatal("accepted unregistered callback ID")
+	}
 	if late.fire() {
 		t.Fatal("retained late handler accepted after unregister")
 	}
