@@ -81,7 +81,12 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 	for _, size := range [][2]int{{30, 12}, {80, 24}, {99, 40}} {
 		for _, panel := range []Panel{Podcasts, Episodes, Queue, Details, PlayerPanel} {
 			m := resize(New(fixture()), size[0], size[1]).WithDetails(strings.Repeat("description\n", 500)).WithFocus(panel)
-			if rowContaining(t, m.View().Content, "Now playing") != 0 {
+			playerRow := rowContaining(t, m.View().Content, "Now playing")
+			if panel == Queue {
+				if queueRow := rowContaining(t, m.View().Content, "Queue"); queueRow >= playerRow {
+					t.Fatal("compact Queue focus must place Player below Queue", size, queueRow, playerRow)
+				}
+			} else if playerRow != 0 {
 				t.Fatal("compact player moved", size, panel)
 			}
 			if !strings.Contains(ansi.Strip(m.View().Content), "[Play] [Stop] [Next]") {
@@ -98,6 +103,25 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 		}
 	}
 }
+func TestQueueCompactOrderingKeepsFocusAndSelectionAcrossResize(t *testing.T) {
+	data := fixture()
+	data.Queue = []Item{{ID: "2", Title: "Queued episode"}, {ID: "3", Title: "Next episode"}}
+	m := resize(New(data).WithFocus(Queue).Select(Queue, "3"), 30, 12)
+	for _, size := range [][2]int{{30, 12}, {80, 24}, {99, 40}} {
+		m = resize(m, size[0], size[1])
+		if m.Focus() != Queue {
+			t.Fatalf("resize changed focus: %v", m.Focus())
+		}
+		if selected, ok := m.Selected(Queue); !ok || selected.ID != "3" {
+			t.Fatalf("resize changed queue selection: %+v", selected)
+		}
+		view := m.View().Content
+		if rowContaining(t, view, "Queue") >= rowContaining(t, view, "Now playing") {
+			t.Fatalf("queue not above player at %v", size)
+		}
+	}
+}
+
 func TestPlayerDisplaysVolumeAtCompactAndWideWidths(t *testing.T) {
 	for _, tc := range []struct {
 		width int
