@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,13 +19,22 @@ import (
 )
 
 type fixtureDirectory struct {
-	shows []discovery.Show
-	calls int
-	query string
-	err   error
+	shows   []discovery.Show
+	calls   int
+	query   string
+	country string
+	err     error
 }
 
+func (d *fixtureDirectory) SetCountry(country string) { d.country = country }
+
 func (d *fixtureDirectory) Top(ctx context.Context) ([]discovery.Show, error) {
+	return d.Search(ctx, "")
+}
+func (d *fixtureDirectory) SearchFresh(ctx context.Context, q string) ([]discovery.Show, error) {
+	return d.Search(ctx, q)
+}
+func (d *fixtureDirectory) TopFresh(ctx context.Context) ([]discovery.Show, error) {
 	return d.Search(ctx, "")
 }
 func (d *fixtureDirectory) Search(ctx context.Context, q string) ([]discovery.Show, error) {
@@ -45,6 +55,125 @@ func browserLibrary(t *testing.T, s *session, d showDirectory) libraryShell {
 	updateLibrary(&m, tea.WindowSizeMsg{Width: 160, Height: 36})
 	return m
 }
+func TestDiscoverRestoresSavedResultsRevalidatesAndRetainsOnFailure(t *testing.T) {
+	librarySession(t, func(s *session) {
+		d := &fixtureDirectory{err: errors.New("offline")}
+		m := browserLibrary(t, s, d)
+		m.browse.active = true
+		stale := []discovery.Show{{Title: "Saved first", FeedURL: "https://example.test/one"}, {Title: "Saved selected", FeedURL: "https://example.test/two"}}
+		payload, _ := json.Marshal(stale)
+		if err := s.store.SaveDiscoverView(s.ctx, store.DiscoverView{Provider: "apple", Country: "us", Query: "science", Mode: "search", SelectedFeedURL: stale[1].FeedURL}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.store.SaveDiscoverSnapshot(s.ctx, store.DiscoverSnapshot{Provider: "apple", Country: "us", Query: "science", Mode: "search", Results: payload, FetchedAt: time.Now().Add(-time.Hour)}); err != nil {
+			t.Fatal(err)
+		}
+		persisted, err := s.store.LoadDiscoverView(s.ctx)
+		if err != nil || persisted.Query != "science" {
+			t.Fatal("view save failed", persisted, err)
+		}
+		cmd := m.restoreDiscoverView()
+		if !m.browse.loaded || len(m.browse.shows) != 2 || m.browse.shows[0].Title != "Saved first" {
+			t.Fatal("saved results not shown synchronously", m.browse.loaded, m.browse.loadedKey, m.browse.query, m.browse.shows)
+		}
+		if selected, ok := m.Model.Selected(ui.Podcasts); !ok || selected.ID != stale[1].FeedURL {
+			t.Fatal("selection not restored", selected)
+		}
+		finishLibrary(&m, cmd)
+		if d.calls != 1 || len(m.browse.shows) != 2 || !strings.Contains(m.notice, "showing saved results") {
+			t.Fatal("refresh failure hid saved results", d.calls, m.notice, m.browse.shows)
+		}
+		if selected, ok := m.Model.Selected(ui.Podcasts); !ok || selected.ID != stale[1].FeedURL {
+			t.Fatal("failure changed selection", selected)
+		}
+		d.err = nil
+		d.shows = []discovery.Show{{Title: "New", FeedURL: "https://example.test/new"}, stale[1], {Title: "Changed", FeedURL: stale[0].FeedURL}}
+		finishLibrary(&m, m.searchDirectory("science"))
+		if d.calls != 2 || len(m.browse.shows) != 3 {
+			t.Fatal("results did not revalidate", d.calls, m.browse.shows)
+		}
+		if selected, ok := m.Model.Selected(ui.Podcasts); !ok || selected.ID != stale[1].FeedURL {
+			t.Fatal("selection did not follow stable feed identity", selected)
+		}
+		snapshot, err := s.store.LoadDiscoverSnapshot(s.ctx, "apple", "us", "science", "search")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var saved []discovery.Show
+		if err := json.Unmarshal(snapshot.Results, &saved); err != nil || len(saved) != 3 || saved[0].Title != "New" {
+			t.Fatal(saved, err)
+		}
+		libraryKey(&m, 'j')
+		view, err := s.store.LoadDiscoverView(s.ctx)
+		if err != nil || view.SelectedFeedURL != stale[0].FeedURL {
+			t.Fatal("selection change was not saved", view, err)
+		}
+	})
+}
+
+func TestDiscoverQuerySwitchLoadsOnlyItsOwnSavedSnapshot(t *testing.T) {
+	librarySession(t, func(s *session) {
+		d := &fixtureDirectory{shows: []discovery.Show{{Title: "Fresh B", FeedURL: "https://example.test/fresh-b"}}}
+		m := browserLibrary(t, s, d)
+		m.browse.active = true
+		savedA := []discovery.Show{{Title: "Cached A", FeedURL: "https://example.test/a"}}
+		savedB := []discovery.Show{{Title: "Cached B first", FeedURL: "https://example.test/b1"}, {Title: "Cached B second", FeedURL: "https://example.test/b2"}}
+		for query, shows := range map[string][]discovery.Show{"A": savedA, "B": savedB} {
+			payload, _ := json.Marshal(shows)
+			if err := s.store.SaveDiscoverSnapshot(s.ctx, store.DiscoverSnapshot{Provider: "apple", Country: "us", Query: query, Mode: "search", Results: payload}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := s.store.SaveDiscoverView(s.ctx, store.DiscoverView{Provider: "apple", Country: "us", Query: "A", Mode: "search", SelectedFeedURL: savedA[0].FeedURL}); err != nil {
+			t.Fatal(err)
+		}
+		_ = m.restoreDiscoverView()
+		if len(m.browse.shows) != 1 || m.browse.shows[0].Title != "Cached A" {
+			t.Fatal("wrong initial snapshot", m.browse.shows)
+		}
+		cmd := m.searchDirectory("B")
+		if !m.browse.loaded || len(m.browse.shows) != 2 || m.browse.shows[0].Title != "Cached B first" {
+			t.Fatal("query switch did not synchronously load matching snapshot", m.browse.shows)
+		}
+		if selected, ok := m.Model.Selected(ui.Podcasts); !ok || selected.ID != savedB[0].FeedURL {
+			t.Fatal("query switch carried stale selection", selected)
+		}
+		finishLibrary(&m, cmd)
+		if d.calls != 1 || m.browse.shows[0].Title != "Fresh B" {
+			t.Fatal("new query did not refresh", d.calls, m.browse.shows)
+		}
+	})
+}
+
+func TestPodcastIndexDiscoverPersistsNavigationButNotProviderResults(t *testing.T) {
+	librarySession(t, func(s *session) {
+		d := &fixtureDirectory{shows: []discovery.Show{{Title: "Ephemeral result", FeedURL: "https://example.test/index"}}}
+		m := browserLibrary(t, s, d)
+		m.browse.active = true
+		m.browse.usingIndex = true
+		m.browse.indexDirectory = d
+		finishLibrary(&m, m.searchDirectory("public query"))
+		view, err := s.store.LoadDiscoverView(s.ctx)
+		if err != nil || view.Provider != "podcast_index" || view.Query != "public query" || view.SelectedFeedURL != "" {
+			t.Fatal("Index navigation state incorrect", view, err)
+		}
+		if _, err := s.store.LoadDiscoverSnapshot(s.ctx, "podcast_index", "us", "public query", "search"); err == nil {
+			t.Fatal("persisted Podcast Index response")
+		}
+		rows, err := s.store.DiscoveredShows(s.ctx, "us", "", 100)
+		if err != nil || len(rows) != 0 {
+			t.Fatal("persisted Podcast Index rows", rows, err)
+		}
+		if err := s.store.SaveDiscoverView(s.ctx, store.DiscoverView{Provider: "podcast_index", Query: "public query", Mode: "search"}); err != nil {
+			t.Fatal(err)
+		}
+		finishLibrary(&m, m.restoreDiscoverView())
+		if d.calls != 2 || m.browse.country != "us" {
+			t.Fatal("restored Index view did not requery with default country", d.calls, m.browse.country)
+		}
+	})
+}
+
 func TestDiscoverAutomaticListReadOnlyPreviewAndSubscribe(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/audio.mp3" {

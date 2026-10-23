@@ -42,9 +42,22 @@ vet:
 test:
 	$(GO) test -count=1 ./...
 
+# Collect each package's dependency coverage; go test ./... overwrites the
+# shared coverprofile instead of producing a suite-wide aggregate.
 coverage:
-	@mkdir -p coverage
-	$(GO) test -count=1 -covermode=atomic -coverpkg=$$($(GO) list ./... | paste -sd, -) -coverprofile=coverage/coverage.out ./...
+	@mkdir -p coverage/.profiles
+	@set -eu; packages=$$($(GO) list ./...); \
+	  rm -f coverage/.profiles/*.out; \
+	  for package in $$packages; do \
+	    name=$$(printf '%s' "$$package" | tr '/.' '__'); \
+	    coverpkg=$$($(GO) list -deps -f '{{.ImportPath}}' $$package | grep '^podmutt/'); \
+	    coverpkg=$$(printf '%s\n' "$$coverpkg" | paste -sd, -); \
+	    $(GO) test -count=1 -covermode=atomic -coverpkg=$$coverpkg \
+	      -coverprofile=coverage/.profiles/$$name.out $$package; \
+	  done
+	@awk 'FNR == 1 { next } { key = $$1; stmts[key] = $$2; hits[key] += $$3 } \
+		END { print "mode: atomic"; for (key in stmts) print key, stmts[key], hits[key] }' \
+		coverage/.profiles/*.out > coverage/coverage.out
 	$(GO) tool cover -func=coverage/coverage.out
 	$(GO) tool cover -html=coverage/coverage.out -o coverage/index.html
 	@awk -v min='$(COVERAGE_MIN)' 'NR > 1 { statements[$$1] = $$2; if ($$3 > 0) hit[$$1] = 1 } \

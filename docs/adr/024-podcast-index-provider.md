@@ -15,11 +15,15 @@ requests are captured/generation-bound, never silently retried on another provid
 
 Index uses signed headers (documented SHA-1 protocol), rejects redirects and keeps
 no response cache. Reuse Apple's bounded JSON I/O, quota gate and result URL/title
-normalization without using its response cache. API content is current-view state
-only, discarded on provider exit/subscription. Persist only independently fetched
-RSS metadata after explicit playback/enqueue/subscription; cross-provider episode
-identity is feed/GUID/enclosure based, not directory ID. Source links retain Index
-attribution. External mpv receives no Podcast Index credential environment values.
+normalization without using its response cache. API results and selected feed URLs
+are current-view state only: do not persist them on provider exit or app restart.
+Persist only navigation metadata (provider/country/query) for restoring the Discover view;
+requery Index on entry. Any future response cache must honor provider cache headers.
+The migration removes legacy Index directory rows persisted by earlier builds.
+Persist only independently fetched RSS metadata after explicit
+playback/enqueue/subscription; cross-provider episode identity is
+feed/GUID/enclosure based, not directory ID. Source links retain Index attribution.
+External mpv receives no Podcast Index credential environment values.
 
 No new dependency. Fixture tests exercise auth/redaction, limits/cancellation,
 missing access, provider lifecycle, read-only preview and stable ad-hoc identities.
