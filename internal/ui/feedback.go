@@ -45,7 +45,11 @@ func (m Model) activeMessage() feedback.Message {
 }
 func (m *Model) scrollFeedback(delta int) {
 	width, height := min(72, m.width-2), min(22, m.height-statusRows-2)
-	capacity := max(1, height-4)
+	reserved := 1
+	if height >= 12 {
+		reserved += 3
+	}
+	capacity := max(1, modalBodyCapacity(height)-reserved)
 	m.messageScroll = max(0, min(m.messageScroll+delta, len(m.messageRows(width))-capacity))
 }
 func (m Model) messageRows(width int) []string {
@@ -54,20 +58,42 @@ func (m Model) messageRows(width int) []string {
 	if m.data.Player.Warning != "" && message.Scope != "Media controls" {
 		text += "\n\nMedia controls:\n" + m.data.Player.Warning
 	}
-	return wrapDetails(text, max(1, width-4))
+	return wrapDetails(text, modalTextWidth(width))
 }
 func (m Model) feedbackModal(width, height int) string {
-	rows := m.messageRows(width)
-	capacity := max(1, height-4)
-	offset := min(m.messageScroll, max(0, len(rows)-capacity))
-	end := min(len(rows), offset+capacity)
-	body := append([]string(nil), rows[offset:end]...)
-	body = append(body, "", "j/k scroll · Esc dismiss")
-	title := "Message · !/Esc dismiss"
-	if m.activeMessage().Severity == "error" {
-		title = "Error · !/Esc dismiss"
+	message := m.activeMessage()
+	title, label := "Message", "Notice"
+	if message.Severity == "error" {
+		title, label = "Error", "Action required"
 	}
-	return m.box(title, body, width, min(height, len(body)+2), true, "", "")
+	if message.Severity == "warning" {
+		title, label = "Warning", "Attention"
+	}
+	compact := height < 12
+	reserved := 1 // footer
+	if !compact {
+		reserved += 3
+	} // label and two group gaps
+	capacity := max(1, modalBodyCapacity(height)-reserved)
+	all := m.messageRows(width)
+	offset := min(m.messageScroll, max(0, len(all)-capacity))
+	end := min(len(all), offset+capacity)
+	var rows []string
+	if !compact {
+		rows = append(rows, m.modalLabel(label, width), "")
+	}
+	for _, row := range all[offset:end] {
+		rows = append(rows, m.modalLine(row, width))
+	}
+	if !compact {
+		rows = append(rows, "")
+	}
+	hint := "j/k scroll · ! or Esc dismiss"
+	if compact {
+		hint = "Esc dismiss"
+	}
+	rows = append(rows, m.modalFooter(hint, width))
+	return m.box(title, rows, width, min(height, len(rows)+2), true, "", "")
 }
 func (m Model) feedbackStatus() string {
 	message := m.activeMessage()
