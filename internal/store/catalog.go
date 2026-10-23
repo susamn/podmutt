@@ -110,8 +110,16 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 				chapters_url=excluded.chapters_url,
 				chapters_json=CASE
 				WHEN length(excluded.chapters_json)>0 THEN excluded.chapters_json
-				WHEN excluded.chapters_url<>episodes.chapters_url OR excluded.chapters_url='' THEN ''
-				ELSE episodes.chapters_json END`,
+				WHEN excluded.chapters_url<>episodes.chapters_url OR
+					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin='embedded') OR
+					(excluded.chapters_url='' AND episodes.chapters_origin<>'embedded') THEN ''
+				ELSE episodes.chapters_json END,
+				chapters_origin=CASE
+				WHEN length(excluded.chapters_json)>0 THEN 'inline'
+				WHEN excluded.chapters_url<>episodes.chapters_url OR
+					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin='embedded') OR
+					(excluded.chapters_url='' AND episodes.chapters_origin<>'embedded') THEN ''
+				ELSE episodes.chapters_origin END`,
 				feedID, identity, guid, episode.Title, episode.Description, episode.AudioURL,
 				episode.ArtworkURL, published, episode.DurationSeconds, episode.ChaptersURL, episode.ChaptersJSON)
 			if err != nil {
@@ -187,6 +195,27 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		episodes = append(episodes, episode)
 	}
 	return episodes, rows.Err()
+}
+
+// CacheEpisodeChapters saves an external file only while its declaration still
+// matches. A concurrent feed refresh changing the URL cannot install stale data.
+func (s *Store) CacheEpisodeChapters(ctx context.Context, episodeID int64, url, chaptersJSON string) (bool, error) {
+	result, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_json=?,chapters_origin='external' WHERE id=? AND chapters_url=?`, chaptersJSON, episodeID, url)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count > 0, err
+}
+
+// CacheEmbeddedChapters only fills an episode without a feed chapter declaration.
+func (s *Store) CacheEmbeddedChapters(ctx context.Context, episodeID int64, chaptersJSON string) (bool, error) {
+	result, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_json=?,chapters_origin='embedded' WHERE id=? AND chapters_url='' AND chapters_json=''`, chaptersJSON, episodeID)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count > 0, err
 }
 
 // UpdateEpisodeChapters updates the cached chapters JSON string for an episode.

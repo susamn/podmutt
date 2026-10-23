@@ -84,6 +84,7 @@ type Model struct {
 	settings                   bool
 	settingsPending            bool
 	settingsData               SettingsData
+	chapters                   *ChapterPicker
 	icons                      string
 	animation                  animation
 	activity                   activityView
@@ -154,7 +155,7 @@ func (m Model) Select(panel Panel, id string) Model {
 	return m
 }
 func (m Model) Busy() bool {
-	return m.editing || m.help || m.settings || m.messageOpen || m.data.Dialog != nil || m.data.Prompt != ""
+	return m.editing || m.help || m.settings || m.messageOpen || m.data.Dialog != nil || m.data.Prompt != "" || m.chapters != nil
 }
 func (m Model) Visible(panel Panel) []Item      { return m.items(panel) }
 func (m Model) WithDialog(dialog *Dialog) Model { m.data.Dialog = dialog; return m }
@@ -366,6 +367,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key == "q" {
 			return m, tea.Quit
+		}
+		if m.chapters != nil {
+			return m, nil // app owns chapter navigation and guarded seeks
 		}
 		if m.messageOpen {
 			switch key {

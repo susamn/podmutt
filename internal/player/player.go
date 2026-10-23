@@ -170,6 +170,16 @@ func (p *Player) SeekTo(ctx context.Context, seconds float64) error {
 	return err
 }
 
+// ChapterList reads embedded media/container chapters for the loaded file.
+// A missing property is treated as no chapters, not a playback failure.
+func (p *Player) ChapterList(ctx context.Context) ([]byte, error) {
+	data, err := p.command(ctx, []any{"get_property", "chapter-list"})
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 // Position returns an error while no file is loaded, rather than inventing zero.
 func (p *Player) Position(ctx context.Context) (float64, error) {
 	data, err := p.command(ctx, []any{"get_property", "time-pos"})

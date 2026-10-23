@@ -151,7 +151,7 @@ func TestChaptersSchemaMigrationFromV4(t *testing.T) {
 	epID, _ := res.LastInsertId()
 
 	// Apply migration 5
-	if err := migrate(ctx, db, migrations); err != nil {
+	if err := migrate(ctx, db, migrations[:5]); err != nil {
 		t.Fatalf("migration to v5 failed: %v", err)
 	}
 	if err := db.QueryRow("PRAGMA user_version").Scan(&ver); err != nil || ver != 5 {
@@ -163,5 +163,16 @@ func TestChaptersSchemaMigrationFromV4(t *testing.T) {
 	err = db.QueryRow("SELECT chapters_url, chapters_json FROM episodes WHERE id=?", epID).Scan(&chapURL, &chapJSON)
 	if err != nil || chapURL != "" || chapJSON != "" {
 		t.Fatalf("querying migrated chapters columns failed: %v, chapURL=%q, chapJSON=%q", err, chapURL, chapJSON)
+	}
+	// Existing v5 databases must also upgrade without losing chapter caches.
+	if _, err := db.Exec("UPDATE episodes SET chapters_url='https://test.com/chapters',chapters_json='[]' WHERE id=?", epID); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, db, migrations); err != nil {
+		t.Fatal(err)
+	}
+	var origin string
+	if err := db.QueryRow("SELECT chapters_json,chapters_origin FROM episodes WHERE id=?", epID).Scan(&chapJSON, &origin); err != nil || chapJSON != "[]" || origin != "" {
+		t.Fatal("v6 upgrade lost metadata", chapJSON, origin, err)
 	}
 }

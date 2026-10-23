@@ -25,6 +25,7 @@ type tuiPlayer struct {
 	loads, closed int
 	seekPosition  float64
 	hasSeek       bool
+	chapterData   []byte
 }
 
 func (p *tuiPlayer) Load(context.Context, string, float64) error {
@@ -56,6 +57,11 @@ func (p *tuiPlayer) Position(context.Context) (float64, error) {
 		return p.seekPosition, nil
 	}
 	return 42, nil
+}
+func (p *tuiPlayer) ChapterList(context.Context) ([]byte, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]byte(nil), p.chapterData...), nil
 }
 func (p *tuiPlayer) Events() <-chan player.Event { return p.events }
 func (p *tuiPlayer) Err() error                  { return errors.New("disconnected") }

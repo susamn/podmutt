@@ -601,13 +601,15 @@ func (m Model) View() tea.View {
 		}
 		hints := m.bottomHints()
 		content += "\n" + m.statusLine() + "\n" + ansi.Truncate(hints, m.width, "…")
-		if m.messageOpen || m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil {
+		if m.messageOpen || m.help || m.settings || m.data.Prompt != "" || m.data.Dialog != nil || m.chapters != nil {
 			width, height := min(72, m.width-2), min(16, available-2)
-			if m.messageOpen || m.help || m.settings || m.data.Dialog != nil {
+			if m.messageOpen || m.help || m.settings || m.data.Dialog != nil || m.chapters != nil {
 				height = min(22, available-2)
 			}
 			var modal string
-			if m.messageOpen {
+			if m.chapters != nil {
+				modal = m.renderChapters(width, height)
+			} else if m.messageOpen {
 				modal = m.feedbackModal(width, height)
 			} else if m.data.Dialog != nil {
 				modal = m.renderDialogModal(m.data.Dialog, width, height)
@@ -657,6 +659,7 @@ func (m Model) View() tea.View {
 					"Preview completion requires subscription",
 					"h/Left back · l/Right open · Tab lists · 1-6 focus",
 					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
+					"C Chapters for current playback · [Ch] advertised/loaded",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",

@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"podmutt/internal/artwork"
+	"podmutt/internal/chapters"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/feedback"
@@ -81,6 +82,10 @@ type libraryShell struct {
 	queueUndoPending         bool
 	detailTarget             *store.Episode
 	detailFrom               ui.Panel
+	chapterRequest           chapterRequest
+	chapterGeneration        uint64
+	chapterCancel            context.CancelFunc
+	chapterList              []chapters.Chapter
 	startupDone              bool
 	queueSelectID            string
 	onboarding               bool
@@ -255,6 +260,9 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	defer func() {
 		if updated, ok := result.(libraryShell); ok {
+			if chapterPlaybackChanged(updated.chapterRequest, updated.state) {
+				updated.closeChapters()
+			}
 			updated.applyQueueFocus()
 			var cmd tea.Cmd
 			updated, cmd = updated.syncArt()
@@ -349,6 +357,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.err != nil {
 			m.art.image = nil
 		}
+	case chapterLoaded:
+		m.applyChapters(msg)
 	case libraryStartup:
 		cmd = m.resumeStartup()
 	case discoverStartup:
@@ -554,6 +564,20 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		return m.delegate(msg)
 	case tea.KeyPressMsg:
+		if m.chapterList != nil {
+			return m, m.chapterKey(msg.String())
+		}
+		if m.chapterCancel != nil {
+			if msg.String() == "esc" {
+				m.closeChapters()
+				m.notice = "Chapter loading canceled"
+				break
+			} else if msg.String() == "C" {
+				m.closeChapters()
+				return m, m.openChapters()
+			}
+			// Other keys still control playback/navigation while loading.
+		}
 		if m.onboarding {
 			return m, m.onboardingKey(msg)
 		}
@@ -578,6 +602,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		key := msg.String()
 		focus := m.Model.Focus()
 		switch key {
+		case "C":
+			cmd = m.openChapters()
 		case "b":
 			cmd = m.switchBrowse()
 		case "f":
