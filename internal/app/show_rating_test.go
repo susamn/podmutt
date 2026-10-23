@@ -52,5 +52,20 @@ func TestShowRatingUsesCachedRatingWithoutNetwork(t *testing.T) {
 		if directory.calls != 0 {
 			t.Fatal("unexpected directory request", directory.calls)
 		}
+
+		// A fresh rating must update the selected show and persist for offline
+		// Discover restoration, without changing an unrelated show.
+		updateLibrary(&m, showRatingLoaded{feedURL: feedURL, rating: 4.9, count: 52})
+		if m.browse.shows[0].Rating != 4.9 || m.browse.shows[0].ReviewCount != 52 || m.browse.shows[1].Rating != 0 {
+			t.Fatal("fresh rating applied to wrong show", m.browse.shows)
+		}
+		saved, err := s.store.DiscoveredShows(s.ctx, "us", "Rated show", 5)
+		if err != nil || len(saved) != 1 || saved[0].Rating != 4.9 || saved[0].ReviewCount != 52 {
+			t.Fatal("fresh rating not persisted", saved, err)
+		}
+		updateLibrary(&m, showRatingLoaded{feedURL: otherURL, rating: 0, count: 0})
+		if m.browse.shows[1].Rating != 0 {
+			t.Fatal("empty rating changed show")
+		}
 	})
 }

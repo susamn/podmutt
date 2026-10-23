@@ -44,6 +44,36 @@ func TestSetVolumeReadsReportedValueAndValidatesRange(t *testing.T) {
 	}
 }
 
+func TestVolumeRejectsBadPlayerRepliesAndChapterErrors(t *testing.T) {
+	for _, reply := range []any{"invalid", -1, 131, nil} {
+		t.Run(fmt.Sprint(reply), func(t *testing.T) {
+			client, remote := pipeIPC(t, time.Second)
+			go func() {
+				decoder, encoder := json.NewDecoder(remote), json.NewEncoder(remote)
+				for _, data := range []any{nil, reply} {
+					var frame map[string]any
+					if decoder.Decode(&frame) != nil {
+						return
+					}
+					encoder.Encode(map[string]any{"request_id": frame["request_id"], "error": "success", "data": data})
+				}
+			}()
+			if _, err := (&Player{ipc: client}).SetVolume(context.Background(), 65); err == nil {
+				t.Fatal("invalid reported volume accepted")
+			}
+		})
+	}
+	client, remote := pipeIPC(t, time.Second)
+	go func() {
+		var frame map[string]any
+		json.NewDecoder(remote).Decode(&frame)
+		json.NewEncoder(remote).Encode(map[string]any{"request_id": frame["request_id"], "error": "property unavailable"})
+	}()
+	if _, err := (&Player{ipc: client}).ChapterList(context.Background()); err == nil {
+		t.Fatal("missing chapter-list property accepted as valid chapters")
+	}
+}
+
 func TestConcurrentRequestsMatchOutOfOrderReplies(t *testing.T) {
 	client, remote := pipeIPC(t, time.Second)
 	const count = 16

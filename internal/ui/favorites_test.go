@@ -83,6 +83,25 @@ func TestFavoritesLayoutColumnsAndDetailsHeart(t *testing.T) {
 	}
 }
 
+func TestFavoritesRowFallbackTitleAndHorizontalScroll(t *testing.T) {
+	m := New(Data{}).WithIcons("plain")
+	item := Item{Title: "Fallback title", Channel: "My channel", Date: "Today"}
+	row := ansi.Strip(m.renderFavoritesRow(item, 60, false))
+	if !strings.Contains(row, "* ") || !strings.Contains(row, "Fallback title") || !strings.Contains(row, "My channel") || !strings.Contains(row, "Today") {
+		t.Fatal("favorite row lost its fallback content", row)
+	}
+	m.colOffset[Favorites] = 9
+	row = ansi.Strip(m.renderFavoritesRow(item, 60, false))
+	if strings.Contains(row, "Fallback") || !strings.Contains(row, "itle") {
+		t.Fatal("horizontal scroll did not advance title", row)
+	}
+	m.colOffset[Favorites] = 100
+	row = ansi.Strip(m.renderFavoritesRow(item, 60, false))
+	if strings.Contains(row, "Fallback") || strings.Contains(row, "title") || !strings.Contains(row, "My channel") {
+		t.Fatal("overscroll did not retain channel", row)
+	}
+}
+
 func TestFavoritesEmptyStateAndFilter(t *testing.T) {
 	m := resize(New(Data{}), 140, 40).WithFocus(Favorites)
 	view := ansi.Strip(m.View().Content)

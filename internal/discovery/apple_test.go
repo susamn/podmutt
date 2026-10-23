@@ -180,6 +180,40 @@ type brokenBody struct{}
 
 func (brokenBody) Read([]byte) (int, error) { return 0, errors.New("secret reader") }
 func (brokenBody) Close() error             { return nil }
+func TestRatingsParseCacheAndRecoverAfterFailure(t *testing.T) {
+	var calls atomic.Int32
+	fail := false
+	a := NewApple(&http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if r.URL.Path != "/de/rss/customerreviews/id=123/json" {
+			t.Errorf("unexpected rating request: %s", r.URL.Path)
+		}
+		if fail {
+			return nil, errors.New("offline")
+		}
+		body := `{"feed":{"entry":[{"im:rating":{"label":"5"}},{"im:rating":{"label":"4"}},{"im:rating":{"label":"oops"}},{"im:rating":{"label":"6"}}]}}`
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})})
+	a.interval = 0
+	rating, count, err := a.Ratings(context.Background(), "de", "123")
+	if err != nil || rating != 4.5 || count != 2 {
+		t.Fatal(rating, count, err)
+	}
+	rating, count, err = a.Ratings(context.Background(), "de", "123")
+	if err != nil || rating != 4.5 || count != 2 || calls.Load() != 1 {
+		t.Fatal("cached rating caused another request", rating, count, err, calls.Load())
+	}
+	delete(a.ratingCache, "rating:de:123")
+	fail = true
+	if _, _, err := a.Ratings(context.Background(), "de", "123"); err == nil {
+		t.Fatal("failed refresh accepted")
+	}
+	fail = false
+	if rating, count, err := a.Ratings(context.Background(), "de", "123"); err != nil || rating != 4.5 || count != 2 || calls.Load() != 3 {
+		t.Fatal("refresh did not recover", rating, count, err, calls.Load())
+	}
+}
+
 func TestDirectoryReadAndRequestErrors(t *testing.T) {
 	for _, test := range []struct {
 		body    io.ReadCloser
