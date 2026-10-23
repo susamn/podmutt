@@ -14,32 +14,34 @@ A modern, keyboard-driven podcast client (TUI) for Linux and macOS inspired by l
 
 Bordered panels, single-key contextual actions, vim navigation, and live audio streaming through mpv — no mouse required.
 
-## Screenshots
+## What's New in v1.3.0
 
-### Dashboard
-The full six-pane workspace: Library, Episodes, Queue, Details, Favorites, and the Player HUD.
+Version 1.3.0 adds persistent Favorites, chapter navigation, refreshed Settings, relative publication dates, compact Player placement, and quick volume controls.
 
-![podmutt 1.3 dashboard](assets/screenshot-dashboard.png)
+### Favorites & Dashboard
+Favorites now has a dedicated pane and persists independently of the playback queue. The dashboard shows Library, Episodes, Queue, Details, Favorites, and Player together.
 
-### Discover & Preview
-Directory browsing (Apple Top 100 / search) with customer star ratings and read-only episode previews without subscribing.
-
-![podmutt discover](assets/screenshot-discover.png)
-
-### Compact Player
-In compact layouts, the active pane stays above the Player, keeping playback controls visible as the terminal shrinks.
-
-![podmutt compact layout with Player below Episodes](assets/screenshot-compact.png)
+![v1.3.0 dashboard with the Favorites pane](assets/screenshot-dashboard-1.3.0.png)
 
 ### Chapters
-Browse and jump to chapters for the current playback without losing its paused or playing state.
+Open chapters for the current playback with `C`; jump without changing its paused or playing state. Chapter indicators also appear in episode and queue lists.
 
-![podmutt chapter picker](assets/screenshot-chapters.png)
+![Chapter picker for the current playback](assets/screenshot-chapters-1.3.0.png)
 
 ### Settings
 Choose a theme and discovery country from the in-app settings panel.
 
-![podmutt settings](assets/screenshot-settings.png)
+![v1.3.0 settings](assets/screenshot-settings-1.3.0.png)
+
+### Compact Player
+The active pane stays above Player in compact layouts, keeping playback controls visible as the terminal shrinks.
+
+![Compact layout with Player below Episodes](assets/screenshot-miniplayer-1.3.0.png)
+
+### Discover & Preview
+Browse Apple Top 100 and search results, then preview shows and episodes without subscribing.
+
+![Podcast discovery and preview](assets/screenshot-discover.png)
 
 ---
 
