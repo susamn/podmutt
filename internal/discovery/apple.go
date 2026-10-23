@@ -173,6 +173,10 @@ func (a *Apple) TopLimitFresh(ctx context.Context, limit int) ([]Show, error) {
 	return a.topLimit(ctx, limit, true)
 }
 
+func (a *Apple) TopFresh(ctx context.Context) ([]Show, error) {
+	return a.TopLimitFresh(ctx, maxTopResults)
+}
+
 func (a *Apple) topLimit(ctx context.Context, limit int, fresh bool) ([]Show, error) {
 	ctx, finish := activity.Begin(ctx, "Updating Apple Podcasts charts…", activity.Foreground)
 	defer finish()

@@ -58,7 +58,7 @@ func TestDiscoverViewPersistsProviderAndSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.LoadDiscoverView(ctx)
-	if err != nil || got.Provider != "podcast_index" || got.Query != "Radio Lab" || got.SelectedFeedURL != view.SelectedFeedURL {
+	if err != nil || got.Provider != "podcast_index" || got.Query != "Radio Lab" || got.SelectedFeedURL != "" {
 		t.Fatal(got, err)
 	}
 	if err := s.SaveDiscoverView(ctx, DiscoverView{Provider: "apple", Country: "DE", Mode: "chart"}); err != nil {
@@ -67,6 +67,35 @@ func TestDiscoverViewPersistsProviderAndSelection(t *testing.T) {
 	got, err = s.LoadDiscoverView(ctx)
 	if err != nil || got.Country != "de" || got.Provider != "apple" || got.Query != "" {
 		t.Fatal(got, err)
+	}
+}
+
+func TestDiscoverPersistenceRejectsInvalidOrOversizedInputs(t *testing.T) {
+	s, _ := openStore(t)
+	ctx := context.Background()
+	for _, snapshot := range []DiscoverSnapshot{
+		{Provider: "other", Mode: "chart", Results: []byte("[]")},
+		{Provider: "apple", Mode: "unknown", Results: []byte("[]")},
+		{Provider: "apple", Mode: "search", Results: []byte("[]")},
+		{Provider: "apple", Mode: "chart", Results: nil},
+		{Provider: "apple", Mode: "chart", Results: make([]byte, (1<<20)+1)},
+	} {
+		if err := s.SaveDiscoverSnapshot(ctx, snapshot); err == nil {
+			t.Fatalf("accepted invalid snapshot: %+v", snapshot)
+		}
+	}
+	for _, view := range []DiscoverView{
+		{Provider: "other", Mode: "chart"},
+		{Provider: "apple", Mode: "unknown"},
+		{Provider: "apple", Mode: "search"},
+		{Provider: "apple", Mode: "chart", SelectedFeedURL: string(make([]byte, 2049))},
+	} {
+		if err := s.SaveDiscoverView(ctx, view); err == nil {
+			t.Fatalf("accepted invalid view: %+v", view)
+		}
+	}
+	if err := s.SaveDiscoverView(ctx, DiscoverView{Provider: "podcast_index", Mode: "search", Query: "query"}); err != nil {
+		t.Fatal("Index navigation should allow an empty country", err)
 	}
 }
 

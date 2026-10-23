@@ -103,6 +103,9 @@ func (s *Store) SaveDiscoverView(ctx context.Context, view DiscoverView) error {
 	if view.Mode == "chart" {
 		view.Query = ""
 	}
+	if view.Provider == "podcast_index" {
+		view.SelectedFeedURL = ""
+	}
 	if view.Mode == "search" && view.Query == "" {
 		return fmt.Errorf("search view requires a query")
 	}

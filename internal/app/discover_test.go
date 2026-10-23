@@ -19,13 +19,22 @@ import (
 )
 
 type fixtureDirectory struct {
-	shows []discovery.Show
-	calls int
-	query string
-	err   error
+	shows   []discovery.Show
+	calls   int
+	query   string
+	country string
+	err     error
 }
 
+func (d *fixtureDirectory) SetCountry(country string) { d.country = country }
+
 func (d *fixtureDirectory) Top(ctx context.Context) ([]discovery.Show, error) {
+	return d.Search(ctx, "")
+}
+func (d *fixtureDirectory) SearchFresh(ctx context.Context, q string) ([]discovery.Show, error) {
+	return d.Search(ctx, q)
+}
+func (d *fixtureDirectory) TopFresh(ctx context.Context) ([]discovery.Show, error) {
 	return d.Search(ctx, "")
 }
 func (d *fixtureDirectory) Search(ctx context.Context, q string) ([]discovery.Show, error) {
@@ -102,6 +111,40 @@ func TestDiscoverRestoresSavedResultsRevalidatesAndRetainsOnFailure(t *testing.T
 	})
 }
 
+func TestDiscoverQuerySwitchLoadsOnlyItsOwnSavedSnapshot(t *testing.T) {
+	librarySession(t, func(s *session) {
+		d := &fixtureDirectory{shows: []discovery.Show{{Title: "Fresh B", FeedURL: "https://example.test/fresh-b"}}}
+		m := browserLibrary(t, s, d)
+		m.browse.active = true
+		savedA := []discovery.Show{{Title: "Cached A", FeedURL: "https://example.test/a"}}
+		savedB := []discovery.Show{{Title: "Cached B first", FeedURL: "https://example.test/b1"}, {Title: "Cached B second", FeedURL: "https://example.test/b2"}}
+		for query, shows := range map[string][]discovery.Show{"A": savedA, "B": savedB} {
+			payload, _ := json.Marshal(shows)
+			if err := s.store.SaveDiscoverSnapshot(s.ctx, store.DiscoverSnapshot{Provider: "apple", Country: "us", Query: query, Mode: "search", Results: payload}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := s.store.SaveDiscoverView(s.ctx, store.DiscoverView{Provider: "apple", Country: "us", Query: "A", Mode: "search", SelectedFeedURL: savedA[0].FeedURL}); err != nil {
+			t.Fatal(err)
+		}
+		_ = m.restoreDiscoverView()
+		if len(m.browse.shows) != 1 || m.browse.shows[0].Title != "Cached A" {
+			t.Fatal("wrong initial snapshot", m.browse.shows)
+		}
+		cmd := m.searchDirectory("B")
+		if !m.browse.loaded || len(m.browse.shows) != 2 || m.browse.shows[0].Title != "Cached B first" {
+			t.Fatal("query switch did not synchronously load matching snapshot", m.browse.shows)
+		}
+		if selected, ok := m.Model.Selected(ui.Podcasts); !ok || selected.ID != savedB[0].FeedURL {
+			t.Fatal("query switch carried stale selection", selected)
+		}
+		finishLibrary(&m, cmd)
+		if d.calls != 1 || m.browse.shows[0].Title != "Fresh B" {
+			t.Fatal("new query did not refresh", d.calls, m.browse.shows)
+		}
+	})
+}
+
 func TestPodcastIndexDiscoverPersistsNavigationButNotProviderResults(t *testing.T) {
 	librarySession(t, func(s *session) {
 		d := &fixtureDirectory{shows: []discovery.Show{{Title: "Ephemeral result", FeedURL: "https://example.test/index"}}}
@@ -120,6 +163,13 @@ func TestPodcastIndexDiscoverPersistsNavigationButNotProviderResults(t *testing.
 		rows, err := s.store.DiscoveredShows(s.ctx, "us", "", 100)
 		if err != nil || len(rows) != 0 {
 			t.Fatal("persisted Podcast Index rows", rows, err)
+		}
+		if err := s.store.SaveDiscoverView(s.ctx, store.DiscoverView{Provider: "podcast_index", Query: "public query", Mode: "search"}); err != nil {
+			t.Fatal(err)
+		}
+		finishLibrary(&m, m.restoreDiscoverView())
+		if d.calls != 2 || m.browse.country != "us" {
+			t.Fatal("restored Index view did not requery with default country", d.calls, m.browse.country)
 		}
 	})
 }

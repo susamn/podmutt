@@ -17,5 +17,6 @@ CREATE TABLE discover_view (
     query TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL CHECK (mode IN ('chart','search')),
     selected_feed_url TEXT NOT NULL DEFAULT '',
-    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    CHECK (provider='apple' OR selected_feed_url='')
 );

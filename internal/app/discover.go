@@ -25,6 +25,11 @@ type showDirectory interface {
 	Top(context.Context) ([]discovery.Show, error)
 	discovery.Searcher
 }
+
+type freshShowDirectory interface {
+	SearchFresh(context.Context, string) ([]discovery.Show, error)
+	TopFresh(context.Context) ([]discovery.Show, error)
+}
 type browseState struct {
 	indexDirectory                              discovery.Searcher
 	usingIndex, searchIndex                     bool
@@ -267,17 +272,21 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 			} else {
 				shows, err = provider.Search(ctx, query)
 			}
-		} else if apple, ok := directory.(*discovery.Apple); ok {
-			apple.SetCountry(country)
-			if query == "" {
-				shows, err = apple.TopLimitFresh(ctx, 100)
-			} else {
-				shows, err = apple.SearchFresh(ctx, query)
-			}
-		} else if query == "" {
-			shows, err = directory.Top(ctx)
 		} else {
-			shows, err = directory.Search(ctx, query)
+			if setter, ok := directory.(interface{ SetCountry(string) }); ok {
+				setter.SetCountry(country)
+			}
+			if fresh, ok := directory.(freshShowDirectory); ok {
+				if query == "" {
+					shows, err = fresh.TopFresh(ctx)
+				} else {
+					shows, err = fresh.SearchFresh(ctx, query)
+				}
+			} else if query == "" {
+				shows, err = directory.Top(ctx)
+			} else {
+				shows, err = directory.Search(ctx, query)
+			}
 		}
 		return directoryLoaded{generation: generation, provider: providerName, country: country, query: query, mode: mode, shows: shows, err: err}
 	})
