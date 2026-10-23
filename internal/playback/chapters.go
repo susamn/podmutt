@@ -26,14 +26,12 @@ type embeddedChapterCache interface {
 // EmbeddedChapters inspects only the currently loaded audio, without loading
 // media just to discover metadata. Feed metadata wins over embedded chapters.
 func (e *Engine) EmbeddedChapters(ctx context.Context, episodeID int64, playbackID uint64) ([]chapters.Chapter, error) {
-	var list []chapters.Chapter
-	_, err := e.submit(ctx, func(ctx context.Context) error {
+	state, err := e.submit(ctx, func(ctx context.Context) error {
 		if episodeID <= 0 || playbackID == 0 || !e.active || !e.ready || e.state.Current == nil ||
 			e.state.Current.ID != episodeID || e.playbackID != playbackID {
 			return ErrSeekUnavailable
 		}
 		if e.state.Current.ChaptersJSON != "" {
-			list = e.state.Current.ParsedChapters()
 			return nil
 		}
 		if e.state.Current.ChaptersURL != "" {
@@ -43,6 +41,7 @@ func (e *Engine) EmbeddedChapters(ctx context.Context, episodeID int64, playback
 			return nil
 		}
 		reader, ok := e.player.(embeddedChapterReader)
+		var list []chapters.Chapter
 		var parseErr error
 		if ok {
 			var data []byte
@@ -84,5 +83,8 @@ func (e *Engine) EmbeddedChapters(ctx context.Context, episodeID int64, playback
 		e.state.Current.ChaptersJSON, e.state.Current.ChaptersState = encoded, "embedded"
 		return nil
 	})
-	return list, err
+	if err != nil || state.Current == nil || state.Current.ID != episodeID || state.PlaybackID != playbackID {
+		return nil, err
+	}
+	return state.Current.ParsedChapters(), nil
 }
