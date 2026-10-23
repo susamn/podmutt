@@ -22,11 +22,11 @@ func TestChapterColumnOnlyShrinksTitleAndAlignsQueueAndEpisodes(t *testing.T) {
 				header, row = ansi.Strip(m.renderQueueHeader(width)), ansi.Strip(m.renderQueueRow(item, width, false))
 			}
 			start := c.gutter + c.title + 2
-			if c.chapter != 2 || ansi.Cut(header, start, start+2) != "Ch" || ansi.Cut(row, start, start+2) != "📖" || ansi.StringWidth(row) != width-2 {
+			if c.chapter != 2 || ansi.Cut(header, start, start+2) != "Ch" || ansi.Cut(row, start, start+2) != "§ " || ansi.StringWidth(row) != width-2 {
 				t.Fatalf("%v width %d: header=%q row=%q layout=%+v", panel, width, header, row, c)
 			}
 			item.Chapters = false
-			if without := ansi.Strip(m.renderRow(panel, item, width, false)); strings.Contains(without, "📖") || ansi.Cut(without, start, start+2) != "  " {
+			if without := ansi.Strip(m.renderRow(panel, item, width, false)); strings.Contains(without, "§") || ansi.Cut(without, start, start+2) != "  " {
 				t.Fatal("unknown chapters had icon or shifted text", without)
 			}
 			m.icons = "plain"

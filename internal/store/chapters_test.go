@@ -130,6 +130,52 @@ func TestChaptersStorageAndEpisodeMethods(t *testing.T) {
 	}
 }
 
+func TestChapterCacheStatusAndURLGuards(t *testing.T) {
+	s, _ := openStore(t)
+	feedID := addFeed(t, s, "chapter-cache-status", true)
+	item := Episode{GUID: "a", AudioURL: "https://example.test/audio", ChaptersURL: "https://example.test/a.json"}
+	if err := s.UpsertEpisodes(ctx, feedID, []Episode{item}); err != nil {
+		t.Fatal(err)
+	}
+	items, err := s.Episodes(ctx, feedID)
+	if err != nil || len(items) != 1 {
+		t.Fatal(items, err)
+	}
+	id := items[0].ID
+	if err := s.MarkChaptersChecked(ctx, id, item.ChaptersURL, "invalid"); err == nil {
+		t.Fatal("accepted invalid state")
+	}
+	if err := s.MarkChaptersChecked(ctx, id, item.ChaptersURL, "error"); err != nil {
+		t.Fatal(err)
+	}
+	if files, err := s.PendingChapterFiles(ctx, feedID); err != nil || len(files) != 0 {
+		t.Fatal("retried a checked file", files, err)
+	}
+	if saved, err := s.CacheEpisodeChapters(ctx, id, "https://example.test/old.json", `[]`); err != nil || saved {
+		t.Fatal("old URL overwrote cache", saved, err)
+	}
+	item.ChaptersURL = ""
+	if err := s.UpsertEpisodes(ctx, feedID, []Episode{item}); err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := s.CacheEmbeddedStatus(ctx, id, item.AudioURL, "bogus"); err == nil || saved {
+		t.Fatal("accepted invalid embedded state", saved, err)
+	}
+	if saved, err := s.CacheEmbeddedStatus(ctx, id, "https://example.test/other", "embedded-empty"); err != nil || saved {
+		t.Fatal("wrong audio was marked checked", saved, err)
+	}
+	if saved, err := s.CacheEmbeddedStatus(ctx, id, item.AudioURL, "embedded-empty"); err != nil || !saved {
+		t.Fatal("could not cache negative probe", saved, err)
+	}
+	if err := s.UpsertEpisodes(ctx, feedID, []Episode{item}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Episode(ctx, id)
+	if err != nil || got.ChaptersState != "embedded-empty" || got.HasChapters() {
+		t.Fatal("negative probe lost on feed refresh", got, err)
+	}
+}
+
 func TestChaptersSchemaMigrationFromV4(t *testing.T) {
 	dir := t.TempDir()
 	db, err := sql.Open("sqlite", dir+"/migration_v5.db")

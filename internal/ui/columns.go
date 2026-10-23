@@ -66,7 +66,7 @@ func (m Model) chapterCell(item Item) string {
 	if m.icons == "plain" {
 		return "Ch"
 	}
-	return "📖"
+	return "§"
 }
 
 func (m Model) queueGutter() int { return max(5, 4+len(strconv.Itoa(max(1, len(m.data.Queue))))) }
