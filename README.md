@@ -118,6 +118,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 - Press **`Enter`** on any episode to stream it instantly.
 - **`Space`** pauses/resumes current audio from **any** panel.
 - **`,`** and **`.`** seek backward and forward **15 seconds**.
+- **`C`** opens chapters for the **currently playing** episode (not the highlighted row). Use **`j`/`k`**, arrows, or Page Up/Down; **Enter** jumps and **Esc** cancels. Seeking keeps the paused/playing state. `[Ch]` on episode rows means chapters are advertised or have been loaded; Details shows their count when known. Supported formats: Podcasting 2.0 linked JSON, inline Podlove Simple Chapters, and embedded chapters from currently loaded audio when mpv exposes them.
 - Press **`a`** to add an episode to your **Up next (3)** queue.
 - In **Queue (3)**, press **`d`** or **Delete** on an episode, then **`y`** to remove it or **`n` / Esc** to cancel. Removing current audio stops it without starting another episode; progress/history are kept. **`u`** restores the last removal as pending, without autoplay.
 
@@ -158,6 +159,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 | `s` | Stop current playback |
 | `n` | Skip to next episode in queue |
 | `,` / `.` | Seek backward / forward 15 seconds |
+| `C` | Open current playback's chapter picker (`j`/`k`/arrows/Page Up/Page Down, Enter jump, Esc cancel) |
 
 ### Library & Queue
 

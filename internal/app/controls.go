@@ -145,6 +145,7 @@ func (m shell) withPlayback(state playback.State) shell {
 		player.HasCurrent, player.Title, player.Channel = true, cleanTitle(episode.Title), cleanShow(episode.FeedTitle)
 		player.PositionSeconds, player.DurationSeconds, player.ClockAt = episode.PositionSeconds, float64(episode.DurationSeconds), state.ClockAt
 		player.Position = clock(episode.PositionSeconds)
+		player.Chapters = episode.ParsedChapters()
 		if episode.DurationSeconds > 0 {
 			player.Duration = clock(float64(episode.DurationSeconds))
 			player.Progress = episode.PositionSeconds / float64(episode.DurationSeconds)
