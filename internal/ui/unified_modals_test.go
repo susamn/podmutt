@@ -53,8 +53,8 @@ func TestUnifiedModalDesignForDialogsSettingsHelpAndFeedback(t *testing.T) {
 		t.Fatal("settings selection lost visual highlight")
 	}
 
-	help := m.renderHelpModal(64, 18)
-	assertModalFrame(t, help, 64, 18, "Keys", "NAVIGATION", "PLAYBACK", "LIBRARY", "? or Esc close")
+	help := m.renderHelpModal(64, 22)
+	assertModalFrame(t, help, 64, 22, "Keys", "PLAYBACK", "EPISODES", "NAVIGATION", "QUEUE", "GENERAL", "FAVORITES", "Space", "Pause / resume", "a", "Enqueue", "A", "Enqueue visible", "? or Esc close")
 
 	m = m.WithFeedback(feedback.Message{Scope: "Queue edit", Severity: "error", Summary: "Could not remove episode.", Action: "Retry or check the database file."})
 	m.messageOpen = true

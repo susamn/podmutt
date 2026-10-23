@@ -65,7 +65,7 @@ func TestUnifiedPopupDesignUserJourneyPreservesActions(t *testing.T) {
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEsc})
 		libraryKey(&m, '?')
 		help := ansi.Strip(m.View().Content)
-		for _, want := range []string{"Keys", "NAVIGATION", "PLAYBACK", "LIBRARY", "Esc close"} {
+		for _, want := range []string{"Keys", "PLAYBACK", "EPISODES", "NAVIGATION", "QUEUE", "Space", "Pause / resume", "a", "Enqueue", "A", "Enqueue visible", "Esc close"} {
 			if !strings.Contains(help, want) {
 				t.Fatalf("help missing %q:\n%s", want, help)
 			}
