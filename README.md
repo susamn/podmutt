@@ -14,22 +14,34 @@ A modern, keyboard-driven podcast client (TUI) for Linux and macOS inspired by l
 
 Bordered panels, single-key contextual actions, vim navigation, and live audio streaming through mpv — no mouse required.
 
-## Screenshots
+## What's New in v1.3.0
 
-### Dashboard
-Full 5-pane layout featuring Library, Episodes, Up next queue, Details card, and Now playing HUD.
+Version 1.3.0 adds persistent Favorites, chapter navigation, refreshed Settings, relative publication dates, compact Player placement, and quick volume controls.
 
-![podmutt dashboard](assets/screenshot-dashboard.png)
+### Favorites & Dashboard
+Favorites now has a dedicated pane and persists independently of the playback queue. The dashboard shows Library, Episodes, Queue, Details, Favorites, and Player together.
+
+![v1.3.0 dashboard with the Favorites pane](assets/screenshot-dashboard-1.3.0.png)
+
+### Chapters
+Open chapters for the current playback with `C`; jump without changing its paused or playing state. Chapter indicators also appear in episode and queue lists.
+
+![Chapter picker for the current playback](assets/screenshot-chapters-1.3.0.png)
+
+### Settings
+Choose a theme and discovery country from the in-app settings panel.
+
+![v1.3.0 settings](assets/screenshot-settings-1.3.0.png)
+
+### Compact Player
+The active pane stays above Player in compact layouts, keeping playback controls visible as the terminal shrinks.
+
+![Compact layout with Player below Episodes](assets/screenshot-miniplayer-1.3.0.png)
 
 ### Discover & Preview
-Directory browsing (Apple Top 100 / search) with customer star ratings and read-only episode previews without subscribing.
+Browse Apple Top 100 and search results, then preview shows and episodes without subscribing.
 
-![podmutt discover](assets/screenshot-discover.png)
-
-### Compact Mode
-Responsive layout adapting automatically when terminal dimensions shrink.
-
-![podmutt compact mode](assets/screenshot-compact.png)
+![Podcast discovery and preview](assets/screenshot-discover.png)
 
 ---
 
