@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"podmutt/internal/artwork"
+	"podmutt/internal/chapters"
 	"podmutt/internal/discovery"
 	"podmutt/internal/feed"
 	"podmutt/internal/feedback"
@@ -55,6 +56,7 @@ type favoriteEdited struct {
 	added bool
 	err   error
 }
+type chaptersSynced struct{ err error }
 
 type libraryShell struct {
 	art    artState
@@ -81,6 +83,8 @@ type libraryShell struct {
 	queueUndoPending         bool
 	detailTarget             *store.Episode
 	detailFrom               ui.Panel
+	chapterRequest           chapterRequest
+	chapterList              []chapters.Chapter
 	startupDone              bool
 	queueSelectID            string
 	onboarding               bool
@@ -255,6 +259,9 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	defer func() {
 		if updated, ok := result.(libraryShell); ok {
+			if chapterPlaybackChanged(updated.chapterRequest, updated.state) {
+				updated.closeChapters()
+			}
 			updated.applyQueueFocus()
 			var cmd tea.Cmd
 			updated, cmd = updated.syncArt()
@@ -349,6 +356,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.err != nil {
 			m.art.image = nil
 		}
+	case chaptersSynced:
+		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
+			m.recordBackgroundFailure("Update chapters", msg.err)
+		}
 	case libraryStartup:
 		cmd = m.resumeStartup()
 	case discoverStartup:
@@ -398,6 +409,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			m.snapshot = msg.snapshot
 			if msg.details != nil && m.detailTarget != nil && m.detailKey(*m.detailTarget) == msg.detailKey {
 				m.detailTarget.PositionSeconds, m.detailTarget.Completed = msg.details.PositionSeconds, msg.details.Completed
+				if m.detailTarget.AudioURL == msg.details.AudioURL {
+					m.detailTarget.ChaptersURL, m.detailTarget.ChaptersJSON, m.detailTarget.ChaptersState =
+						msg.details.ChaptersURL, msg.details.ChaptersJSON, msg.details.ChaptersState
+				}
 			}
 			if m.browse.localResults {
 				cmd = m.searchLibrary(m.browse.localQuery)
@@ -518,12 +533,24 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		cmd = tea.Batch(m.waitRefresh(), m.reload())
 		if msg.result.Error == nil {
 			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
+			if msg.result.FeedID > 0 {
+				engine, ctx, id := m.s.playback, m.s.ctx, msg.result.FeedID
+				cmd = tea.Batch(cmd, work(ctx, "Updating chapter indicators…", func(ctx context.Context) tea.Msg {
+					return chaptersSynced{err: engine.RefreshChapters(ctx, id)}
+				}))
+			}
 		}
 	case playbackUpdate:
 		if msg.ok && msg.state.Revision != 0 && msg.state.Revision < m.state.Revision {
 			return m, m.shell.wait()
 		}
 		changed := msg.ok && msg.state.Current != nil && (m.state.Current == nil || m.state.Current.ID != msg.state.Current.ID)
+		chaptersChanged := msg.ok && msg.state.Current != nil && m.state.Current != nil &&
+			msg.state.Current.ID == m.state.Current.ID && (msg.state.Current.ChaptersJSON != m.state.Current.ChaptersJSON ||
+			msg.state.Current.ChaptersState != m.state.Current.ChaptersState)
+		if chaptersChanged {
+			cmd = tea.Batch(cmd, m.reload())
+		}
 		if msg.ok {
 			id, completed := int64(0), false
 			if msg.state.Current != nil {
@@ -533,7 +560,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				cmd = m.reload()
 			}
 			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
-			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
+			rebuild = chaptersChanged || m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
 				currentInQueue(m.state) != currentInQueue(msg.state) ||
 				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
 			m.lastPlayingID, m.lastCompleted = id, completed
@@ -554,6 +581,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		return m.delegate(msg)
 	case tea.KeyPressMsg:
+		if m.chapterList != nil {
+			return m, m.chapterKey(msg.String())
+		}
 		if m.onboarding {
 			return m, m.onboardingKey(msg)
 		}
@@ -578,6 +608,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		key := msg.String()
 		focus := m.Model.Focus()
 		switch key {
+		case "C":
+			cmd = m.openChapters()
 		case "b":
 			cmd = m.switchBrowse()
 		case "f":

@@ -16,17 +16,30 @@ type seeker interface {
 
 const seekCorrectionWindow = 2 * time.Second
 
-func (e *Engine) SeekBy(ctx context.Context, delta float64) error { return e.seek(ctx, delta, true) }
-func (e *Engine) SeekTo(ctx context.Context, position float64) error {
-	return e.seek(ctx, position, false)
+func (e *Engine) SeekBy(ctx context.Context, delta float64) error {
+	return e.seek(ctx, delta, true, 0, 0)
 }
-func (e *Engine) seek(ctx context.Context, value float64, relative bool) error {
+func (e *Engine) SeekTo(ctx context.Context, position float64) error {
+	return e.seek(ctx, position, false, 0, 0)
+}
+
+// SeekChapter seeks only if the captured playback is still active. Both the
+// identity check and seek run in the actor, so EOF/Next cannot retarget a jump.
+func (e *Engine) SeekChapter(ctx context.Context, episodeID int64, playbackID uint64, position float64) error {
+	if episodeID <= 0 || playbackID == 0 {
+		return ErrSeekUnavailable
+	}
+	return e.seek(ctx, position, false, episodeID, playbackID)
+}
+
+func (e *Engine) seek(ctx context.Context, value float64, relative bool, expectedID int64, expectedPlayback uint64) error {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return fmt.Errorf("playback: seek must be finite")
 	}
 	_, err := e.submit(ctx, func(ctx context.Context) error {
 		device, ok := e.player.(seeker)
-		if !ok || !e.active || !e.ready || e.state.Current == nil {
+		if !ok || !e.active || !e.ready || e.state.Current == nil ||
+			(expectedID != 0 && (e.state.Current.ID != expectedID || e.playbackID != expectedPlayback)) {
 			return ErrSeekUnavailable
 		}
 		// Consume observations already queued before this action, including EOF. A
@@ -42,7 +55,8 @@ func (e *Engine) seek(ctx context.Context, value float64, relative bool) error {
 			default:
 				goto drained
 			}
-			if !e.active || e.state.Current == nil || e.state.Current.ID != id || e.entryID != entry {
+			if !e.active || e.state.Current == nil || e.state.Current.ID != id || e.entryID != entry ||
+				(expectedID != 0 && e.playbackID != expectedPlayback) {
 				return ErrSeekUnavailable
 			}
 		}

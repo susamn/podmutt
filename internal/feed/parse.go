@@ -9,9 +9,24 @@ import (
 	"strings"
 	"time"
 
+	"podmutt/internal/chapters"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/store"
 )
+
+type chapterTag struct {
+	URL  string `xml:"url,attr"`
+	Type string `xml:"type,attr"`
+}
+type podloveTag struct {
+	XMLName xml.Name
+	Items   []struct {
+		Start string `xml:"start,attr"`
+		Title string `xml:"title,attr"`
+		HRef  string `xml:"href,attr"`
+		Image string `xml:"image,attr"`
+	} `xml:"chapter"`
+}
 
 const MaxBytes = 8 << 20
 const maxEpisodes = 10000
@@ -44,21 +59,23 @@ type link struct {
 	Rel  string `xml:"rel,attr"`
 }
 type entry struct {
-	Base        string  `xml:"http://www.w3.org/XML/1998/namespace base,attr"`
-	GUID        string  `xml:"guid"`
-	ID          string  `xml:"id"`
-	Title       text    `xml:"title"`
-	Description text    `xml:"description"`
-	Summary     text    `xml:"summary"`
-	Content     text    `xml:"content"`
-	Published   string  `xml:"published"`
-	Updated     string  `xml:"updated"`
-	PubDate     string  `xml:"pubDate"`
-	Date        string  `xml:"date"`
-	Duration    string  `xml:"duration"`
-	Images      []image `xml:"image"`
-	Enclosures  []link  `xml:"enclosure"`
-	Links       []link  `xml:"link"`
+	Base        string     `xml:"http://www.w3.org/XML/1998/namespace base,attr"`
+	GUID        string     `xml:"guid"`
+	ID          string     `xml:"id"`
+	Title       text       `xml:"title"`
+	Description text       `xml:"description"`
+	Summary     text       `xml:"summary"`
+	Content     text       `xml:"content"`
+	Published   string     `xml:"published"`
+	Updated     string     `xml:"updated"`
+	PubDate     string     `xml:"pubDate"`
+	Date        string     `xml:"date"`
+	Duration    string     `xml:"duration"`
+	Images      []image    `xml:"image"`
+	Enclosures  []link     `xml:"enclosure"`
+	Links       []link     `xml:"link"`
+	ChaptersTag chapterTag `xml:"http://podcastindex.org/namespace/1.0 chapters"`
+	PodloveXML  podloveTag `xml:"http://podlove.org/simple-chapters chapters"`
 }
 type channel struct {
 	Base   string  `xml:"http://www.w3.org/XML/1998/namespace base,attr"`
@@ -163,9 +180,29 @@ func Parse(data []byte, sourceURL string) (Document, error) {
 			continue
 		}
 		seen[identity] = true
+
+		chaptersURL := ""
+		rawChapURL := item.ChaptersTag.URL
+		if rawChapURL != "" {
+			if resolved, err := httpurl.Resolve(itemBase, rawChapURL); err == nil {
+				chaptersURL = resolved
+			}
+		}
+
+		chaptersJSON := ""
+		podlove := item.PodloveXML
+		if len(podlove.Items) > 0 {
+			if raw, err := xml.Marshal(podlove); err == nil {
+				if parsed, err := chapters.ParsePodloveXML(raw); err == nil && len(parsed) > 0 {
+					chaptersJSON, _ = chapters.Serialize(parsed)
+				}
+			}
+		}
+
 		doc.Episodes = append(doc.Episodes, store.Episode{
 			GUID: guid, Title: item.Title.value(), Description: first(item.Description.value(), item.Summary.value(), item.Content.value()),
 			AudioURL: audio, ArtworkURL: artwork(itemBase, item.Images),
+			ChaptersURL: chaptersURL, ChaptersJSON: chaptersJSON,
 			PublishedAt: date(first(item.PubDate, item.Published, item.Date, item.Updated)), DurationSeconds: duration(item.Duration),
 		})
 	}

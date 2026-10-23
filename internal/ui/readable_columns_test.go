@@ -50,7 +50,7 @@ func TestEpisodeHeadersAndRowsReserveFullDurationAtEverySupportedWidth(t *testin
 			t.Fatal("wasted channel gap", width, c)
 		}
 		if c.date > 0 {
-			dateStart := c.gutter + c.title + 2 + c.channel + 2
+			dateStart := c.gutter + c.title + c.chapter + 4 + c.channel + 2
 			if ansi.Cut(row, dateStart, dateStart+10) != item.Date || strings.TrimSpace(ansi.Cut(header, dateStart, dateStart+10)) != "Date" {
 				t.Fatal("channel/date columns drift", width, header, row)
 			}
@@ -75,10 +75,10 @@ func TestQueueHeadersStayPinnedAndAlignWithRowsAndLargeIndices(t *testing.T) {
 		if !strings.HasSuffix(header, "Remains") || !strings.HasSuffix(row, "75%") || ansi.StringWidth(row) != width-2 || ansi.StringWidth(header) != width-2 {
 			t.Fatal("queue headers/data drift", width, header, row)
 		}
-		if strings.TrimSpace(ansi.Cut(header, c.gutter, c.gutter+c.title)) != "Title" || !strings.HasPrefix(ansi.Cut(row, c.gutter, c.gutter+c.title), "Queued") {
+		if c.title > 0 && (!strings.HasPrefix(strings.TrimSpace(ansi.Cut(header, c.gutter, c.gutter+c.title)), "Tit") || !strings.HasPrefix(ansi.Cut(row, c.gutter, c.gutter+c.title), "Que")) {
 			t.Fatal("index gutter/header/Title disagree", width, header, row)
 		}
-		if c.channel > 0 && strings.TrimSpace(ansi.Cut(header, c.gutter+c.title+2, c.gutter+c.title+2+c.channel)) != "Channel" {
+		if c.channel > 0 && strings.TrimSpace(ansi.Cut(header, c.gutter+c.title+c.chapter+4, c.gutter+c.title+c.chapter+4+c.channel)) != "Channel" {
 			t.Fatal("channel header drift", width, header)
 		}
 	}

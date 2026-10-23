@@ -159,17 +159,21 @@ func TestUpgradeV1PreservesListeningState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := old.UpsertEpisodes(ctx, id, []Episode{{GUID: "a", AudioURL: "https://example.test/a"}}); err != nil {
-		t.Fatal(err)
-	}
-	episodes, err := old.Episodes(ctx, id)
+	// Use the v1 schema directly: current Store episode queries require the
+	// latest schema and cannot be used until after upgrading.
+	result, err := db.ExecContext(ctx, `INSERT INTO episodes(feed_id,identity,guid,title,audio_url)
+		VALUES(?,?,?,?,?)`, id, "guid:a", "a", "Episode A", "https://example.test/a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := old.Checkpoint(ctx, episodes[0].ID, 42); err != nil {
+	episodeID, err := result.LastInsertId()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := old.ReplaceQueue(ctx, []int64{episodes[0].ID}); err != nil {
+	if err := old.Checkpoint(ctx, episodeID, 42); err != nil {
+		t.Fatal(err)
+	}
+	if err := old.ReplaceQueue(ctx, []int64{episodeID}); err != nil {
 		t.Fatal(err)
 	}
 	old.Close()

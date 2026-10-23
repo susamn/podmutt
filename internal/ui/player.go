@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"podmutt/internal/chapters"
 )
 
 // Player is transport presentation, independent of the inspected episode.
@@ -22,6 +23,8 @@ type Player struct {
 	HasCurrent                                 bool
 	CanNext                                    bool
 	CanSeek                                    bool
+	Chapters                                   []chapters.Chapter
+	ChapterLabel                               string
 }
 
 func (m Model) WithPlayerDecoration(enabled bool) Model {
@@ -130,6 +133,11 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 	}
 	show := clean(player.Channel, false)
 	available := max(0, width-4) // two cells of padding at each side
+	chapterBudget := 0
+	if player.ChapterLabel != "" && available >= 55 {
+		chapterBudget = min(28, available/3)
+		available -= chapterBudget + 3
+	}
 	titleBudget, showBudget := available, 0
 	if show != "" && available > 3 {
 		// Prefer the full channel, but retain a small readable title when a
@@ -143,6 +151,9 @@ func (m Model) renderPlayerTopLine(player Player, width int) string {
 	line := lipgloss.NewStyle().Bold(true).Render(ansi.Truncate(title, titleBudget, "…"))
 	if showBudget > 0 {
 		line += " · " + m.channelCell(ansi.Truncate(show, showBudget, "…"))
+	}
+	if chapterBudget > 0 {
+		line += " · " + ansi.Truncate(clean(player.ChapterLabel, false), chapterBudget, "…")
 	}
 	return ansi.Truncate("  "+line+"  ", max(0, width), "…")
 }
@@ -170,10 +181,30 @@ func (m Model) renderSliderLine(player Player, width int) string {
 	progress = max(0, min(1, progress))
 	knob := int(math.Round(progress * float64(cells-1)))
 	pal := m.Theme()
-	left := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Cyan))).Render(strings.Repeat("─", knob))
-	point := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.BrightCyan))).Render("●")
-	rest := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted))).Render(strings.Repeat("─", cells-knob-1))
-	return "  " + pos + "  " + left + point + rest + "  " + right
+	markers := make(map[int]bool)
+	if player.DurationSeconds > 0 {
+		for _, chapter := range player.Chapters {
+			if chapter.Start > 0 && chapter.Start < player.DurationSeconds {
+				cell := int(math.Round(chapter.Start / player.DurationSeconds * float64(cells-1)))
+				markers[cell] = true
+			}
+		}
+	}
+	var bar strings.Builder
+	for i := range cells {
+		glyph, color := "─", pal.Muted
+		if i < knob {
+			color = pal.Cyan
+		}
+		if markers[i] {
+			glyph = "│"
+		}
+		if i == knob {
+			glyph, color = "●", pal.BrightCyan
+		}
+		bar.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(string(color))).Render(glyph))
+	}
+	return "  " + pos + "  " + bar.String() + "  " + right
 }
 
 func (m Model) renderTransportRow(player Player, width int) string {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"podmutt/internal/chapters"
 )
 
 const progressHorizon = 2 * time.Second
@@ -103,6 +104,9 @@ func (m Model) displayPlayer() Player {
 		player.Progress = position / duration
 	}
 	player.Position = progressTime(position)
+	if chapter, _, ok := chapters.Current(player.Chapters, position); ok {
+		player.ChapterLabel = fmt.Sprintf("Chapter %d/%d · %s", chapter.Index, len(player.Chapters), chapter.Title)
+	}
 	return player
 }
 

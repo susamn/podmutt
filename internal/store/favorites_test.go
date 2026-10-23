@@ -185,8 +185,8 @@ func TestFavoritesSchemaMigrationFromV3(t *testing.T) {
 	}
 	epID, _ := res.LastInsertId()
 
-	// Now apply migration 4 (all migrations)
-	if err := migrate(ctx, db, migrations); err != nil {
+	// Now apply migration 4 (favorites only)
+	if err := migrate(ctx, db, migrations[:4]); err != nil {
 		t.Fatalf("migration to v4 failed: %v", err)
 	}
 	if err := db.QueryRow("PRAGMA user_version").Scan(&ver); err != nil || ver != 4 {
