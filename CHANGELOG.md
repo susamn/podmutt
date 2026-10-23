@@ -21,3 +21,4 @@
 
 - Podcast Index search results are not durably cached; only provider navigation state is saved, in accordance with its provider policy.
 - Audio streaming requires `mpv`. Volume resets to 100% when podmutt restarts.
+- v1.3.0 was published under an explicit owner-approved verification waiver. Native macOS runtime/media controls, physical media-key arbitration, real Kitty display behavior, native backup/restore, and clean install/upgrade/uninstall checks remain unverified; see [`docs/validation-v1.md`](docs/validation-v1.md).

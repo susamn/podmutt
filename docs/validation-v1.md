@@ -52,3 +52,19 @@ the resulting main commit, resolve native bridge build/packaging/signing implica
 record the status of physical/native checks, and test a clean install/upgrade/uninstall.
 Recovery instructions are in `docs/recovery.md`. Do not declare release readiness solely
 because independent branch pipelines are green.
+
+## Explicit v1.3.0 release waiver
+
+On 2026-10-23, the owner explicitly authorized v1.3.0 publication with the following
+checks still outstanding. This waiver records acceptance of the gaps; it does not mark
+them as passed:
+
+- Native macOS startup, real-mpv lifecycle, media bridge, and media-key arbitration on
+  amd64 and arm64.
+- Physical media-key arbitration on Linux.
+- Real Kitty rendering, resize, overlay, and quit-cleanup checks.
+- Native backup/restore and failed-migration verification.
+- Clean install, upgrade, and uninstall verification.
+
+Linux automated checks passed for the release commit. This waiver applies only to
+v1.3.0; future releases must complete or explicitly waive their own outstanding checks.

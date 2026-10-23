@@ -15,3 +15,7 @@
 - Discover provider caching follows provider policy; Podcast Index search results are not durably cached.
 
 Audio streaming requires `mpv`.
+
+### Verification scope
+
+v1.3.0 was published under an explicit owner-approved waiver. Linux automated checks passed; native macOS runtime/media controls, physical media-key arbitration, real Kitty display behavior, native backup/restore, and clean install/upgrade/uninstall checks remain unverified. See the [validation ledger](https://github.com/susamn/podmutt/blob/main/docs/validation-v1.md).
