@@ -80,6 +80,9 @@ func TestRealMPVControlsAndEndReasons(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
+	if volume, err := p.SetVolume(ctx, 75); err != nil || volume != 75 {
+		t.Fatalf("set volume = %d, %v", volume, err)
+	}
 	if err := p.Load(ctx, silenceWAV(t, 5), 1.25); err != nil {
 		t.Fatal(err)
 	}

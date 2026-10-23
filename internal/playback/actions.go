@@ -14,6 +14,32 @@ import (
 	"podmutt/internal/store"
 )
 
+// AdjustVolume changes the actor-owned playback volume without starting playback.
+func (e *Engine) AdjustVolume(ctx context.Context, delta int) (State, error) {
+	if delta != VolumeStep && delta != -VolumeStep {
+		return State{}, fmt.Errorf("playback: volume adjustment must be %+d or %+d", VolumeStep, -VolumeStep)
+	}
+	return e.submit(ctx, func(ctx context.Context) error {
+		target := max(MinVolume, min(MaxVolume, e.state.Volume+delta))
+		if target == e.state.Volume {
+			return nil
+		}
+		if e.player != nil {
+			volume, ok := e.player.(volumeController)
+			if !ok {
+				return fmt.Errorf("playback: player does not support volume control")
+			}
+			actual, err := volume.SetVolume(ctx, target)
+			if err != nil {
+				return err
+			}
+			target = actual
+		}
+		e.state.Volume = target
+		return nil
+	})
+}
+
 func (e *Engine) PlayEpisode(ctx context.Context, id int64) error {
 	_, err := e.submit(ctx, func(ctx context.Context) error { return e.loadSelected(ctx, id) })
 	return err
@@ -52,6 +78,17 @@ func (e *Engine) loadStack(ctx context.Context, id int64, retainCurrent bool) er
 		e.player = created
 		if e.player == nil {
 			return e.fail(ctx, fmt.Errorf("playback: player factory returned nil"))
+		}
+		if e.state.Volume != DefaultVolume {
+			volume, ok := e.player.(volumeController)
+			if !ok {
+				return e.fail(ctx, fmt.Errorf("playback: player does not support volume control"))
+			}
+			actual, err := volume.SetVolume(ctx, e.state.Volume)
+			if err != nil {
+				return e.fail(ctx, err)
+			}
+			e.state.Volume = actual
 		}
 	}
 	e.active, e.ready = false, false

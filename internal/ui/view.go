@@ -493,6 +493,9 @@ func (m Model) bottomHints() string {
 		}
 		hints = append(actions, remaining...)
 	}
+	if !m.Busy() {
+		hints = append(hints, hint{"=/-", "volume"})
+	}
 	return m.formatHints(hints)
 }
 
@@ -659,6 +662,7 @@ func (m Model) View() tea.View {
 					"Preview completion requires subscription",
 					"h/Left back · l/Right open · Tab lists · 1-6 focus",
 					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
+					"Volume: = raise · - lower · 5% steps · 0–130% · resets to 100% on restart",
 					"C Chapters for current playback · Ch: ✓ advertised/cached",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",

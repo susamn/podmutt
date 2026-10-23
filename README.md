@@ -38,7 +38,7 @@ Responsive layout adapting automatically when terminal dimensions shrink.
 - **Local-First & Offline**: Instant cached library browsing; feeds refresh periodically in the background without blocking the UI.
 - **Top Charts & Global Discovery**: Browse Apple Podcasts Top 100 charts (auto-localized to your country, e.g. US, Germany, UK, France) with customer star ratings.
 - **Stream Without Subscribing**: Preview show notes and stream/enqueue episodes directly from RSS without polluting your subscription catalog.
-- **Fixed Player HUD**: Real-time progress bar, responsive layout, and dedicated ±15-second seeking hotkeys (`,`/`.`).
+- **Fixed Player HUD**: Real-time progress bar, responsive layout, ±15-second seek hotkeys (`,`/`.`), and in-app volume controls.
 - **Shared Activity Status**: A fixed row above key hints shows ongoing searches, previews, feed refresh counts, artwork/ratings loads, and other finite background work without blocking navigation.
 - **Queue Management**: Remove the selected Queue episode (`d`) after confirmation, including current audio, with single-step session undo (`u`). Progress and history are preserved.
 - **Podcast Artwork**: Crisp cover art via Kitty graphics protocol with automatic image-derived ASCII fallback.
@@ -118,6 +118,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 - Press **`Enter`** on any episode to stream it instantly.
 - **`Space`** pauses/resumes current audio from **any** panel.
 - **`,`** and **`.`** seek backward and forward **15 seconds**.
+- **`=`** raises volume and **`-`** lowers it by **5%** (0–130%). The Player pane shows the resulting volume. Volume starts at 100% each app launch; changes do not persist across restarts. These keys remain available across panes, but text inputs and modals own their keys.
 - **`C`** opens chapters for the **currently playing** episode (not the highlighted row). Use **`j`/`k`**, arrows, or Page Up/Down; **Enter** jumps and **Esc** cancels. Seeking keeps the paused/playing state. The separate **Ch** column in Episodes and Queue shows a right-aligned, accent-colored `✓` (including plain mode) for advertised or cached chapters; its width comes from Title. Details shows the count when known. Linked Podcasting 2.0 JSON is fetched and cached once during feed refresh (unless its URL changes), not when you press `C`. Inline Podlove chapters are cached from the feed. Embedded chapters can only be inspected after the audio loads; mpv checks and caches them then, without downloading other episodes' audio. Pressing `C` only reads cached chapter information.
 - Press **`a`** to add an episode to your **Up next (3)** queue.
 - In **Queue (3)**, press **`d`** or **Delete** on an episode, then **`y`** to remove it or **`n` / Esc** to cancel. Removing current audio stops it without starting another episode; progress/history are kept. **`u`** restores the last removal as pending, without autoplay.
@@ -159,6 +160,7 @@ Every feed is fetched and subscribed (nested folders are flattened, duplicates a
 | `s` | Stop current playback |
 | `n` | Skip to next episode in queue |
 | `,` / `.` | Seek backward / forward 15 seconds |
+| `=` / `-` | Raise / lower playback volume by 5% (0–130%); not saved across restarts |
 | `C` | Open cached chapters for current playback (`j`/`k`/arrows/Page Up/Page Down, Enter jump, Esc cancel) |
 
 ### Library & Queue

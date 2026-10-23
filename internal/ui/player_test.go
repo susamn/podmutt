@@ -81,8 +81,7 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 	for _, size := range [][2]int{{30, 12}, {80, 24}, {99, 40}} {
 		for _, panel := range []Panel{Podcasts, Episodes, Queue, Details, PlayerPanel} {
 			m := resize(New(fixture()), size[0], size[1]).WithDetails(strings.Repeat("description\n", 500)).WithFocus(panel)
-			want := 0
-			if rowContaining(t, m.View().Content, "Now playing") != want {
+			if rowContaining(t, m.View().Content, "Now playing") != 0 {
 				t.Fatal("compact player moved", size, panel)
 			}
 			if !strings.Contains(ansi.Strip(m.View().Content), "[Play] [Stop] [Next]") {
@@ -99,6 +98,19 @@ func TestCompactDetailsAndQueueLeavePlayerVisible(t *testing.T) {
 		}
 	}
 }
+func TestPlayerDisplaysVolumeAtCompactAndWideWidths(t *testing.T) {
+	for _, tc := range []struct {
+		width int
+		want  string
+	}{{30, "V105%"}, {80, "Vol 105%"}} {
+		m := New(Data{Player: Player{Volume: 105, HasVolume: true}})
+		pane := ansi.Strip(m.playerPane(tc.width, 8))
+		if !strings.Contains(pane, tc.want) {
+			t.Fatalf("width %d player volume missing %q: %s", tc.width, tc.want, pane)
+		}
+	}
+}
+
 func TestPlayerButtonsUseSharedActionsAndDisabledCapabilities(t *testing.T) {
 	var commands []string
 	m := resize(New(fixture()), 140, 32).WithFocus(PlayerPanel).WithActions(func(command string) tea.Cmd {

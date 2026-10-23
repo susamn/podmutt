@@ -76,6 +76,44 @@ func openLibraryDestination(m *libraryShell, id string) {
 	finishLibrary(m, updateLibrary(m, tea.KeyPressMsg{Code: tea.KeyEnter}))
 }
 
+func TestVolumeKeysWorkGloballyButYieldToInputsAndModals(t *testing.T) {
+	librarySession(t, func(s *session) {
+		m, err := newLibrary(s, feed.New(s.store, nil, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		updateLibrary(&m, tea.WindowSizeMsg{Width: 140, Height: 32})
+		for _, panel := range []ui.Panel{ui.Podcasts, ui.Episodes, ui.Queue, ui.Details, ui.Favorites, ui.PlayerPanel} {
+			m.Model = m.Model.WithFocus(panel)
+			cmd := libraryKey(&m, '=')
+			if cmd == nil {
+				t.Fatalf("volume-up key ignored in pane %v", panel)
+			}
+			msg := cmd()
+			if _, ok := msg.(playerEdited); !ok {
+				t.Fatalf("volume-up result in pane %v = %T", panel, msg)
+			}
+			updateLibrary(&m, msg)
+		}
+		if state, err := s.playback.Snapshot(s.ctx); err != nil || state.Volume != 130 || state.Status != playback.Stopped {
+			t.Fatalf("global volume state = %d, %s, %v", state.Volume, state.Status, err)
+		}
+		m.Model = m.Model.WithDialog(&ui.Dialog{Title: "Confirm"})
+		if cmd := libraryKey(&m, '-'); cmd != nil {
+			t.Fatal("modal did not own volume key")
+		}
+		m.Model = m.Model.WithDialog(nil).WithFocus(ui.Episodes)
+		libraryKey(&m, '/')
+		libraryKey(&m, '-')
+		if !m.Model.HasFilter(ui.Episodes) {
+			t.Fatal("filter did not receive minus as text")
+		}
+		if state, err := s.playback.Snapshot(s.ctx); err != nil || state.Volume != 130 {
+			t.Fatalf("text input changed volume: %d, %v", state.Volume, err)
+		}
+	})
+}
+
 func TestCachedDestinationsSortingSelectionAndCompletion(t *testing.T) {
 	librarySession(t, func(s *session) {
 		a, b := seededLibrary(t, s)
