@@ -1,0 +1,2 @@
+ALTER TABLE episodes ADD COLUMN chapters_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE episodes ADD COLUMN chapters_json TEXT NOT NULL DEFAULT '';

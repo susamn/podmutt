@@ -2,13 +2,17 @@ package feed
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"podmutt/internal/activity"
+	"podmutt/internal/chapters"
+	"podmutt/internal/feedback"
 	"podmutt/internal/httpurl"
 	"podmutt/internal/store"
 )
@@ -148,4 +152,53 @@ func (r *Refresher) Refresh(ctx context.Context, source store.Feed) (result Resu
 		return err
 	})
 	return
+}
+
+// FetchChapters downloads and parses an external Podcasting 2.0 JSON chapters file.
+func (r *Refresher) FetchChapters(ctx context.Context, address string) ([]chapters.Chapter, error) {
+	ctx, finish := activity.Begin(ctx, "Loading chapters…", activity.Foreground)
+	defer finish()
+	if _, err := httpurl.Parse(address); err != nil {
+		return nil, feedback.New(feedback.InvalidURL, "invalid chapters URL")
+	}
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, feedback.Wrap(feedback.InvalidURL, err)
+	}
+	req.Header.Set("User-Agent", "podmutt/dev")
+	req.Header.Set("Accept", "application/json+chapters, application/json")
+	response, err := r.client.Do(req)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, context.DeadlineExceeded
+		}
+		return nil, feedback.Wrap(feedback.Network, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, feedback.StatusError(response.StatusCode)
+	}
+	if response.ContentLength > MaxBytes {
+		return nil, feedback.New(feedback.InvalidResponse, "chapters file too large")
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, MaxBytes+1))
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, feedback.Wrap(feedback.InvalidResponse, err)
+	}
+	if len(data) > MaxBytes {
+		return nil, feedback.New(feedback.InvalidResponse, "chapters file too large")
+	}
+	list, err := chapters.ParseJSON(data)
+	if err != nil {
+		return nil, feedback.Wrap(feedback.InvalidResponse, err)
+	}
+	return list, nil
 }

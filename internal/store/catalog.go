@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"podmutt/internal/chapters"
 	"podmutt/internal/httpurl"
 )
 
@@ -21,10 +22,24 @@ type Episode struct {
 	GUID, Title, Description string
 	FeedTitle                string
 	AudioURL, ArtworkURL     string
+	ChaptersURL              string
+	ChaptersJSON             string
 	PublishedAt              time.Time
 	DurationSeconds          int64
 	PositionSeconds          float64
 	Completed                bool
+}
+
+func (e Episode) HasChapters() bool {
+	return len(e.ChaptersURL) > 0 || len(e.ChaptersJSON) > 0
+}
+
+func (e Episode) ParsedChapters() []chapters.Chapter {
+	if len(e.ChaptersJSON) == 0 {
+		return nil
+	}
+	list, _ := chapters.Deserialize(e.ChaptersJSON)
+	return list
 }
 
 // UpsertFeed updates fetched metadata without changing an existing subscription.
@@ -87,13 +102,18 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 				published = episode.PublishedAt.Unix()
 			}
 			_, err := tx.ExecContext(ctx, `INSERT INTO episodes
-				(feed_id,identity,guid,title,description,audio_url,artwork_url,published_at,duration_seconds)
-				VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(feed_id,identity) DO UPDATE SET
+				(feed_id,identity,guid,title,description,audio_url,artwork_url,published_at,duration_seconds,chapters_url,chapters_json)
+				VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(feed_id,identity) DO UPDATE SET
 				guid=excluded.guid, title=excluded.title, description=excluded.description,
 				audio_url=excluded.audio_url, artwork_url=excluded.artwork_url,
-				published_at=excluded.published_at, duration_seconds=excluded.duration_seconds`,
+				published_at=excluded.published_at, duration_seconds=excluded.duration_seconds,
+				chapters_url=excluded.chapters_url,
+				chapters_json=CASE
+				WHEN length(excluded.chapters_json)>0 THEN excluded.chapters_json
+				WHEN excluded.chapters_url<>episodes.chapters_url OR excluded.chapters_url='' THEN ''
+				ELSE episodes.chapters_json END`,
 				feedID, identity, guid, episode.Title, episode.Description, episode.AudioURL,
-				episode.ArtworkURL, published, episode.DurationSeconds)
+				episode.ArtworkURL, published, episode.DurationSeconds, episode.ChaptersURL, episode.ChaptersJSON)
 			if err != nil {
 				return err
 			}
@@ -104,7 +124,8 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 
 const episodeColumns = `e.id,e.feed_id,e.guid,e.title,e.description,e.audio_url,e.artwork_url,
 	e.published_at,e.duration_seconds,COALESCE(p.position_seconds,0),COALESCE(p.completed,0),
- (SELECT title FROM feeds WHERE id=e.feed_id)`
+ (SELECT title FROM feeds WHERE id=e.feed_id),
+ e.chapters_url,e.chapters_json`
 
 const episodeTables = `episodes e LEFT JOIN playback p ON p.episode_id=e.id`
 
@@ -156,7 +177,8 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		var published int64
 		if err := rows.Scan(&episode.ID, &episode.FeedID, &episode.GUID, &episode.Title,
 			&episode.Description, &episode.AudioURL, &episode.ArtworkURL, &published,
-			&episode.DurationSeconds, &episode.PositionSeconds, &episode.Completed, &episode.FeedTitle); err != nil {
+			&episode.DurationSeconds, &episode.PositionSeconds, &episode.Completed, &episode.FeedTitle,
+			&episode.ChaptersURL, &episode.ChaptersJSON); err != nil {
 			return nil, err
 		}
 		if published != 0 {
@@ -165,4 +187,10 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		episodes = append(episodes, episode)
 	}
 	return episodes, rows.Err()
+}
+
+// UpdateEpisodeChapters updates the cached chapters JSON string for an episode.
+func (s *Store) UpdateEpisodeChapters(ctx context.Context, episodeID int64, chaptersJSON string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE episodes SET chapters_json=? WHERE id=?", chaptersJSON, episodeID)
+	return err
 }
