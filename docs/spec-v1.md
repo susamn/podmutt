@@ -67,8 +67,8 @@ controls current audio. a enqueues; s stops playback. See ADR 037.
 Play/Pause, Stop or Next; Enter activates. The position bar is display-only.
 `=`/`-` adjust shared playback volume by 5 percentage points, clamped to 0–130%;
 volume starts at 100% each launch and is not persisted. Text inputs and modals
-retain ownership of these keys. In compact Queue focus, Queue appears above Player;
-ordering for other panes is unchanged. No configurable bindings or themes in v1. Keep
+retain ownership of these keys. In compact layouts, the active pane appears above
+Player; wide layout is unchanged. No configurable bindings or themes in v1. Keep
 contextual hints and help short.
 
 ## Playback and state
