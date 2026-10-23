@@ -13,21 +13,9 @@ import (
 type chapterRequest struct {
 	episodeID  int64
 	playbackID uint64
-	url        string
-}
-type chapterLoaded struct {
-	generation uint64
-	request    chapterRequest
-	list       []chapters.Chapter
-	err        error
 }
 
 func (m *libraryShell) closeChapters() {
-	if m.chapterCancel != nil {
-		m.chapterCancel()
-		m.chapterCancel = nil
-	}
-	m.chapterGeneration++
 	m.chapterRequest = chapterRequest{}
 	m.chapterList = nil
 	m.Model = m.Model.WithChapters(nil)
@@ -57,57 +45,37 @@ func (m *libraryShell) openChapters() tea.Cmd {
 		return nil
 	}
 	m.closeChapters()
-	m.chapterRequest = chapterRequest{episodeID: current.ID, playbackID: m.state.PlaybackID, url: current.ChaptersURL}
-	list := current.ParsedChapters()
-	if len(list) > 0 {
-		m.showChapters(*current, list)
+	// Chapter files are prefetched during feed refresh. The actor probes embedded
+	// metadata on file-loaded. C only reads the cache; never fetches chapters.
+	episode := *current
+	if saved, err := m.s.store.Episode(m.s.ctx, current.ID); err == nil && saved.AudioURL == current.AudioURL {
+		episode.ChaptersURL, episode.ChaptersJSON, episode.ChaptersState = saved.ChaptersURL, saved.ChaptersJSON, saved.ChaptersState
+	}
+	m.chapterRequest = chapterRequest{episodeID: current.ID, playbackID: m.state.PlaybackID}
+	if list := episode.ParsedChapters(); len(list) > 0 {
+		m.showChapters(episode, list)
 		return nil
 	}
-	ctx, cancel := context.WithCancel(m.s.ctx)
-	m.chapterCancel = cancel
-	generation, request, refresher, engine := m.chapterGeneration, m.chapterRequest, m.refresher, m.s.playback
-	return work(ctx, "Loading chapters…", func(ctx context.Context) tea.Msg {
-		var list []chapters.Chapter
-		var err error
-		if request.url == "" {
-			list, err = engine.EmbeddedChapters(ctx, request.episodeID, request.playbackID)
-		} else {
-			list, err = refresher.FetchChapters(ctx, request.url)
-			if err == nil && len(list) > 0 {
-				err = engine.CacheChapters(ctx, request.episodeID, request.playbackID, request.url, list)
-			}
-		}
-		return chapterLoaded{generation: generation, request: request, list: list, err: err}
-	})
-}
-
-func (m *libraryShell) applyChapters(msg chapterLoaded) {
-	if msg.generation != m.chapterGeneration || msg.request != m.chapterRequest {
-		return
-	}
-	m.chapterCancel = nil
-	current := m.state.Current
-	if current == nil || current.ID != msg.request.episodeID || m.state.PlaybackID != msg.request.playbackID || !m.state.CanSeek {
-		m.closeChapters()
-		return
-	}
-	if msg.err != nil {
-		if msg.err == playback.ErrSeekUnavailable {
-			m.closeChapters()
-			return
-		}
-		m.notice = "Could not load chapters. Check your connection or retry with C."
-		return
-	}
-	if len(msg.list) == 0 {
-		m.notice = "No chapters found for the current episode."
-		if msg.request.url != "" {
+	if episode.ChaptersURL != "" {
+		switch episode.ChaptersState {
+		case "error":
+			m.notice = "Published chapter file is unavailable. Its URL must change before it is checked again."
+		case "empty":
 			m.notice = "No chapters found in the published chapter file."
+		default:
+			m.notice = "Chapter file is being checked during feed refresh. Try C again shortly."
 		}
-		return
+		return nil
 	}
-	current.ChaptersJSON, _ = chapters.Serialize(msg.list)
-	m.showChapters(*current, msg.list)
+	switch episode.ChaptersState {
+	case "embedded-empty":
+		m.notice = "No chapters found in the current audio."
+	case "embedded-error":
+		m.notice = "Embedded chapter data is unavailable for this audio."
+	default:
+		m.notice = "Checking embedded chapters in current audio. Try C again shortly."
+	}
+	return nil
 }
 
 func (m *libraryShell) chapterKey(key string) tea.Cmd {

@@ -19,11 +19,18 @@ func episodeDetails(episode store.Episode, show, key string, queued, inspecting 
 		card.Duration = formatEpisodeDuration(episode.DurationSeconds)
 	}
 	if list := episode.ParsedChapters(); len(list) > 0 {
-		card.Chapters = fmt.Sprintf("[Ch] %d chapters available", len(list))
+		card.Chapters = fmt.Sprintf("Chapters: %d available", len(list))
 	} else if episode.ChaptersURL != "" {
-		card.Chapters = "[Ch] Chapters published · not loaded"
+		switch episode.ChaptersState {
+		case "error":
+			card.Chapters = "Chapters: published file unavailable"
+		case "empty":
+			card.Chapters = "Chapters: published file has no entries"
+		default:
+			card.Chapters = "Chapters: published · checking during feed refresh"
+		}
 	} else if episode.ChaptersJSON != "" {
-		card.Chapters = "[Ch] Chapter data unavailable"
+		card.Chapters = "Chapters: data unavailable"
 	}
 	if episode.Completed {
 		card.State = "Completed"
@@ -58,9 +65,9 @@ func (m libraryShell) detailHistory(episode store.Episode) store.Episode {
 			if matches {
 				episode.ID, episode.PositionSeconds, episode.Completed = saved.ID, saved.PositionSeconds, saved.Completed
 				if episode.ChaptersURL == "" && episode.ChaptersJSON == "" {
-					episode.ChaptersURL, episode.ChaptersJSON = saved.ChaptersURL, saved.ChaptersJSON
+					episode.ChaptersURL, episode.ChaptersJSON, episode.ChaptersState = saved.ChaptersURL, saved.ChaptersJSON, saved.ChaptersState
 				} else if episode.ChaptersJSON == "" && episode.ChaptersURL == saved.ChaptersURL {
-					episode.ChaptersJSON = saved.ChaptersJSON
+					episode.ChaptersJSON, episode.ChaptersState = saved.ChaptersJSON, saved.ChaptersState
 				}
 				return episode
 			}

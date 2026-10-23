@@ -334,6 +334,11 @@ func (e *Engine) event(ctx context.Context, event player.Event) {
 	}
 	if event.Name == "file-loaded" {
 		e.ready = true
+		current := e.state.Current
+		if current.ChaptersURL == "" && current.ChaptersJSON == "" && current.ChaptersState == "" {
+			id, playbackID := current.ID, e.playbackID
+			go e.discoverEmbedded(id, playbackID)
+		}
 	}
 	if event.Name == "property-change" && event.Property == "duration" {
 		var duration float64

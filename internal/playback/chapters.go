@@ -3,17 +3,24 @@ package playback
 import (
 	"context"
 
+	"podmutt/internal/activity"
 	"podmutt/internal/chapters"
 )
 
-type chapterCache interface {
-	CacheEpisodeChapters(context.Context, int64, string, string) (bool, error)
+func (e *Engine) discoverEmbedded(id int64, playbackID uint64) {
+	ctx, cancel := context.WithTimeout(e.ctx, operationTimeout)
+	defer cancel()
+	ctx, finish := activity.Begin(ctx, "Checking embedded chapters…", activity.Background)
+	defer finish()
+	_, _ = e.EmbeddedChapters(ctx, id, playbackID)
 }
+
 type embeddedChapterReader interface {
 	ChapterList(context.Context) ([]byte, error)
 }
 type embeddedChapterCache interface {
-	CacheEmbeddedChapters(context.Context, int64, string) (bool, error)
+	CacheEmbeddedChapters(context.Context, int64, string, string) (bool, error)
+	CacheEmbeddedStatus(context.Context, int64, string, string) (bool, error)
 }
 
 // EmbeddedChapters inspects only the currently loaded audio, without loading
@@ -32,24 +39,41 @@ func (e *Engine) EmbeddedChapters(ctx context.Context, episodeID int64, playback
 		if e.state.Current.ChaptersURL != "" {
 			return ErrSeekUnavailable
 		}
-		reader, ok := e.player.(embeddedChapterReader)
-		if !ok {
+		if e.state.Current.ChaptersState == "embedded-empty" || e.state.Current.ChaptersState == "embedded-error" {
 			return nil
 		}
-		data, err := reader.ChapterList(ctx)
-		if err != nil {
-			return err
+		reader, ok := e.player.(embeddedChapterReader)
+		var parseErr error
+		if ok {
+			var data []byte
+			data, parseErr = reader.ChapterList(ctx)
+			if parseErr == nil {
+				list, parseErr = chapters.FromMPV(data)
+			}
 		}
-		list, err = chapters.FromMPV(data)
-		if err != nil || len(list) == 0 {
-			return err
+		if parseErr != nil || len(list) == 0 {
+			status := "embedded-empty"
+			if parseErr != nil {
+				status = "embedded-error"
+			}
+			if cache, ok := e.repo.(embeddedChapterCache); ok {
+				saved, err := cache.CacheEmbeddedStatus(ctx, episodeID, e.state.Current.AudioURL, status)
+				if err != nil {
+					return err
+				}
+				if !saved {
+					return ErrSeekUnavailable
+				}
+			}
+			e.state.Current.ChaptersState = status
+			return nil
 		}
 		encoded, err := chapters.Serialize(list)
 		if err != nil {
 			return err
 		}
 		if cache, ok := e.repo.(embeddedChapterCache); ok {
-			saved, err := cache.CacheEmbeddedChapters(ctx, episodeID, encoded)
+			saved, err := cache.CacheEmbeddedChapters(ctx, episodeID, e.state.Current.AudioURL, encoded)
 			if err != nil {
 				return err
 			}
@@ -57,40 +81,8 @@ func (e *Engine) EmbeddedChapters(ctx context.Context, episodeID int64, playback
 				return ErrSeekUnavailable
 			}
 		}
-		e.state.Current.ChaptersJSON = encoded
+		e.state.Current.ChaptersJSON, e.state.Current.ChaptersState = encoded, "embedded"
 		return nil
 	})
 	return list, err
-}
-
-// CacheChapters installs metadata for precisely the playback and declaration
-// that initiated the request. The actor serializes this with Next/Stop/Load;
-// storage additionally guards against a concurrent feed refresh changing URLs.
-func (e *Engine) CacheChapters(ctx context.Context, episodeID int64, playbackID uint64, url string, list []chapters.Chapter) error {
-	if episodeID <= 0 || playbackID == 0 || url == "" || len(list) == 0 {
-		return ErrSeekUnavailable
-	}
-	encoded, err := chapters.Serialize(list)
-	if err != nil {
-		return err
-	}
-	_, err = e.submit(ctx, func(ctx context.Context) error {
-		if e.state.Current == nil || e.state.Current.ID != episodeID || e.playbackID != playbackID || !e.active || e.state.Current.ChaptersURL != url {
-			return ErrSeekUnavailable
-		}
-		cache, ok := e.repo.(chapterCache)
-		if !ok {
-			return ErrSeekUnavailable
-		}
-		saved, err := cache.CacheEpisodeChapters(ctx, episodeID, url, encoded)
-		if err != nil {
-			return err
-		}
-		if !saved {
-			return ErrSeekUnavailable
-		}
-		e.state.Current.ChaptersJSON = encoded
-		return nil
-	})
-	return err
 }

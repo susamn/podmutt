@@ -151,12 +151,72 @@ func (r *Refresher) Refresh(ctx context.Context, source store.Feed) (result Resu
 		_, err = r.repo.UpsertFeed(ctx, source)
 		return err
 	})
+	if result.Error == nil {
+		// Episode metadata is committed before fetching optional chapter files.
+		// Cached successes/empty/error results are not re-fetched each cycle.
+		r.prefetchChapters(ctx, source.ID)
+	}
 	return
+}
+
+type chapterFileRepository interface {
+	PendingChapterFiles(context.Context, int64) ([]store.ChapterFile, error)
+	CacheEpisodeChapters(context.Context, int64, string, string) (bool, error)
+	MarkChaptersChecked(context.Context, int64, string, string) error
+}
+
+func (r *Refresher) prefetchChapters(ctx context.Context, feedID int64) {
+	repo, ok := r.repo.(chapterFileRepository)
+	if !ok {
+		return
+	}
+	files, err := repo.PendingChapterFiles(ctx, feedID)
+	if err != nil {
+		return
+	}
+	jobs := make(chan store.ChapterFile)
+	var workers sync.WaitGroup
+	for range min(parallelism, len(files)) {
+		workers.Go(func() {
+			for file := range jobs {
+				list, err := r.fetchChapters(ctx, file.URL, activity.Background)
+				if ctx.Err() != nil {
+					return
+				}
+				if err != nil {
+					_ = repo.MarkChaptersChecked(ctx, file.EpisodeID, file.URL, "error")
+					continue
+				}
+				if len(list) == 0 {
+					_ = repo.MarkChaptersChecked(ctx, file.EpisodeID, file.URL, "empty")
+					continue
+				}
+				encoded, err := chapters.Serialize(list)
+				if err == nil {
+					_, _ = repo.CacheEpisodeChapters(ctx, file.EpisodeID, file.URL, encoded)
+				}
+			}
+		})
+	}
+send:
+	for _, file := range files {
+		select {
+		case jobs <- file:
+		case <-ctx.Done():
+			break send
+		}
+	}
+	close(jobs)
+	workers.Wait()
 }
 
 // FetchChapters downloads and parses an external Podcasting 2.0 JSON chapters file.
 func (r *Refresher) FetchChapters(ctx context.Context, address string) ([]chapters.Chapter, error) {
-	ctx, finish := activity.Begin(ctx, "Loading chapters…", activity.Foreground)
+	return r.fetchChapters(ctx, address, activity.Foreground)
+}
+
+func (r *Refresher) fetchChapters(ctx context.Context, address string, priority activity.Priority) ([]chapters.Chapter, error) {
+	ctx, finish := activity.Begin(ctx, "Loading chapters…", priority)
 	defer finish()
 	if _, err := httpurl.Parse(address); err != nil {
 		return nil, feedback.New(feedback.InvalidURL, "invalid chapters URL")

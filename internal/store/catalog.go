@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ type Episode struct {
 	AudioURL, ArtworkURL     string
 	ChaptersURL              string
 	ChaptersJSON             string
+	ChaptersState            string // external, embedded, inline, empty, error, or unchecked
 	PublishedAt              time.Time
 	DurationSeconds          int64
 	PositionSeconds          float64
@@ -111,14 +113,16 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 				chapters_json=CASE
 				WHEN length(excluded.chapters_json)>0 THEN excluded.chapters_json
 				WHEN excluded.chapters_url<>episodes.chapters_url OR
-					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin='embedded') OR
-					(excluded.chapters_url='' AND episodes.chapters_origin<>'embedded') THEN ''
+					episodes.chapters_origin='inline' OR
+					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin LIKE 'embedded%') OR
+					(excluded.chapters_url='' AND episodes.chapters_origin NOT LIKE 'embedded%') THEN ''
 				ELSE episodes.chapters_json END,
 				chapters_origin=CASE
 				WHEN length(excluded.chapters_json)>0 THEN 'inline'
 				WHEN excluded.chapters_url<>episodes.chapters_url OR
-					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin='embedded') OR
-					(excluded.chapters_url='' AND episodes.chapters_origin<>'embedded') THEN ''
+					episodes.chapters_origin='inline' OR
+					(excluded.audio_url<>episodes.audio_url AND episodes.chapters_origin LIKE 'embedded%') OR
+					(excluded.chapters_url='' AND episodes.chapters_origin NOT LIKE 'embedded%') THEN ''
 				ELSE episodes.chapters_origin END`,
 				feedID, identity, guid, episode.Title, episode.Description, episode.AudioURL,
 				episode.ArtworkURL, published, episode.DurationSeconds, episode.ChaptersURL, episode.ChaptersJSON)
@@ -133,7 +137,7 @@ func (s *Store) UpsertEpisodes(ctx context.Context, feedID int64, episodes []Epi
 const episodeColumns = `e.id,e.feed_id,e.guid,e.title,e.description,e.audio_url,e.artwork_url,
 	e.published_at,e.duration_seconds,COALESCE(p.position_seconds,0),COALESCE(p.completed,0),
  (SELECT title FROM feeds WHERE id=e.feed_id),
- e.chapters_url,e.chapters_json`
+ e.chapters_url,e.chapters_json,e.chapters_origin`
 
 const episodeTables = `episodes e LEFT JOIN playback p ON p.episode_id=e.id`
 
@@ -186,7 +190,7 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		if err := rows.Scan(&episode.ID, &episode.FeedID, &episode.GUID, &episode.Title,
 			&episode.Description, &episode.AudioURL, &episode.ArtworkURL, &published,
 			&episode.DurationSeconds, &episode.PositionSeconds, &episode.Completed, &episode.FeedTitle,
-			&episode.ChaptersURL, &episode.ChaptersJSON); err != nil {
+			&episode.ChaptersURL, &episode.ChaptersJSON, &episode.ChaptersState); err != nil {
 			return nil, err
 		}
 		if published != 0 {
@@ -195,6 +199,43 @@ func readEpisodes(rows *sql.Rows) ([]Episode, error) {
 		episodes = append(episodes, episode)
 	}
 	return episodes, rows.Err()
+}
+
+// ChapterFile identifies a declared external file that has not yet been checked.
+type ChapterFile struct {
+	EpisodeID int64
+	URL       string
+}
+
+// PendingChapterFiles omits cached successes, empty files, and prior errors.
+// URL changes reset chapters_origin in UpsertEpisodes, making the new file pending.
+func (s *Store) PendingChapterFiles(ctx context.Context, feedID int64) ([]ChapterFile, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id,chapters_url FROM episodes
+		WHERE feed_id=? AND chapters_url<>'' AND chapters_json='' AND chapters_origin=''
+		ORDER BY id`, feedID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var files []ChapterFile
+	for rows.Next() {
+		var file ChapterFile
+		if err := rows.Scan(&file.EpisodeID, &file.URL); err != nil {
+			return nil, err
+		}
+		files = append(files, file)
+	}
+	return files, rows.Err()
+}
+
+// MarkChaptersChecked records an empty or failed external chapter file, so
+// scheduled refreshes do not retry a permanently broken URL without user action.
+func (s *Store) MarkChaptersChecked(ctx context.Context, episodeID int64, url, state string) error {
+	if state != "empty" && state != "error" {
+		return fmt.Errorf("invalid chapter state")
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_origin=? WHERE id=? AND chapters_url=? AND chapters_json=''`, state, episodeID, url)
+	return err
 }
 
 // CacheEpisodeChapters saves an external file only while its declaration still
@@ -209,8 +250,22 @@ func (s *Store) CacheEpisodeChapters(ctx context.Context, episodeID int64, url, 
 }
 
 // CacheEmbeddedChapters only fills an episode without a feed chapter declaration.
-func (s *Store) CacheEmbeddedChapters(ctx context.Context, episodeID int64, chaptersJSON string) (bool, error) {
-	result, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_json=?,chapters_origin='embedded' WHERE id=? AND chapters_url='' AND chapters_json=''`, chaptersJSON, episodeID)
+func (s *Store) CacheEmbeddedChapters(ctx context.Context, episodeID int64, audioURL, chaptersJSON string) (bool, error) {
+	result, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_json=?,chapters_origin='embedded' WHERE id=? AND audio_url=? AND chapters_url='' AND chapters_json=''`, chaptersJSON, episodeID, audioURL)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count > 0, err
+}
+
+// CacheEmbeddedStatus remembers a checked container without usable chapters.
+// RSS refreshes retain the result until the audio URL changes.
+func (s *Store) CacheEmbeddedStatus(ctx context.Context, episodeID int64, audioURL, status string) (bool, error) {
+	if status != "embedded-empty" && status != "embedded-error" {
+		return false, fmt.Errorf("invalid embedded chapter state")
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE episodes SET chapters_origin=? WHERE id=? AND audio_url=? AND chapters_url='' AND chapters_json=''`, status, episodeID, audioURL)
 	if err != nil {
 		return false, err
 	}

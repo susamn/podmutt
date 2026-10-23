@@ -75,6 +75,15 @@ func TestChaptersStorageAndEpisodeMethods(t *testing.T) {
 	if epNone.HasChapters() || epNone.ChaptersURL != "" || epNone.ChaptersJSON != "" {
 		t.Fatalf("epNone should not have chapters: %+v", epNone)
 	}
+	// A feed removing inline chapters must clear their cached timeline.
+	episodes[1].ChaptersJSON = ""
+	if err := s.UpsertEpisodes(ctx, feedID, episodes[1:2]); err != nil {
+		t.Fatal(err)
+	}
+	withoutInline, err := s.Episode(ctx, epJSON.ID)
+	if err != nil || withoutInline.HasChapters() || withoutInline.ChaptersState != "" {
+		t.Fatal("removed inline chapters remained cached", withoutInline, err)
+	}
 
 	// Test UpdateEpisodeChapters
 	updatedJSON := `[{"index":1,"start":0,"title":"Discovered Intro"}]`
