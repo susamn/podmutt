@@ -19,8 +19,11 @@ func (d *nativeDriver) capture(action int) capturedHandler {
 }
 func (h capturedHandler) fire() bool { return C.pm_check_fire(h.pointer) != 0 }
 func (h capturedHandler) release()   { C.pm_check_release(h.pointer) }
-func nativeControls() int            { return int(C.pm_check_controls()) }
-func nativeState() int               { return int(C.pm_check_state()) }
+func podmuttMediaEventForTest(id uint64, action int) bool {
+	return podmuttMediaEvent(C.uintptr_t(id), C.int(action)) != 0
+}
+func nativeControls() int { return int(C.pm_check_controls()) }
+func nativeState() int    { return int(C.pm_check_state()) }
 func nativeTitle() string {
 	ptr := C.pm_check_title()
 	defer C.free(unsafe.Pointer(ptr))

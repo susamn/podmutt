@@ -5,7 +5,7 @@ No Linux cross-build can satisfy this check. Implementation runs on Linux;
 a user-provided arm64 Mac is performing native acceptance checks.
 
 ```sh
-make native-verify # preflight + check/race + app/native block tests + real-mpv/null audio
+make native-verify # preflight + native block/real-mpv tests + check/race + app
 bin/podmutt.app/Contents/MacOS/podmutt --version
 bin/podmutt.app/Contents/MacOS/podmutt
 ```
@@ -17,7 +17,10 @@ omit the native bridge; the TUI displays an unavailable warning on those builds.
 separate bundle identity. It invokes the exact registered Objective-C blocks
 through CGO for Play/Pause/Toggle/Stop/Next and ±15-second skip commands, inspects public metadata/control flags,
 checks repeated registration and a retained handler delivered after teardown.
-The test-only C hooks are excluded from normal builds. This is not a Go callback
+The test-only C hooks are excluded from normal builds. `native-verify` runs the
+bundled test and real-mpv tests first and combines their coverage profiles with
+ordinary Go tests before enforcing the unchanged 95% statement gate. `make check` on its own does not run
+the native bridge tests and may report lower Darwin coverage. This is not a Go callback
 shortcut, but it still does **not** press physical keys or prove system dispatch
 or another player's arbitration. Full native-handler execution remains unverified
 until this command succeeds on a real Mac.

@@ -44,6 +44,8 @@ test:
 
 # Collect each package's dependency coverage; go test ./... overwrites the
 # shared coverprofile instead of producing a suite-wide aggregate.
+# On macOS native-verify also includes bundled nativecheck and real-mpv tests.
+NATIVE_COVERAGE ?=
 coverage:
 	@mkdir -p coverage/.profiles
 	@set -eu; packages=$$($(GO) list ./...); \
@@ -55,9 +57,12 @@ coverage:
 	    $(GO) test -count=1 -covermode=atomic -coverpkg=$$coverpkg \
 	      -coverprofile=coverage/.profiles/$$name.out $$package; \
 	  done
+	@if [ -n '$(NATIVE_COVERAGE)' ]; then for profile in $(NATIVE_COVERAGE); do \
+	  test -s "$$profile" || { echo "Native coverage profile missing: $$profile"; exit 1; }; \
+	  done; fi
 	@awk 'FNR == 1 { next } { key = $$1; stmts[key] = $$2; hits[key] += $$3 } \
 		END { print "mode: atomic"; for (key in stmts) print key, stmts[key], hits[key] }' \
-		coverage/.profiles/*.out > coverage/coverage.out
+		coverage/.profiles/*.out $(NATIVE_COVERAGE) > coverage/coverage.out
 	$(GO) tool cover -func=coverage/coverage.out
 	$(GO) tool cover -html=coverage/coverage.out -o coverage/index.html
 	@awk -v min='$(COVERAGE_MIN)' 'NR > 1 { statements[$$1] = $$2; if ($$3 > 0) hit[$$1] = 1 } \
@@ -99,9 +104,9 @@ native-preflight:
 	@printf 'Native host: '; uname -m; sw_vers
 
 native-verify: native-preflight
-	CGO_ENABLED=1 $(MAKE) check race
-	$(MAKE) native-macos native-media-test
-	PODMUTT_TEST_MPV='$(MPV)' CGO_ENABLED=1 $(MAKE) mpv-test
+	$(MAKE) native-media-test native-mpv-coverage-test
+	CGO_ENABLED=1 $(MAKE) check race NATIVE_COVERAGE='coverage/native-macos.out coverage/native-mpv-*.out'
+	$(MAKE) native-macos
 
 native-macos: native-preflight
 	@mkdir -p bin/podmutt.app/Contents/MacOS bin/podmutt.app/Contents/Resources
@@ -115,9 +120,22 @@ native-media-test: native-preflight
 	cp packaging/macos/Info.plist bin/media-test.app/Contents/Info.plist
 	cp packaging/macos/podmutt.icns bin/media-test.app/Contents/Resources/podmutt.icns
 	/usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier io.gitlab.susamn.podmutt.media-test' bin/media-test.app/Contents/Info.plist
-	CGO_ENABLED=1 $(GO) test -tags=nativecheck -c -o bin/media-test.app/Contents/MacOS/podmutt ./internal/macmedia
+	@mkdir -p coverage
+	@rm -f coverage/native-macos.out
+	CGO_ENABLED=1 $(GO) test -tags=nativecheck -covermode=atomic -coverpkg=podmutt/internal/macmedia -c -o bin/media-test.app/Contents/MacOS/podmutt ./internal/macmedia
 	codesign --force --sign - bin/media-test.app
-	PODMUTT_TEST_NATIVE_MACOS=1 bin/media-test.app/Contents/MacOS/podmutt -test.run '^TestNative' -test.v -test.timeout=30s
+	PODMUTT_TEST_NATIVE_MACOS=1 bin/media-test.app/Contents/MacOS/podmutt -test.run '^TestNative' -test.v -test.timeout=30s -test.coverprofile=coverage/native-macos.out
+
+.PHONY: native-mpv-coverage-test
+native-mpv-coverage-test:
+	@mkdir -p coverage
+	@rm -f coverage/native-mpv-*.out
+	@set -eu; for package in player app; do \
+	  PODMUTT_TEST_MPV='$(MPV)' CGO_ENABLED=1 $(GO) test -count=1 \
+	    -covermode=atomic -coverpkg=podmutt/internal/$$package \
+	    -coverprofile=coverage/native-mpv-$$package.out -run '^TestRealMPV' \
+	    -timeout=60s ./internal/$$package; \
+	done
 
 # Cross-built Darwin CLI archives intentionally lack native media keys. Native
 # release packaging must use native-macos and the verification matrix in docs.
