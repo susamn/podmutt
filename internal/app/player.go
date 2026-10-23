@@ -41,13 +41,11 @@ func episodeItem(episode store.Episode, queued bool) ui.Item {
 	if episode.Completed {
 		marker = "[x] "
 	}
-	if episode.HasChapters() {
-		marker += "[Ch] "
-	}
 	return ui.Item{
 		ID:          strconv.FormatInt(episode.ID, 10),
 		Title:       marker + plain,
 		PlainTitle:  plain,
+		Chapters:    episode.HasChapters(),
 		Channel:     library.PlainText(episode.FeedTitle),
 		Date:        formatPublishedDate(episode.PublishedAt),
 		Duration:    formatEpisodeDuration(episode.DurationSeconds),
@@ -59,14 +57,11 @@ func episodeItem(episode store.Episode, queued bool) ui.Item {
 
 func previewEpisodeItem(index int, episode store.Episode, showTitle string) ui.Item {
 	plain := cleanTitle(episode.Title)
-	title := plain
-	if episode.HasChapters() {
-		title = "[Ch] " + plain
-	}
 	return ui.Item{
 		ID:         fmt.Sprintf("preview:%d", index),
-		Title:      title,
+		Title:      plain,
 		PlainTitle: plain,
+		Chapters:   episode.HasChapters(),
 		Channel:    showTitle,
 		Date:       formatPublishedDate(episode.PublishedAt),
 		Duration:   formatEpisodeDuration(episode.DurationSeconds),
@@ -83,6 +78,7 @@ func queueItem(episode store.Episode) ui.Item {
 		ID:              strconv.FormatInt(episode.ID, 10),
 		Title:           fmt.Sprintf("%s · %s · %s/%s", plainTitle, show, pos, duration),
 		PlainTitle:      plainTitle,
+		Chapters:        episode.HasChapters(),
 		Channel:         show,
 		Position:        pos,
 		Duration:        duration,

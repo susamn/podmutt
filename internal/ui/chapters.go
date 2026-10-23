@@ -38,8 +38,19 @@ func (m Model) MoveChapter(delta int) Model {
 	return m
 }
 
+func (m Model) chapterModalHeight() int {
+	return min(22, m.height-statusRows-2)
+}
+
+func chapterPageSize(height int) int {
+	if height < 12 {
+		return max(1, height-5) // episode + show, list, navigation
+	}
+	return max(1, height-8) // label + episode + show + gap, list, gap + navigation
+}
+
 func (m Model) ChapterPageSize() int {
-	return max(1, min(22, m.height-statusRows-2)-5)
+	return chapterPageSize(m.chapterModalHeight())
 }
 
 func (m Model) renderChapters(width, height int) string {
@@ -47,21 +58,47 @@ func (m Model) renderChapters(width, height int) string {
 	if p == nil {
 		return ""
 	}
-	capacity := max(1, height-5)
-	start := max(0, p.Selected-capacity+1)
-	if start > 0 && start+capacity > len(p.Rows) {
-		start = max(0, len(p.Rows)-capacity)
+	inner := max(1, width-2)
+	textWidth := max(1, inner-3) // two left cells and one right cell
+	line := func(text string) string {
+		return "  " + ansi.Truncate(clean(text, false), textWidth, "…")
 	}
-	rows := []string{ansi.Truncate(clean(p.Episode, false), width-4, "…"), ansi.Truncate(clean(p.Show, false), width-4, "…")}
+	compact := height < 12
+	var rows []string
+	if !compact {
+		rows = append(rows, line("NOW PLAYING"))
+	}
+	rows = append(rows, line(p.Episode), line(p.Show))
+	if !compact {
+		rows = append(rows, "")
+	}
+
+	capacity := chapterPageSize(height)
+	start := (p.Selected / capacity) * capacity
 	for i := start; i < min(len(p.Rows), start+capacity); i++ {
-		row := p.Rows[i]
-		prefix := "  "
+		ch := p.Rows[i]
+		mark := "  "
 		if i == p.Selected {
-			prefix = "▸ "
+			mark = "▸ "
 		}
-		line := fmt.Sprintf("%s%s  %s", prefix, row.Time, row.Title)
-		rows = append(rows, ansi.Truncate(clean(line, false), width-4, "…"))
+		text := ansi.Truncate(clean(fmt.Sprintf("%s%8s  %s", mark, ch.Time, ch.Title), false), textWidth, "…")
+		if i == p.Selected {
+			rows = append(rows, "  "+m.highlightRow(text, textWidth))
+		} else {
+			rows = append(rows, line(fmt.Sprintf("%s%8s  %s", mark, ch.Time, ch.Title)))
+		}
 	}
-	rows = append(rows, ansi.Truncate(fmt.Sprintf("%d/%d · j/k arrows · PgUp/PgDn · Enter jump · Esc cancel", p.Selected+1, len(p.Rows)), width-4, "…"))
-	return m.box("Chapters · Current playback", rows, width, height, true, "", "")
+	if !compact {
+		rows = append(rows, "")
+	}
+	hint := "j/k · Enter jump · Esc"
+	if !compact {
+		hint = "j/k or arrows · PgUp/PgDn · Enter jump · Esc back"
+	}
+	rows = append(rows, line(hint))
+	tag := ""
+	if width >= 30 {
+		tag = fmt.Sprintf("%d/%d", p.Selected+1, len(p.Rows))
+	}
+	return m.box("Chapters · Current playback", rows, width, height, true, "", tag)
 }

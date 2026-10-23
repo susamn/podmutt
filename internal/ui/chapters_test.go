@@ -17,8 +17,9 @@ func TestChapterPickerCompactPagingAndEscOwnership(t *testing.T) {
 		rows[i] = ChapterRow{Time: fmt.Sprintf("%d:00", i), Title: fmt.Sprintf("Part %d", i)}
 	}
 	m = m.WithChapters(&ChapterPicker{Episode: "An episode", Show: "A show", Rows: rows, Selected: 0})
-	if !strings.Contains(m.View().Content, "Part 0") || m.ChapterSelection() != 0 {
-		t.Fatal("compact picker missing")
+	compact := m.View().Content
+	if !strings.Contains(compact, "Part 0") || m.ChapterSelection() != 0 || !strings.Contains(compact, "An episode") || !strings.Contains(compact, "A show") || !strings.Contains(compact, "Enter jump · Esc") {
+		t.Fatal("compact picker identity/navigation missing", compact)
 	}
 	m = m.MoveChapter(m.ChapterPageSize())
 	if m.ChapterSelection() < 1 || !strings.Contains(m.View().Content, fmt.Sprintf("Part %d", m.ChapterSelection())) {
@@ -31,6 +32,11 @@ func TestChapterPickerCompactPagingAndEscOwnership(t *testing.T) {
 	updated, _ = m.Update(tea.KeyPressMsg{Code: 'j'})
 	if updated.(Model).ChapterSelection() != 29 {
 		t.Fatal("UI key leaked behind picker")
+	}
+	m = resize(m, 90, 28)
+	wide := m.View().Content
+	if !strings.Contains(wide, "NOW PLAYING") || !strings.Contains(wide, "PgUp/PgDn") || !strings.Contains(wide, "30/30") {
+		t.Fatal("wide picker identity/paging missing", wide)
 	}
 	m = m.WithChapters(nil)
 	if m.ChapterSelection() != -1 || m.Focus() != Episodes {

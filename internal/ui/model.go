@@ -35,6 +35,7 @@ type Item struct {
 	Destination     bool
 	Queued          bool
 	Completed       bool
+	Chapters        bool
 	Current         bool
 	PublishedAt     time.Time
 	Index           int

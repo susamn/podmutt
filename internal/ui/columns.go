@@ -10,10 +10,10 @@ import (
 
 // Headers and data share exact cell budgets, including every separator. Reserve
 // the right-hand value first; surplus space belongs to Title, not channel padding.
-type listColumns struct{ inner, gutter, title, channel, date, tail int }
+type listColumns struct{ inner, gutter, title, chapter, channel, date, tail int }
 
 func episodeColumns(width int) listColumns {
-	c := listColumns{inner: max(0, width-2), gutter: 4, tail: 8}
+	c := listColumns{inner: max(0, width-2), gutter: 4, tail: 8, chapter: 2}
 	body := c.inner - c.gutter - c.tail - 1
 	if width >= 70 {
 		c.date = 11
@@ -23,23 +23,26 @@ func episodeColumns(width int) listColumns {
 		c.channel = min(20, max(7, (body-2)/3))
 		body -= c.channel + 2
 	}
-	c.title = max(0, body)
+	c.title = max(0, body-c.chapter-2)
 	return c
 }
 
 func queueColumns(width, gutter int) listColumns {
-	c := listColumns{inner: max(0, width-2), gutter: gutter, tail: 7}
+	c := listColumns{inner: max(0, width-2), gutter: gutter, tail: 7, chapter: 2}
 	body := c.inner - c.gutter - c.tail - 1
 	if body >= 14 {
 		c.channel = min(20, max(7, (body-2)/3))
 		body -= c.channel + 2
 	}
-	c.title = max(0, body)
+	c.title = max(0, body-c.chapter-2)
 	return c
 }
 
-func (c listColumns) row(prefix, title, channel, date, tail string) string {
+func (c listColumns) row(prefix, title, chapter, channel, date, tail string) string {
 	row := padRight(prefix, c.gutter) + padRight(title, c.title)
+	if c.chapter > 0 {
+		row += "  " + padRight(chapter, c.chapter)
+	}
 	if c.channel > 0 {
 		row += "  " + padRight(channel, c.channel)
 	}
@@ -54,11 +57,23 @@ func (m Model) channelCell(channel string) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().ChannelColor(channel)))).Render(channel)
 }
 
+// The fixed two-cell Ch column is present even when an episode is not known
+// to have chapters. Never borrow width from Channel, Date, or the right tail.
+func (m Model) chapterCell(item Item) string {
+	if !item.Chapters {
+		return ""
+	}
+	if m.icons == "plain" {
+		return "Ch"
+	}
+	return "📖"
+}
+
 func (m Model) queueGutter() int { return max(5, 4+len(strconv.Itoa(max(1, len(m.data.Queue))))) }
 
 func (m Model) renderQueueHeader(width int) string {
 	c := queueColumns(width, m.queueGutter())
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "Channel", "", "Remains"))
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "Ch", "Channel", "", "Remains"))
 }
 
 func (m Model) renderEpisodeColumns(item Item, width int) string {
@@ -84,7 +99,7 @@ func (m Model) renderEpisodeColumns(item Item, width int) string {
 	if duration == "" {
 		duration = "--:--"
 	}
-	return episodeColumns(width).row("  "+gutter, title, m.channelCell(item.Channel), clean(item.Date, false), duration)
+	return episodeColumns(width).row("  "+gutter, title, m.chapterCell(item), m.channelCell(item.Channel), clean(item.Date, false), duration)
 }
 
 func (m Model) renderQueueColumns(item Item, width int, remaining string) string {
@@ -108,7 +123,7 @@ func (m Model) renderQueueColumns(item Item, width int, remaining string) string
 	if c.inner < c.gutter+c.tail+1 {
 		return padLeft(remaining, c.inner)
 	}
-	return c.row(prefix, title, m.channelCell(item.Channel), "", remaining)
+	return c.row(prefix, title, m.chapterCell(item), m.channelCell(item.Channel), "", remaining)
 }
 
 func favoritesColumns(width int) listColumns {
@@ -128,7 +143,7 @@ func favoritesColumns(width int) listColumns {
 
 func (m Model) renderFavoritesHeader(width int) string {
 	c := favoritesColumns(width)
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "Channel", "Date", ""))
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(c.row("", "Title", "", "Channel", "Date", ""))
 }
 
 func (m Model) renderFavoritesRow(item Item, width int, selected bool) string {
@@ -150,5 +165,5 @@ func (m Model) renderFavoritesRow(item Item, width int, selected bool) string {
 		}
 	}
 	gutterStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Red)))
-	return c.row("  "+gutterStyle.Render(gutter), title, m.channelCell(item.Channel), clean(item.Date, false), "")
+	return c.row("  "+gutterStyle.Render(gutter), title, "", m.channelCell(item.Channel), clean(item.Date, false), "")
 }

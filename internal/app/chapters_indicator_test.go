@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"podmutt/internal/store"
+	"podmutt/internal/ui"
 )
 
 func TestChapterAvailabilityForSavedAndPreviewEpisodes(t *testing.T) {
@@ -13,17 +14,17 @@ func TestChapterAvailabilityForSavedAndPreviewEpisodes(t *testing.T) {
 		marker                  bool
 	}{
 		{"unknown", "", "", "", false},
-		{"advertised", "https://example.test/chapters.json", "", "not loaded", true},
-		{"inline", "", `[{"index":1,"start":0,"title":"Intro"}]`, "1 chapters available", true},
-		{"cached", "https://example.test/chapters.json", `[{"index":1,"start":0,"title":"Intro"}]`, "1 chapters available", true},
+		{"advertised", "https://example.test/chapters.json", "", "checking", true},
+		{"inline", "", `[{"index":1,"start":0,"title":"Intro"}]`, "1 available", true},
+		{"cached", "https://example.test/chapters.json", `[{"index":1,"start":0,"title":"Intro"}]`, "1 available", true},
 		{"invalid cached", "", "invalid", "unavailable", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ep := store.Episode{ID: 1, Title: "A title", ChaptersURL: tc.url, ChaptersJSON: tc.data}
-			for _, item := range []string{episodeItem(ep, false).Title, previewEpisodeItem(0, ep, "Show").Title} {
-				if strings.Contains(item, "[Ch]") != tc.marker || !strings.Contains(item, "A title") {
-					t.Fatalf("chapter row indicator/title: %q", item)
+			for _, item := range []ui.Item{episodeItem(ep, false), previewEpisodeItem(0, ep, "Show"), queueItem(ep)} {
+				if item.Chapters != tc.marker || strings.Contains(item.Title, "[Ch]") || !strings.Contains(item.Title, "A title") {
+					t.Fatalf("chapter column/title: %+v", item)
 				}
 			}
 			card := episodeDetails(ep, "Show", "episode:1", false, false)

@@ -157,7 +157,7 @@ func (m Model) pane(panel Panel, width, height int) string {
 }
 
 func (m Model) renderEpisodesHeader(width int) string {
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(episodeColumns(width).row("", "Title", "Channel", "Date", "Duration"))
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(string(m.Theme().LightForeground))).Render(episodeColumns(width).row("", "Title", "Ch", "Channel", "Date", "Duration"))
 }
 
 func padRight(s string, width int) string {
@@ -659,7 +659,7 @@ func (m Model) View() tea.View {
 					"Preview completion requires subscription",
 					"h/Left back · l/Right open · Tab lists · 1-6 focus",
 					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
-					"C Chapters for current playback · [Ch] advertised/loaded",
+					"C Chapters for current playback · Ch: 📖 advertised/cached",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
