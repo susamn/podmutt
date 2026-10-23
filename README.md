@@ -17,19 +17,29 @@ Bordered panels, single-key contextual actions, vim navigation, and live audio s
 ## Screenshots
 
 ### Dashboard
-Full 5-pane layout featuring Library, Episodes, Up next queue, Details card, and Now playing HUD.
+The full six-pane workspace: Library, Episodes, Queue, Details, Favorites, and the Player HUD.
 
-![podmutt dashboard](assets/screenshot-dashboard.png)
+![podmutt 1.3 dashboard](assets/screenshot-dashboard.png)
 
 ### Discover & Preview
 Directory browsing (Apple Top 100 / search) with customer star ratings and read-only episode previews without subscribing.
 
 ![podmutt discover](assets/screenshot-discover.png)
 
-### Compact Mode
-Responsive layout adapting automatically when terminal dimensions shrink.
+### Compact Player
+In compact layouts, the active pane stays above the Player, keeping playback controls visible as the terminal shrinks.
 
-![podmutt compact mode](assets/screenshot-compact.png)
+![podmutt compact layout with Player below Episodes](assets/screenshot-compact.png)
+
+### Chapters
+Browse and jump to chapters for the current playback without losing its paused or playing state.
+
+![podmutt chapter picker](assets/screenshot-chapters.png)
+
+### Settings
+Choose a theme and discovery country from the in-app settings panel.
+
+![podmutt settings](assets/screenshot-settings.png)
 
 ---
 
