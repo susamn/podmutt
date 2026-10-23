@@ -93,6 +93,7 @@ func queueItem(episode store.Episode) ui.Item {
 type playerEdited struct {
 	err      error
 	cached   bool
+	volume   bool
 	state    *playback.State
 	enqueued []int64
 }

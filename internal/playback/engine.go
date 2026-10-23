@@ -20,6 +20,13 @@ var ErrNoEpisode = feedback.New(feedback.NoEpisode, "playback: no current episod
 
 const operationTimeout = 3 * time.Second
 
+const (
+	DefaultVolume = 100
+	MinVolume     = 0
+	MaxVolume     = 130
+	VolumeStep    = 5
+)
+
 type Status string
 
 const (
@@ -36,6 +43,7 @@ type State struct {
 	Current       *store.Episode
 	Queue         []store.Episode
 	Status        Status
+	Volume        int
 	Error         string
 	CanSeek       bool
 	PlaybackID    uint64 // changes whenever audio is loaded, even for the same episode
@@ -63,6 +71,10 @@ type Player interface {
 	Events() <-chan player.Event
 	Err() error
 	Close() error
+}
+
+type volumeController interface {
+	SetVolume(context.Context, int) (int, error)
 }
 
 type Factory func(context.Context) (Player, error)
@@ -122,7 +134,7 @@ func newEngine(ctx context.Context, repo Repository, factory Factory, ticks <-ch
 	if err != nil {
 		return nil, err
 	}
-	state := State{Status: Stopped, Queue: queue}
+	state := State{Status: Stopped, Queue: queue, Volume: DefaultVolume}
 	current, err := repo.Current(ctx)
 	if err == nil {
 		episode, lookupErr := repo.Episode(ctx, current.EpisodeID)

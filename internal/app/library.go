@@ -489,6 +489,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		} else {
 			m.Model = m.Model.ClearFeedback("Playback")
 			m.notice = ""
+			if msg.volume && msg.state != nil {
+				m.notice = fmt.Sprintf("Volume %d%%", msg.state.Volume)
+			}
 		}
 	case libraryEdited:
 		m.mutating = false
@@ -644,6 +647,16 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			} else {
 				return m.delegate(msg)
 			}
+		case "=", "-":
+			engine, ctx := m.s.playback, m.s.ctx
+			delta := playback.VolumeStep
+			if key == "-" {
+				delta = -playback.VolumeStep
+			}
+			cmd = work(ctx, "Updating volume…", func(ctx context.Context) tea.Msg {
+				state, err := engine.AdjustVolume(ctx, delta)
+				return playerEdited{err: err, state: &state, volume: true}
+			})
 		case "space":
 			engine, ctx := m.s.playback, m.s.ctx
 			cmd = work(ctx, "Updating playback…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} })

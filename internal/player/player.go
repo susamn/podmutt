@@ -142,6 +142,26 @@ func (p *Player) setPaused(ctx context.Context, paused bool) error {
 
 func (p *Player) Play(ctx context.Context) error  { return p.setPaused(ctx, false) }
 func (p *Player) Pause(ctx context.Context) error { return p.setPaused(ctx, true) }
+
+// SetVolume applies the requested mpv percentage and returns the reported value.
+func (p *Player) SetVolume(ctx context.Context, volume int) (int, error) {
+	if volume < 0 || volume > 130 {
+		return 0, fmt.Errorf("mpv: volume must be between 0 and 130")
+	}
+	if _, err := p.command(ctx, []any{"set_property", "volume", volume}); err != nil {
+		return 0, err
+	}
+	data, err := p.command(ctx, []any{"get_property", "volume"})
+	if err != nil {
+		return 0, err
+	}
+	actual, err := strconv.ParseFloat(string(data), 64)
+	if err != nil || math.IsNaN(actual) || math.IsInf(actual, 0) || actual < 0 || actual > 130 {
+		return 0, fmt.Errorf("mpv: invalid volume property")
+	}
+	return int(math.Round(actual)), nil
+}
+
 func (p *Player) Stop(ctx context.Context) error {
 	_, err := p.command(ctx, []any{"stop"})
 	return err

@@ -29,6 +29,8 @@ type fakePlayer struct {
 	loads    int
 	stops    int
 	closed   int
+	volume   int
+	volumes  []int
 	failure  string
 }
 
@@ -64,6 +66,16 @@ func (p *fakePlayer) Pause(context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.op("pause")
+}
+func (p *fakePlayer) SetVolume(_ context.Context, volume int) (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.op("volume"); err != nil {
+		return p.volume, err
+	}
+	p.volume = volume
+	p.volumes = append(p.volumes, volume)
+	return p.volume, nil
 }
 func (p *fakePlayer) Stop(context.Context) error {
 	p.mu.Lock()
@@ -166,6 +178,58 @@ func ready(t *testing.T, e *Engine, p *fakePlayer, position float64) int64 {
 	p.events <- player.Event{Name: "property-change", Property: "time-pos", Data: data}
 	eventually(t, func() bool { return state(t, e).Current.PositionSeconds == position })
 	return id
+}
+
+func TestAdjustVolumeIsSerializedBoundedAndDoesNotStartPlayback(t *testing.T) {
+	db, p, episodes := setup(t)
+	e, _ := engineFor(t, db, p)
+	updated, err := e.AdjustVolume(background, VolumeStep)
+	if err != nil || updated.Volume != 105 || updated.Status != Stopped || p.loads != 0 {
+		t.Fatalf("adjust while stopped = volume %d status %s loads %d, %v", updated.Volume, updated.Status, p.loads, err)
+	}
+	for updated.Volume < MaxVolume {
+		updated, err = e.AdjustVolume(background, VolumeStep)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if updated.Volume != MaxVolume {
+		t.Fatalf("upper bound = %d", updated.Volume)
+	}
+	for updated.Volume > MinVolume {
+		updated, err = e.AdjustVolume(background, -VolumeStep)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	updated, err = e.AdjustVolume(background, -VolumeStep)
+	if err != nil || updated.Volume != MinVolume {
+		t.Fatalf("lower bound = %d, %v", updated.Volume, err)
+	}
+	if err := e.PlayEpisode(background, episodes[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if p.volume != MinVolume || len(p.volumes) != 1 || p.volumes[0] != MinVolume {
+		t.Fatalf("volume applied on player start = %d (%v)", p.volume, p.volumes)
+	}
+}
+
+func TestVolumeFailureLeavesPlaybackAndRecovers(t *testing.T) {
+	db, p, episodes := setup(t)
+	e, _ := engineFor(t, db, p)
+	if err := e.PlayEpisode(background, episodes[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	p.setFailure("volume")
+	updated, err := e.AdjustVolume(background, VolumeStep)
+	if !errors.Is(err, testFailure) || updated.Volume != DefaultVolume || updated.Status != Playing {
+		t.Fatalf("failed volume change damaged playback: %+v, %v", updated, err)
+	}
+	p.setFailure("")
+	updated, err = e.AdjustVolume(background, VolumeStep)
+	if err != nil || updated.Volume != DefaultVolume+VolumeStep || updated.Status != Playing {
+		t.Fatalf("volume retry = %+v, %v", updated, err)
+	}
 }
 
 func TestRestoreDoesNotStartPlayer(t *testing.T) {

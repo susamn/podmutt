@@ -135,7 +135,7 @@ func (m shell) withPlayback(state playback.State) shell {
 		}
 		queue = append(queue, queueItem(episode))
 	}
-	player := ui.Player{Status: string(state.Status), Position: "0:00", Duration: "--:--", Error: state.Error, CanNext: len(state.Queue) > 0, CanSeek: state.CanSeek}
+	player := ui.Player{Status: string(state.Status), Position: "0:00", Duration: "--:--", Error: state.Error, Volume: state.Volume, HasVolume: true, CanNext: len(state.Queue) > 0, CanSeek: state.CanSeek}
 	if episode := state.Current; episode != nil {
 		if currentVisible {
 			item := queueItem(*episode)

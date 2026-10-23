@@ -17,10 +17,12 @@ type Player struct {
 	Status, Title, Channel, Position, Duration string
 	Error, Warning                             string
 	PositionSeconds, DurationSeconds           float64
+	Volume                                     int
 	ClockAt                                    time.Time
 	Remaining                                  string
 	Progress                                   float64
 	HasCurrent                                 bool
+	HasVolume                                  bool
 	CanNext                                    bool
 	CanSeek                                    bool
 	Chapters                                   []chapters.Chapter
@@ -220,6 +222,17 @@ func (m Model) renderTransportRow(player Player, width int) string {
 	row := "  " + strings.Join(buttons, " ")
 	if width >= ansi.StringWidth(row)+15 {
 		row += "   " + lipgloss.NewStyle().Faint(!player.CanSeek).Render(",/. seek 15s")
+	}
+	if player.HasVolume {
+		volume := fmt.Sprintf("Vol %d%%", player.Volume)
+		if width >= ansi.StringWidth(row)+len(volume)+3 {
+			row += "   " + volume
+		} else {
+			volume = fmt.Sprintf("V%d%%", player.Volume)
+			if width >= ansi.StringWidth(row)+len(volume)+1 {
+				row += " " + volume
+			}
+		}
 	}
 	return row
 }

@@ -65,7 +65,10 @@ inspected episode (ADR 047); preview completion remains read-only. Space always
 controls current audio. a enqueues; s stops playback. See ADR 037.
 1–5 focus Podcasts/Episodes/Queue/Details/Player. In Player, Left/Right selects
 Play/Pause, Stop or Next; Enter activates. The position bar is display-only.
-No configurable bindings or themes in v1. Keep contextual hints and help short.
+`=`/`-` adjust shared playback volume by 5 percentage points, clamped to 0–130%;
+volume starts at 100% each launch and is not persisted. Text inputs and modals
+retain ownership of these keys. No configurable bindings or themes in v1. Keep
+contextual hints and help short.
 
 ## Playback and state
 
@@ -82,8 +85,10 @@ No configurable bindings or themes in v1. Keep contextual hints and help short.
 - EOF/Next chooses the newest pending publication, independently of display or
   insertion order; stable persisted order breaks ties. Next does not complete skipped audio.
   Subscription arrivals consider the two latest cached releases, not historical backfill.
-- Controls: play, pause, stop. Queue is persistent and supports batch enqueue without
-  duplicates. Presentation projects current audio separately from pending
+- Controls: play, pause, stop, and shared actor-serialized volume adjustment. Volume changes
+  never start playback and are applied to mpv when it is created if set beforehand.
+  Queue is persistent and supports batch enqueue without duplicates. Presentation
+  projects current audio separately from pending
   work. Manual additions append/select/focus Queue without autoplay or subscription;
   visual sort never writes back. Direct playback preserves pending work. Queue d/Delete
   confirms the captured selected episode before removal, including current audio in any

@@ -19,6 +19,31 @@ func pipeIPC(t *testing.T, timeout time.Duration) (*ipc, net.Conn) {
 	return client, remote
 }
 
+func TestSetVolumeReadsReportedValueAndValidatesRange(t *testing.T) {
+	client, remote := pipeIPC(t, time.Second)
+	go func() {
+		decoder, encoder := json.NewDecoder(remote), json.NewEncoder(remote)
+		for _, data := range []any{nil, 74.7} {
+			var frame map[string]any
+			if decoder.Decode(&frame) != nil {
+				return
+			}
+			command := frame["command"].([]any)
+			if command[0] == "set_property" && (command[1] != "volume" || command[2] != float64(75)) {
+				return
+			}
+			encoder.Encode(map[string]any{"request_id": frame["request_id"], "error": "success", "data": data})
+		}
+	}()
+	actual, err := (&Player{ipc: client}).SetVolume(context.Background(), 75)
+	if err != nil || actual != 75 {
+		t.Fatalf("SetVolume = %d, %v", actual, err)
+	}
+	if _, err := (&Player{ipc: client}).SetVolume(context.Background(), 131); err == nil {
+		t.Fatal("out-of-range volume accepted")
+	}
+}
+
 func TestConcurrentRequestsMatchOutOfOrderReplies(t *testing.T) {
 	client, remote := pipeIPC(t, time.Second)
 	const count = 16
