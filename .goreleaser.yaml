@@ -32,6 +32,7 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
+      - CHANGELOG.md
       - LICENSE
       - assets/logo.svg
       - assets/logo.png

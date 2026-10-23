@@ -50,7 +50,8 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          # Use the curated release notes rather than the raw commit list.
+          args: release --clean --release-notes=release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # A PAT with contents:write on susamn/homebrew-tap. The default

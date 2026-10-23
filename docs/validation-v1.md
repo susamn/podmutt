@@ -1,8 +1,8 @@
 # V1 validation ledger
 
 Status: automated Linux coverage implemented; native/physical checks pending.
-This ledger is not a release approval and #17 must remain open until its native
-and feature dependencies are verified. Features #13/#14/#16 are separate MRs.
+This ledger is not release approval; do not declare release readiness until the
+native/physical matrix and feature dependencies are verified or explicitly waived.
 
 ## Repeatable gates
 
@@ -47,8 +47,8 @@ not macOS framework/key coverage. Omitted opt-in native jobs are not passes.
 
 ## Release prerequisites
 
-Before #18: merge/verify all feature MRs, run this ledger against the resulting
-main commit, resolve native bridge build/packaging/signing implications, record
-missing physical/native checks, and test a clean install/upgrade/uninstall.
-Recovery instructions are in `docs/recovery.md`. Do not mark the release or #17
-complete solely because independent branch pipelines are green.
+Before a public release: merge/verify all feature changes, run this ledger against
+the resulting main commit, resolve native bridge build/packaging/signing implications,
+record the status of physical/native checks, and test a clean install/upgrade/uninstall.
+Recovery instructions are in `docs/recovery.md`. Do not declare release readiness solely
+because independent branch pipelines are green.
