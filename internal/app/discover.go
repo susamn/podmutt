@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/activity"
@@ -26,6 +28,8 @@ type showDirectory interface {
 type browseState struct {
 	indexDirectory                              discovery.Searcher
 	usingIndex, searchIndex                     bool
+	country, loadedKey, selectedFeedURL         string
+	savedAt                                     time.Time
 	directory                                   showDirectory
 	active, loaded, loading, localResults       bool
 	shows                                       []discovery.Show
@@ -43,11 +47,12 @@ type browseState struct {
 }
 type discoverStartup struct{}
 type directoryLoaded struct {
-	generation uint64
-	local      bool
-	shows      []discovery.Show
-	episodes   []store.Episode
-	err        error
+	generation                     uint64
+	local                          bool
+	provider, country, query, mode string
+	shows                          []discovery.Show
+	episodes                       []store.Episode
+	err                            error
 }
 type previewLoaded struct {
 	generation  uint64
@@ -96,6 +101,7 @@ func (m *libraryShell) clearDiscoveryFeedback() {
 func (m *libraryShell) switchBrowse() tea.Cmd {
 	m.clearDiscoveryFeedback()
 	if m.browse.active {
+		m.saveDiscoverViewSelection()
 		m.discardIndexResults()
 	}
 	m.cancelDirectory()
@@ -106,15 +112,70 @@ func (m *libraryShell) switchBrowse() tea.Cmd {
 	m.notice = "My library"
 	var cmd tea.Cmd
 	if m.browse.active {
-		m.notice = "Apple Podcasts · Enter preview · u subscribe"
-		if !m.browse.loaded {
-			cmd = m.searchDirectory(m.browse.query)
-		}
+		cmd = m.restoreDiscoverView()
 	} else {
 		m.wantLibraryID = m.libraryID
 	}
 	m.renderLibrary()
 	return tea.Batch(cmd, m.syncLibrarySelection())
+}
+
+func (m *libraryShell) restoreDiscoverView() tea.Cmd {
+	if m.s.store != nil {
+		view, err := m.s.store.LoadDiscoverView(m.s.ctx)
+		if err == nil {
+			m.browse.usingIndex = view.Provider == "podcast_index"
+			m.browse.country, m.browse.query, m.browse.selectedFeedURL = view.Country, view.Query, view.SelectedFeedURL
+			if m.browse.country == "" {
+				m.browse.country = "us"
+			}
+			m.browse.loadedKey = discoverKey(view.Provider, view.Country, view.Query, view.Mode)
+			m.browse.shows, m.browse.loaded, m.browse.savedAt = nil, false, time.Time{}
+			if view.Provider == "apple" {
+				snapshot, err := m.s.store.LoadDiscoverSnapshot(m.s.ctx, view.Provider, view.Country, view.Query, view.Mode)
+				if err == nil {
+					var shows []discovery.Show
+					if json.Unmarshal(snapshot.Results, &shows) == nil {
+						m.browse.shows, m.browse.loaded, m.browse.savedAt = shows, true, snapshot.FetchedAt
+					}
+				}
+			}
+		}
+	}
+	m.browse.active = true
+	m.renderLibrary()
+	if m.browse.loaded {
+		m.notice = fmt.Sprintf("Saved Apple Podcasts · %d results · updating…", len(m.browse.shows))
+		if !m.browse.savedAt.IsZero() {
+			m.notice += " · " + m.browse.savedAt.Local().Format("Jan 2 15:04")
+		}
+	}
+	return m.searchDirectory(m.browse.query)
+}
+
+func discoverKey(provider, country, query, mode string) string {
+	return strings.Join([]string{provider, strings.ToLower(country), strings.Join(strings.Fields(query), " "), mode}, "\x00")
+}
+
+func (m *libraryShell) saveDiscoverViewSelection() {
+	if m.s.store == nil || !m.browse.active {
+		return
+	}
+	selected := m.browse.selectedFeedURL
+	if show, ok := m.selectedShow(); ok {
+		selected = show.FeedURL
+	}
+	provider, mode := "apple", "chart"
+	if m.browse.usingIndex {
+		provider = "podcast_index"
+	}
+	if m.browse.query != "" {
+		mode = "search"
+	}
+	if provider == "podcast_index" {
+		selected = ""
+	}
+	_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: provider, Country: m.browse.country, Query: m.browse.query, Mode: mode, SelectedFeedURL: selected})
 }
 func (m libraryShell) directoryName() string {
 	if m.browse.usingIndex {
@@ -128,32 +189,71 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 		m.browse.usingIndex = false
 	}
 	m.cancelDirectory()
-	m.cancelPreview()
-	m.browse.shows = nil
 	m.browse.directURL = false
 	m.browse.errorText = ""
-	m.browse.active = true
-	m.browse.localResults = false
-	m.browse.query = query
-	m.browse.loading = true
-	if query == "" {
-		m.notice = "Loading " + m.directoryName() + "…"
-	} else if m.browse.usingIndex {
-		m.notice = "Searching Podcast Index…"
-	} else {
-		country := strings.ToUpper(m.s.config.Country)
-		if country == "" {
-			country = "US"
+	m.browse.active, m.browse.localResults, m.browse.query = true, false, strings.Join(strings.Fields(query), " ")
+	query = m.browse.query
+	providerName, mode := "apple", "chart"
+	if m.browse.usingIndex {
+		providerName = "podcast_index"
+	}
+	if query != "" {
+		mode = "search"
+	}
+	country := strings.ToLower(m.browse.country)
+	if country == "" {
+		country = "us"
+		m.browse.country = country
+	}
+	key := discoverKey(providerName, country, query, mode)
+	if m.browse.loadedKey != "" && m.browse.loadedKey != key {
+		m.cancelPreview()
+	}
+	selected := m.browse.selectedFeedURL
+	if selected == "" {
+		if show, ok := m.selectedShow(); ok {
+			selected = show.FeedURL
 		}
-		m.notice = fmt.Sprintf("Searching Apple Podcasts (%s)…", country)
+	}
+	if key != m.browse.loadedKey {
+		selected = ""
+		m.browse.shows, m.browse.loaded, m.browse.savedAt = nil, false, time.Time{}
+		if providerName == "apple" && m.s.store != nil {
+			if snapshot, err := m.s.store.LoadDiscoverSnapshot(m.s.ctx, "apple", country, query, mode); err == nil {
+				var cached []discovery.Show
+				if json.Unmarshal(snapshot.Results, &cached) == nil {
+					m.browse.shows, m.browse.loaded, m.browse.savedAt = cached, true, snapshot.FetchedAt
+					if len(cached) > 0 {
+						selected = cached[0].FeedURL
+					}
+				}
+			}
+		}
+		m.browse.loadedKey = key
+	}
+	m.browse.selectedFeedURL = selected
+	m.browse.loading = true
+	if m.browse.loaded {
+		m.notice = fmt.Sprintf("Saved %s · %d results · updating…", m.directoryName(), len(m.browse.shows))
+	} else if query == "" {
+		m.notice = "Loading " + m.directoryName() + "…"
+	} else {
+		m.notice = "Searching " + m.directoryName() + "…"
+	}
+	if providerName == "apple" && m.s.store != nil {
+		_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: providerName, Country: country, Query: query, Mode: mode, SelectedFeedURL: selected})
+	} else if m.s.store != nil {
+		_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: providerName, Country: country, Query: query, Mode: mode})
 	}
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.cancel = cancel
 	generation, directory := m.browse.generation, m.browse.directory
 	index, provider := m.browse.usingIndex, m.browse.indexDirectory
-	country := m.s.config.Country
-	store := m.s.store
 	m.renderLibrary()
+	if selected != "" {
+		m.Model = m.Model.Select(ui.Podcasts, selected)
+		m.renderDetails()
+	}
 	label := "Searching " + m.directoryName() + "…"
 	if query == "" {
 		label = "Updating " + m.directoryName() + " charts…"
@@ -167,48 +267,19 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 			} else {
 				shows, err = provider.Search(ctx, query)
 			}
+		} else if apple, ok := directory.(*discovery.Apple); ok {
+			apple.SetCountry(country)
+			if query == "" {
+				shows, err = apple.TopLimitFresh(ctx, 100)
+			} else {
+				shows, err = apple.SearchFresh(ctx, query)
+			}
 		} else if query == "" {
-			// First check locally cached discovery shows for this country
-			if store != nil {
-				cached, dbErr := store.DiscoveredShows(ctx, country, "", 100)
-				if dbErr == nil && len(cached) >= 100 {
-					for _, cs := range cached {
-						shows = append(shows, discovery.Show{
-							Title:       cs.Title,
-							FeedURL:     cs.FeedURL,
-							SourceURL:   cs.ArtworkURL,
-							ExternalID:  cs.SourceExternalID,
-							Rating:      cs.Rating,
-							ReviewCount: cs.ReviewCount,
-						})
-					}
-				}
-			}
-			if len(shows) == 0 {
-				shows, err = directory.Top(ctx)
-			}
+			shows, err = directory.Top(ctx)
 		} else {
-			// Search query: check local discovery database first
-			if store != nil {
-				cached, dbErr := store.DiscoveredShows(ctx, country, query, 25)
-				if dbErr == nil && len(cached) > 0 {
-					for _, cs := range cached {
-						shows = append(shows, discovery.Show{
-							Title:       cs.Title,
-							FeedURL:     cs.FeedURL,
-							SourceURL:   cs.ArtworkURL,
-							ExternalID:  cs.SourceExternalID,
-							Rating:      cs.Rating,
-							ReviewCount: cs.ReviewCount,
-						})
-					}
-				}
-			}
-			if len(shows) == 0 {
-				shows, err = directory.Search(ctx, query)
-			}
+			shows, err = directory.Search(ctx, query)
 		}
-		return directoryLoaded{generation: generation, shows: shows, err: err}
+		return directoryLoaded{generation: generation, provider: providerName, country: country, query: query, mode: mode, shows: shows, err: err}
 	})
 }
 func (m *libraryShell) searchLibrary(query string) tea.Cmd {
@@ -262,8 +333,14 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 		m.browse.errorText = ""
 	}
 	if msg.err != nil {
-		m.report(scope, msg.err, retry)
-		m.browse.errorText = m.notice
+		if !msg.local && m.browse.loaded {
+			message := feedback.Retry(feedback.For(scope, msg.err), "Showing saved results. Press R to retry.")
+			m.Model = m.Model.WithFeedback(message)
+			m.notice = fmt.Sprintf("Saved %s · update failed · showing saved results · R retry", m.directoryName())
+		} else {
+			m.report(scope, msg.err, retry)
+			m.browse.errorText = m.notice
+		}
 	} else if msg.local {
 		m.browse.hits = msg.episodes
 		m.notice = fmt.Sprintf("Library search · %d saved episodes", len(msg.episodes))
@@ -271,35 +348,71 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 			m.notice += " · showing up to 100 matches"
 		}
 	} else {
-		m.browse.shows = msg.shows
+		previous := m.browse.selectedFeedURL
+		if item, ok := m.Model.Selected(ui.Podcasts); ok && item.ID != "" {
+			previous = item.ID
+		}
+		shows := msg.shows
+		if shows == nil {
+			shows = []discovery.Show{}
+		}
+		m.browse.shows = append([]discovery.Show(nil), shows...)
 		m.browse.loaded = true
+		m.browse.savedAt = time.Now().UTC()
+		m.browse.loadedKey = discoverKey(msg.provider, msg.country, msg.query, msg.mode)
+		if m.browse.selectedFeedURL != "" {
+			previous = m.browse.selectedFeedURL
+		}
+		found := false
+		for _, show := range msg.shows {
+			if show.FeedURL == previous {
+				found = true
+				break
+			}
+		}
+		if found {
+			m.browse.selectedFeedURL = previous
+		} else {
+			if m.browse.preview != nil {
+				m.cancelPreview()
+			}
+			m.browse.selectedFeedURL = ""
+			if len(msg.shows) > 0 {
+				m.browse.selectedFeedURL = msg.shows[0].FeedURL
+			}
+		}
+		if msg.provider == "apple" && m.s.store != nil {
+			results, _ := json.Marshal(shows)
+			_ = m.s.store.SaveDiscoverSnapshot(m.s.ctx, store.DiscoverSnapshot{Provider: "apple", Country: msg.country, Query: msg.query, Mode: msg.mode, Results: results, FetchedAt: m.browse.savedAt})
+			_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: "apple", Country: msg.country, Query: msg.query, Mode: msg.mode, SelectedFeedURL: m.browse.selectedFeedURL})
+		}
 		source := m.directoryName()
-		if !m.browse.usingIndex && m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
-			source += " (" + strings.ToUpper(m.s.config.Country) + ")"
+		if !m.browse.usingIndex && msg.country != "" && strings.ToUpper(msg.country) != "US" {
+			source += " (" + strings.ToUpper(msg.country) + ")"
 		}
 		m.notice = fmt.Sprintf("%s · %d shows · Enter preview · u subscribe", source, len(msg.shows))
-		if m.s.store != nil && len(msg.shows) > 0 {
-			sourceName := "apple"
-			if m.browse.usingIndex {
-				sourceName = "podcast_index"
-			}
-			if sourceID, err := m.s.store.SourceID(m.s.ctx, sourceName); err == nil && sourceID > 0 {
+		if m.s.store != nil && len(msg.shows) > 0 && msg.provider == "apple" {
+			if sourceID, err := m.s.store.SourceID(m.s.ctx, "apple"); err == nil && sourceID > 0 {
 				var toStore []store.DiscoveredShow
 				for _, show := range msg.shows {
 					toStore = append(toStore, store.DiscoveredShow{
 						Title:            show.Title,
 						FeedURL:          show.FeedURL,
 						ArtworkURL:       show.SourceURL,
-						Country:          m.s.config.Country,
+						Country:          msg.country,
 						SourceID:         sourceID,
 						SourceExternalID: show.ExternalID,
 					})
 				}
-				_ = m.s.store.UpsertDiscoveredShows(m.s.ctx, m.s.config.Country, sourceID, toStore)
+				_ = m.s.store.UpsertDiscoveredShows(m.s.ctx, msg.country, sourceID, toStore)
 			}
 		}
 	}
 	m.renderLibrary()
+	if !msg.local && msg.err == nil && m.browse.selectedFeedURL != "" {
+		m.Model = m.Model.Select(ui.Podcasts, m.browse.selectedFeedURL)
+		m.renderDetails()
+	}
 	if msg.local && msg.err == nil && len(m.Model.Visible(ui.Podcasts)) == 0 && len(m.Model.Visible(ui.Episodes)) > 0 {
 		m.Model = m.Model.WithFocus(ui.Episodes)
 		m.renderDetails()
@@ -552,8 +665,8 @@ func (m libraryShell) previewEpisode() (store.Episode, bool) {
 }
 func (m *libraryShell) renderDiscovery() {
 	topTag := "US Top 100"
-	if m.s.config.Country != "" && strings.ToUpper(m.s.config.Country) != "US" {
-		topTag = strings.ToUpper(m.s.config.Country) + " Top 100"
+	if m.browse.country != "" && strings.ToUpper(m.browse.country) != "US" {
+		topTag = strings.ToUpper(m.browse.country) + " Top 100"
 	}
 	label := "Discover · Apple Podcasts · " + topTag
 	if m.browse.query != "" {
@@ -615,7 +728,7 @@ func (m *libraryShell) renderDiscovery() {
 	m.renderStatus()
 }
 func (m *libraryShell) renderPreviewDetails() {
-	country := strings.ToUpper(m.s.config.Country)
+	country := strings.ToUpper(m.browse.country)
 	if country == "" {
 		country = "US"
 	}
@@ -632,7 +745,7 @@ func (m *libraryShell) renderPreviewDetails() {
 	if m.browse.directURL {
 		details = "RSS/website · Enter preview · u explicitly subscribes"
 	}
-	if m.browse.loading {
+	if m.browse.loading && !m.browse.loaded {
 		details = "Loading " + m.directoryName() + "…\nQuery: " + m.browse.query + "\nEsc cancel · b cached subscriptions (offline)"
 	} else if m.browse.errorText != "" {
 		details = m.browse.errorText
@@ -652,6 +765,9 @@ func (m *libraryShell) renderPreviewDetails() {
 		} else if m.browse.directURL {
 			details += "\nFeed: " + feedback.SourceURL(m.browse.preview.URL)
 		}
+	}
+	if m.browse.loading && m.browse.loaded {
+		details += "\nSaved results · updating in background"
 	}
 	m.Model = m.Model.WithDetails(details)
 }
@@ -681,7 +797,7 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 		return nil
 	}
 	if m.s.store != nil {
-		shows, err := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, show.Title, 5)
+		shows, err := m.s.store.DiscoveredShows(m.s.ctx, m.browse.country, show.Title, 5)
 		if err == nil {
 			for _, s := range shows {
 				if s.FeedURL == show.FeedURL && s.Rating > 0 {
@@ -702,7 +818,7 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 		return nil
 	}
 	ctx := m.s.ctx
-	country := m.s.config.Country
+	country := m.browse.country
 	id := show.ExternalID
 	feedURL := show.FeedURL
 	return trackedWork(ctx, "Loading podcast ratings…", activity.Background, func(ctx context.Context) tea.Msg {

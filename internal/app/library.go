@@ -132,6 +132,10 @@ func newLibrary(s *session, refresher *feed.Refresher) (libraryShell, error) {
 	appleDir := discovery.NewApple(nil)
 	appleDir.SetCountry(s.config.Country)
 	model.browse.directory = appleDir
+	model.browse.country = s.config.Country
+	if model.browse.country == "" {
+		model.browse.country = "us"
+	}
 	model.browse.indexDirectory = discovery.NewIndex(os.Getenv(discovery.IndexKeyEnv), os.Getenv(discovery.IndexSecretEnv), nil)
 	state, err := s.playback.Snapshot(s.ctx)
 	if err != nil {
@@ -285,8 +289,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		m.Model = m.Model.ClearFeedback("Save country")
 		m.notice = "Country saved: " + strings.ToUpper(msg.country)
 		if m.browse.active {
+			m.browse.country = msg.country
 			m.browse.loaded = false
-			return m, m.searchDirectory("")
+			return m, m.searchDirectory(m.browse.query)
 		}
 		return m, nil
 	case settingsError:
@@ -364,7 +369,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		cmd = m.resumeStartup()
 	case discoverStartup:
 		if m.browse.active && !m.browse.loaded && !m.browse.loading {
-			cmd = m.searchDirectory("")
+			cmd = m.restoreDiscoverView()
 		}
 	case directoryLoaded:
 		m.applyDirectory(msg)
@@ -760,6 +765,9 @@ func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.renderLibrary()
 		} else {
 			m.renderDetails()
+		}
+		if before.ID != after.ID {
+			m.saveDiscoverViewSelection()
 		}
 		return m, cmd
 	}

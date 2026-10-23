@@ -40,12 +40,37 @@ func TestDirectoryRequestNormalizationAndCacheIsolation(t *testing.T) {
 	if _, err := a.Search(context.Background(), "Go podcast"); err != nil || calls.Load() != 2 {
 		t.Fatal(err, calls.Load())
 	}
+	if _, err := a.SearchFresh(context.Background(), "Go podcast"); err != nil || calls.Load() != 3 {
+		t.Fatal("fresh request reused provider TTL", err, calls.Load())
+	}
 	for _, query := range []string{"  ", strings.Repeat("界", 129)} {
 		if _, err := a.Search(context.Background(), query); !errors.Is(err, ErrQuery) {
 			t.Fatal(err)
 		}
 	}
 }
+func TestTopLimitFreshBypassesInMemoryCache(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path == "/chart" {
+			fmt.Fprint(w, `{"feed":{"results":[{"id":"42"}]}}`)
+			return
+		}
+		fmt.Fprint(w, `{"results":[{"collectionId":42,"collectionName":"Fresh chart","feedUrl":"https://example.test/rss"}]}`)
+	}))
+	defer server.Close()
+	a := NewApple(nil)
+	a.chartEndpoint = server.URL + "/chart"
+	a.lookupEndpoint = server.URL + "/lookup"
+	a.interval = 0
+	a.cache["\x00top-us-100"] = cached{shows: []Show{{Title: "stale", FeedURL: "https://example.test/stale"}}, expires: time.Now().Add(time.Hour)}
+	shows, err := a.TopLimitFresh(context.Background(), 100)
+	if err != nil || calls.Load() != 2 || len(shows) != 1 || shows[0].Title != "Fresh chart" {
+		t.Fatal(shows, err, calls.Load())
+	}
+}
+
 func TestDirectoryBoundsMalformedAndRateLimits(t *testing.T) {
 	for _, test := range []struct {
 		name   string

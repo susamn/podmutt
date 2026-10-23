@@ -122,13 +122,23 @@ func (a *Apple) chartURL() string {
 	return fmt.Sprintf("https://rss.marketingtools.apple.com/api/v2/%s/podcasts/top/100/podcasts.json", a.Country())
 }
 func (a *Apple) Search(ctx context.Context, query string) ([]Show, error) {
+	return a.search(ctx, query, false)
+}
+
+// SearchFresh bypasses the in-memory TTL so stale-while-revalidate callers
+// always perform a real provider request after restoring a durable snapshot.
+func (a *Apple) SearchFresh(ctx context.Context, query string) ([]Show, error) {
+	return a.search(ctx, query, true)
+}
+
+func (a *Apple) search(ctx context.Context, query string, fresh bool) ([]Show, error) {
 	ctx, finish := activity.Begin(ctx, "Searching Apple Podcasts…", activity.Foreground)
 	defer finish()
 	query = strings.Join(strings.Fields(query), " ")
 	if size := len([]rune(query)); size == 0 || size > 128 {
 		return nil, ErrQuery
 	}
-	return a.load(ctx, strings.ToLower(query), func(ctx context.Context) ([]Show, error) {
+	return a.load(ctx, strings.ToLower(query), !fresh, func(ctx context.Context) ([]Show, error) {
 		endpoint, err := url.Parse(a.endpoint)
 		if err != nil {
 			return nil, ErrUnavailable
@@ -156,13 +166,21 @@ func (a *Apple) Top(ctx context.Context) ([]Show, error) {
 
 // TopLimit returns the top chart up to the given limit (capped at 100).
 func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
+	return a.topLimit(ctx, limit, false)
+}
+
+func (a *Apple) TopLimitFresh(ctx context.Context, limit int) ([]Show, error) {
+	return a.topLimit(ctx, limit, true)
+}
+
+func (a *Apple) topLimit(ctx context.Context, limit int, fresh bool) ([]Show, error) {
 	ctx, finish := activity.Begin(ctx, "Updating Apple Podcasts charts…", activity.Foreground)
 	defer finish()
 	if limit <= 0 || limit > maxTopResults {
 		limit = maxTopResults
 	}
 	key := fmt.Sprintf("\x00top-%s-%d", a.Country(), limit)
-	return a.load(ctx, key, func(ctx context.Context) ([]Show, error) {
+	return a.load(ctx, key, !fresh, func(ctx context.Context) ([]Show, error) {
 		var chart struct {
 			Feed struct{ Results []struct{ ID string } }
 		}
@@ -214,7 +232,7 @@ func (a *Apple) TopLimit(ctx context.Context, limit int) ([]Show, error) {
 		return shows, nil
 	})
 }
-func (a *Apple) load(ctx context.Context, key string, fetch func(context.Context) ([]Show, error)) ([]Show, error) {
+func (a *Apple) load(ctx context.Context, key string, useCache bool, fetch func(context.Context) ([]Show, error)) ([]Show, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
@@ -229,8 +247,10 @@ func (a *Apple) load(ctx context.Context, key string, fetch func(context.Context
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if entry, ok := a.cache[key]; ok && time.Now().Before(entry.expires) {
-		return append([]Show(nil), entry.shows...), nil
+	if useCache {
+		if entry, ok := a.cache[key]; ok && time.Now().Before(entry.expires) {
+			return append([]Show(nil), entry.shows...), nil
+		}
 	}
 	shows, err := fetch(ctx)
 	if err != nil {
