@@ -12,7 +12,7 @@ A modern, keyboard-driven podcast client (TUI) for Linux and macOS inspired by l
 
 ---
 
-Bordered panels, single-key contextual actions, vim navigation, and live audio streaming through mpv — no mouse required.
+Bordered panels, single-key contextual actions, vim navigation, and live audio streaming through mpv — no mouse required. See the [changelog](CHANGELOG.md) for release history.
 
 ## What's New in v1.3.0
 
