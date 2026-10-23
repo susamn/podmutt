@@ -24,6 +24,11 @@ func TestChapterPickerReportsNoEmbeddedChapters(t *testing.T) {
 		if !strings.Contains(m.notice, "No chapters found") || m.Model.ChapterSelection() != -1 {
 			t.Fatal("no embedded chapters feedback", m.notice)
 		}
+		p.chapterData = []byte(`invalid json`)
+		finishLibrary(&m, libraryKey(&m, 'C'))
+		if !strings.Contains(m.notice, "Could not load chapters") || m.Model.ChapterSelection() != -1 {
+			t.Fatal("invalid embedded data feedback", m.notice)
+		}
 	})
 }
 

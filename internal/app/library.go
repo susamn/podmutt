@@ -359,6 +359,10 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 	case chapterLoaded:
 		m.applyChapters(msg)
+		m.renderDetails()
+		if msg.err == nil && len(msg.list) > 0 && m.chapterRequest == msg.request {
+			cmd = m.reload()
+		}
 	case libraryStartup:
 		cmd = m.resumeStartup()
 	case discoverStartup:
@@ -534,6 +538,11 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			return m, m.shell.wait()
 		}
 		changed := msg.ok && msg.state.Current != nil && (m.state.Current == nil || m.state.Current.ID != msg.state.Current.ID)
+		chaptersChanged := msg.ok && msg.state.Current != nil && m.state.Current != nil &&
+			msg.state.Current.ID == m.state.Current.ID && msg.state.Current.ChaptersJSON != m.state.Current.ChaptersJSON
+		if chaptersChanged {
+			cmd = tea.Batch(cmd, m.reload())
+		}
 		if msg.ok {
 			id, completed := int64(0), false
 			if msg.state.Current != nil {
@@ -543,7 +552,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				cmd = m.reload()
 			}
 			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
-			rebuild = m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
+			rebuild = chaptersChanged || m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
 				currentInQueue(m.state) != currentInQueue(msg.state) ||
 				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
 			m.lastPlayingID, m.lastCompleted = id, completed
