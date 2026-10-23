@@ -41,7 +41,7 @@ func queueColumns(width, gutter int) listColumns {
 func (c listColumns) row(prefix, title, chapter, channel, date, tail string) string {
 	row := padRight(prefix, c.gutter) + padRight(title, c.title)
 	if c.chapter > 0 {
-		row += "  " + padRight(chapter, c.chapter)
+		row += "  " + padLeft(chapter, c.chapter)
 	}
 	if c.channel > 0 {
 		row += "  " + padRight(channel, c.channel)
@@ -63,10 +63,7 @@ func (m Model) chapterCell(item Item) string {
 	if !item.Chapters {
 		return ""
 	}
-	if m.icons == "plain" {
-		return "Ch"
-	}
-	return "§"
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(string(m.Theme().Accent))).Bold(true).Render("✓")
 }
 
 func (m Model) queueGutter() int { return max(5, 4+len(strconv.Itoa(max(1, len(m.data.Queue))))) }
