@@ -971,7 +971,8 @@ func (m *libraryShell) renderStatus() {
 
 func (m *libraryShell) renderOnboarding() {
 	m.Model = m.Model.WithDialog(&ui.Dialog{
-		Title: "Welcome to podmutt",
+		Title:         "Welcome to podmutt",
+		SectionLabels: []string{"Quick Start:"},
 		Body: "A keyboard-driven podcast client for Linux and macOS.\n\n" +
 			"Quick Start:\n" +
 			"  • f         Find podcasts by name or paste an RSS/web URL\n" +

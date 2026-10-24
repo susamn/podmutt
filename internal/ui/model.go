@@ -42,12 +42,14 @@ type Item struct {
 }
 
 type Dialog struct {
-	TruncateBody bool // preserve one explicit detail per row in compact confirmations
-	Title        string
-	Body         string
-	InputLabel   string
-	InputValue   string
-	Hint         string
+	TruncateBody  bool     // preserve one explicit detail per row in compact confirmations
+	SectionLabels []string // trusted structural body rows, not remote metadata
+	ActionLabel   string   // trusted action row, e.g. the favorite command
+	Title         string
+	Body          string
+	InputLabel    string
+	InputValue    string
+	Hint          string
 }
 
 type Data struct {

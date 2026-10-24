@@ -118,7 +118,7 @@ func TestMediaWarningsHaveFullDetailsWithoutReplacingUserNotices(t *testing.T) {
 	}
 	m = press(m, "esc")
 	m = m.WithFeedback(feedback.Message{Scope: "Playback", Severity: "error", Summary: "Playback failed.", Action: "Try another episode."})
-	rows := strings.Join(m.messageRows(30), " ")
+	rows := ansi.Strip(strings.Join(m.messageRows(30), " "))
 	if !strings.Contains(rows, "Media controls:") {
 		t.Fatal("full failure omitted optional warning")
 	}

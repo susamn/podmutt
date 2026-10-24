@@ -73,7 +73,7 @@ func TestFavoritesEndToEndUserJourney(t *testing.T) {
 		// 6. Focus Queue: press 'm' on target episode
 		m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(target.ID))
 		libraryKey(&m, 'm')
-		if m.confirming == nil || !strings.Contains(m.View().Content, "Episode Actions") || !strings.Contains(m.View().Content, "Mark as favorite") {
+		if m.confirming == nil || !strings.Contains(m.View().Content, "Episode Actions") || !strings.Contains(ansi.Strip(m.View().Content), "Mark as favorite") {
 			t.Fatalf("expected Episode Actions menu:\n%s", m.View().Content)
 		}
 
@@ -109,7 +109,7 @@ func TestFavoritesEndToEndUserJourney(t *testing.T) {
 		// 10. Pressing 'm' in Queue again on already-favorited episode
 		m.Model = m.Model.WithFocus(ui.Queue).Select(ui.Queue, fmt.Sprint(target.ID))
 		libraryKey(&m, 'm')
-		if !strings.Contains(m.View().Content, "Already in favorites") {
+		if !strings.Contains(ansi.Strip(m.View().Content), "Already in favorites") {
 			t.Fatalf("menu missing 'Already in favorites':\n%s", m.View().Content)
 		}
 		finishLibrary(&m, updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}))

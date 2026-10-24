@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestPlaybackIdentityAndDialogSurviveLibraryReload(t *testing.T) {
@@ -17,7 +18,7 @@ func TestPlaybackIdentityAndDialogSurviveLibraryReload(t *testing.T) {
 	m = m.WithLibrary(Data{Episodes: []Item{{ID: "c", Title: "New"}}})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 70, Height: 20})
 	m = next.(Model)
-	if !m.Busy() || !strings.Contains(m.View().Content, "y confirm") {
+	if !m.Busy() || !strings.Contains(ansi.Strip(m.View().Content), "y confirm") {
 		t.Fatal("dialog lost on reload")
 	}
 	if items := m.Visible(Queue); len(items) != 2 {

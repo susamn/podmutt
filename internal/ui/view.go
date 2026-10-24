@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -253,7 +254,10 @@ func (m Model) box(title string, rows []string, width, height int, focused bool,
 		}
 		rowText := ""
 		if i < len(rows) {
-			rowText = ansi.Truncate(rows[i], innerWidth, "…")
+			rowText = rows[i]
+			if ansi.StringWidth(rowText) > innerWidth {
+				rowText = ansi.Truncate(rowText, innerWidth, "…")
+			}
 		}
 		pad := max(0, innerWidth-ansi.StringWidth(rowText))
 		lines = append(lines, leftBorder+rowText+strings.Repeat(" ", pad)+rightBorder)
@@ -513,7 +517,7 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 		Foreground(lipgloss.Color(string(pal.BrightForeground))).
 		Render(" " + inputArea + strings.Repeat(" ", pad) + " ")
 
-	return "  " + label + ": " + inputBox
+	return "  " + popupLabel(clean(label, false)+":", pal) + " " + inputBox
 }
 
 func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
@@ -526,10 +530,21 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 			rows = append(rows, "")
 			continue
 		}
+		section := slices.Contains(dialog.SectionLabels, l)
+		action := dialog.ActionLabel != "" && l == clean(dialog.ActionLabel, false)
+		var wrapped []string
 		if dialog.TruncateBody {
-			rows = append(rows, ansi.Truncate(l, max(1, width-2), "…"))
+			wrapped = []string{ansi.Truncate(l, max(1, width-2), "…")}
 		} else {
-			rows = append(rows, strings.Split(ansi.Wrap(l, max(1, width-4), ""), "\n")...)
+			wrapped = strings.Split(ansi.Wrap(l, max(1, width-4), ""), "\n")
+		}
+		for _, row := range wrapped {
+			if section {
+				row = popupSection(row, pal)
+			} else if action {
+				row = popupLabel(row, pal)
+			}
+			rows = append(rows, row)
 		}
 	}
 
@@ -548,8 +563,7 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 			rows = rows[:min(len(rows), max(0, height-4))]
 		}
 		rows = append(rows, "")
-		hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(string(pal.Muted)))
-		rows = append(rows, "  "+hintStyle.Render(clean(dialog.Hint, false)))
+		rows = append(rows, "  "+popupHint(dialog.Hint, pal))
 	}
 
 	modalHeight := min(height, len(rows)+2)
@@ -622,7 +636,7 @@ func (m Model) View() tea.View {
 				height = min(20, available-2)
 				width = min(64, m.width-4)
 				var rows []string
-				rows = append(rows, "Themes (j/k select, Enter apply):")
+				rows = append(rows, popupSection("Themes", m.Theme())+" (j/k select, Enter apply):")
 				for i, t := range m.settingsData.Themes {
 					mark := " "
 					if t == m.settingsData.ActiveTheme {
@@ -635,28 +649,28 @@ func (m Model) View() tea.View {
 					rows = append(rows, row)
 				}
 				rows = append(rows, "")
-				rows = append(rows, "Configuration:")
+				rows = append(rows, popupSection("Configuration:", m.Theme()))
 				if m.settingsData.ThemePath != "" {
-					rows = append(rows, "  Active file: "+clean(m.settingsData.ThemePath, false))
+					rows = append(rows, "  "+popupLabel("Active file:", m.Theme())+" "+clean(m.settingsData.ThemePath, false))
 				}
 				if m.settingsData.ConfigPath != "" {
-					rows = append(rows, "  Config:      "+clean(m.settingsData.ConfigPath, false))
+					rows = append(rows, "  "+popupLabel("Config:", m.Theme())+"      "+clean(m.settingsData.ConfigPath, false))
 				}
 				if m.settingsData.RefreshMin > 0 {
-					rows = append(rows, fmt.Sprintf("  Refresh:     %d min", m.settingsData.RefreshMin))
+					rows = append(rows, fmt.Sprintf("  %s     %d min", popupLabel("Refresh:", m.Theme()), m.settingsData.RefreshMin))
 				}
 				if m.settingsData.Icons != "" {
-					rows = append(rows, "  Icons:       "+clean(m.settingsData.Icons, false))
+					rows = append(rows, "  "+popupLabel("Icons:", m.Theme())+"       "+clean(m.settingsData.Icons, false))
 				}
 				if m.settingsData.Country != "" {
-					rows = append(rows, "  Country:     "+clean(strings.ToUpper(m.settingsData.Country), false)+" (Left/Right to change)")
+					rows = append(rows, "  "+popupLabel("Country:", m.Theme())+"     "+clean(strings.ToUpper(m.settingsData.Country), false)+" (Left/Right to change)")
 				}
 				if m.settingsData.MPVPath != "" {
-					rows = append(rows, "  MPV:         "+clean(m.settingsData.MPVPath, false))
+					rows = append(rows, "  "+popupLabel("MPV:", m.Theme())+"         "+clean(m.settingsData.MPVPath, false))
 				}
 				modal = m.box("Settings · Left/Right country · e/Esc to close", rows, width, height, true, "", "")
 			} else if m.help {
-				modal = m.box("Keys · Esc closes", []string{
+				rows := []string{
 					"j/k arrows · g/G first/last item",
 					"Details: Enter play/resume · a queue · c complete",
 					"Preview completion requires subscription",
@@ -678,7 +692,11 @@ func (m Model) View() tea.View {
 					"Podcasts: u subscribe/unsubscribe · N add",
 					"Library views / a show · o sort",
 					"c mark completion · R refresh", "Details: j/k · Ctrl-d/u half page · g/G ends · PgUp/PgDn",
-				}, width, height, true, "", "")
+				}
+				for i, row := range rows {
+					rows[i] = popupHelpRow(row, m.Theme())
+				}
+				modal = m.box("Keys · Esc closes", rows, width, height, true, "", "")
 			}
 			content = lipgloss.NewCompositor(lipgloss.NewLayer(content),
 				lipgloss.NewLayer(modal).X((m.width-width)/2).Y((available-height)/2).Z(1)).Render()
