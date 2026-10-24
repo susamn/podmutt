@@ -79,6 +79,7 @@ type libraryShell struct {
 	lastPlayingID            int64
 	lastCompleted            bool
 	confirming               *queueConfirmation
+	urlDialog                *ui.Dialog
 	queueEditing             bool
 	queueUndoPending         bool
 	detailTarget             *store.Episode
@@ -589,6 +590,20 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		}
 		return m.delegate(msg)
 	case tea.KeyPressMsg:
+		if m.urlDialog != nil {
+			switch msg.String() {
+			case "esc", "I":
+				m.urlDialog = nil
+				m.Model = m.Model.WithDialog(nil)
+			case "j", "down", "pgdown", "ctrl+d":
+				m.urlDialog.Scroll++
+			case "k", "up", "pgup", "ctrl+u":
+				m.urlDialog.Scroll = max(0, m.urlDialog.Scroll-1)
+			case "q", "ctrl+c":
+				return m.delegate(msg)
+			}
+			return m, nil
+		}
 		if m.chapterList != nil {
 			return m, m.chapterKey(msg.String())
 		}
@@ -616,6 +631,8 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		key := msg.String()
 		focus := m.Model.Focus()
 		switch key {
+		case "I":
+			m.openCurrentURLs()
 		case "C":
 			cmd = m.openChapters()
 		case "b":

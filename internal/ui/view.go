@@ -520,6 +520,24 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 	return "  " + popupLabel(clean(label, false)+":", pal) + " " + inputBox
 }
 
+// Style only structural labels after scrubbing untrusted titles and URLs. The
+// values remain unstyled so long addresses wrap naturally in the shared modal.
+func urlLabelRow(line string, pal theme.Palette) string {
+	if line == "Feed" {
+		return popupSection(line, pal)
+	}
+	if strings.HasPrefix(line, "Episode · ") {
+		return popupSection("Episode", pal) + strings.TrimPrefix(line, "Episode")
+	}
+	for _, field := range []string{"RSS", "Audio", "Artwork", "Chapters"} {
+		prefix := "  " + field + ":"
+		if strings.HasPrefix(line, prefix+" ") {
+			return "  " + popupLabel(field+":", pal) + strings.TrimPrefix(line, prefix)
+		}
+	}
+	return line
+}
+
 func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	pal := m.Theme()
 	var rows []string
@@ -543,9 +561,21 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 				row = popupSection(row, pal)
 			} else if action {
 				row = popupLabel(row, pal)
+			} else if dialog.URLLabels {
+				row = urlLabelRow(row, pal)
 			}
 			rows = append(rows, row)
 		}
+	}
+
+	if dialog.Scrollable {
+		reserved := 2 // border
+		if dialog.Hint != "" {
+			reserved += 2 // blank row and footer
+		}
+		pageSize := max(1, height-reserved)
+		start := min(max(0, dialog.Scroll), max(0, len(rows)-pageSize))
+		rows = rows[start:min(len(rows), start+pageSize)]
 	}
 
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
@@ -678,6 +708,7 @@ func (m Model) View() tea.View {
 					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
 					"Volume: = raise · - lower · 5% steps · 0–130% · resets to 100% on restart",
 					"C Chapters for current playback · Ch: ✓ advertised/cached",
+					"I             URLs for current playback · j/k scroll · Esc close",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
