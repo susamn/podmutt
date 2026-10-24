@@ -38,6 +38,7 @@ func (m *libraryShell) openCurrentURLs() {
 		Body:       strings.Join(lines, "\n"),
 		Hint:       "j/k scroll · I/Esc close",
 		Scrollable: true,
+		URLLabels:  true,
 	}
 	m.Model = m.Model.WithDialog(m.urlDialog)
 }

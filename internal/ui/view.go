@@ -516,6 +516,26 @@ func renderInputBox(label, value string, width int, pal theme.Palette) string {
 	return "  " + label + ": " + inputBox
 }
 
+// Style only structural labels after scrubbing untrusted titles and URLs. The
+// values remain unstyled so long addresses wrap naturally in the shared modal.
+func urlLabelRow(line string, pal theme.Palette) string {
+	section := lipgloss.NewStyle().Bold(true).Underline(true).Foreground(lipgloss.Color(string(pal.Accent)))
+	label := lipgloss.NewStyle().Bold(true).Underline(true).Foreground(lipgloss.Color(string(pal.Cyan)))
+	if line == "Feed" {
+		return section.Render(line)
+	}
+	if strings.HasPrefix(line, "Episode · ") {
+		return section.Render("Episode") + strings.TrimPrefix(line, "Episode")
+	}
+	for _, field := range []string{"RSS", "Audio", "Artwork", "Chapters"} {
+		prefix := "  " + field + ":"
+		if strings.HasPrefix(line, prefix+" ") {
+			return "  " + label.Render(field+":") + strings.TrimPrefix(line, prefix)
+		}
+	}
+	return line
+}
+
 func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 	pal := m.Theme()
 	var rows []string
@@ -525,6 +545,9 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 		if strings.TrimSpace(l) == "" {
 			rows = append(rows, "")
 			continue
+		}
+		if dialog.URLLabels {
+			l = urlLabelRow(l, pal)
 		}
 		if dialog.TruncateBody {
 			rows = append(rows, ansi.Truncate(l, max(1, width-2), "…"))
