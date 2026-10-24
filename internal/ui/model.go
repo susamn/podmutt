@@ -43,6 +43,8 @@ type Item struct {
 
 type Dialog struct {
 	TruncateBody bool // preserve one explicit detail per row in compact confirmations
+	Scrollable   bool
+	Scroll       int
 	Title        string
 	Body         string
 	InputLabel   string
