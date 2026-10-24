@@ -533,6 +533,16 @@ func (m Model) renderDialogModal(dialog *Dialog, width, height int) string {
 		}
 	}
 
+	if dialog.Scrollable {
+		reserved := 2 // border
+		if dialog.Hint != "" {
+			reserved += 2 // blank row and footer
+		}
+		pageSize := max(1, height-reserved)
+		start := min(max(0, dialog.Scroll), max(0, len(rows)-pageSize))
+		rows = rows[start:min(len(rows), start+pageSize)]
+	}
+
 	if dialog.InputLabel != "" || dialog.InputValue != "" {
 		reserved := 2
 		if dialog.Hint != "" {
@@ -664,6 +674,7 @@ func (m Model) View() tea.View {
 					"Player (6): ,/. seek ±15s · arrows select · Enter activate",
 					"Volume: = raise · - lower · 5% steps · 0–130% · resets to 100% on restart",
 					"C Chapters for current playback · Ch: ✓ advertised/cached",
+					"I             URLs for current playback · j/k scroll · Esc close",
 					m.Icon(SearchIcon, "/             Filter current list"), "Enter/Esc     Apply/cancel filter",
 					"Ctrl+U        Clear filter input", "q / Ctrl+C    Quit",
 					"e             Settings · live theme switch",
