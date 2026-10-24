@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"podmutt/internal/feed"
 	"podmutt/internal/profile"
 	"podmutt/internal/ui"
@@ -30,7 +31,7 @@ func TestFirstRunOnboardingDismissalAndPersistence(t *testing.T) {
 		if !m.onboarding {
 			t.Fatal("expected onboarding to be active on fresh profile")
 		}
-		view := m.View().Content
+		view := ansi.Strip(m.View().Content)
 		if !strings.Contains(view, "Welcome to podmutt") || !strings.Contains(view, "Quick Start") {
 			t.Fatalf("expected onboarding dialog in view: %s", view)
 		}

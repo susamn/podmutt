@@ -60,17 +60,21 @@ func (m Model) renderChapters(width, height int) string {
 	}
 	inner := max(1, width-2)
 	textWidth := max(1, inner-3) // two left cells and one right cell
-	line := func(text string) string {
-		return "  " + ansi.Truncate(clean(text, false), textWidth, "…")
+	row := func(text string) string {
+		return "  " + ansi.Truncate(text, textWidth, "…")
 	}
+	line := func(text string) string { return row(clean(text, false)) }
+	pal := m.Theme()
 	compact := height < 12
 	var rows []string
 	if !compact {
-		rows = append(rows, line("NOW PLAYING"))
+		rows = append(rows, row(popupSection("NOW PLAYING", pal)))
 	}
-	rows = append(rows, line(p.Episode), line(p.Show))
+	rows = append(rows,
+		row(popupLabel("Episode:", pal)+" "+clean(p.Episode, false)),
+		row(popupLabel("Show:", pal)+" "+clean(p.Show, false)))
 	if !compact {
-		rows = append(rows, "")
+		rows = append(rows, row(popupSection("Chapters", pal)))
 	}
 
 	capacity := chapterPageSize(height)
@@ -95,7 +99,7 @@ func (m Model) renderChapters(width, height int) string {
 	if !compact {
 		hint = "j/k or arrows · PgUp/PgDn · Enter jump · Esc back"
 	}
-	rows = append(rows, line(hint))
+	rows = append(rows, row(popupHint(hint, pal)))
 	tag := ""
 	if width >= 30 {
 		tag = fmt.Sprintf("%d/%d", p.Selected+1, len(p.Rows))

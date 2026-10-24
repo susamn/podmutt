@@ -50,11 +50,18 @@ func (m *Model) scrollFeedback(delta int) {
 }
 func (m Model) messageRows(width int) []string {
 	message := m.activeMessage()
-	text := message.Summary + "\n\n" + message.Action
-	if m.data.Player.Warning != "" && message.Scope != "Media controls" {
-		text += "\n\nMedia controls:\n" + m.data.Player.Warning
+	bodyWidth := max(1, width-4)
+	rows := []string{popupSection("Issue", m.Theme())}
+	rows = append(rows, wrapDetails(message.Summary, bodyWidth)...)
+	if message.Action != "" {
+		rows = append(rows, "", popupSection("Next step", m.Theme()))
+		rows = append(rows, wrapDetails(message.Action, bodyWidth)...)
 	}
-	return wrapDetails(text, max(1, width-4))
+	if m.data.Player.Warning != "" && message.Scope != "Media controls" {
+		rows = append(rows, "", popupSection("Media controls:", m.Theme()))
+		rows = append(rows, wrapDetails(m.data.Player.Warning, bodyWidth)...)
+	}
+	return rows
 }
 func (m Model) feedbackModal(width, height int) string {
 	rows := m.messageRows(width)
@@ -62,7 +69,7 @@ func (m Model) feedbackModal(width, height int) string {
 	offset := min(m.messageScroll, max(0, len(rows)-capacity))
 	end := min(len(rows), offset+capacity)
 	body := append([]string(nil), rows[offset:end]...)
-	body = append(body, "", "j/k scroll · Esc dismiss")
+	body = append(body, "", popupHint("j/k scroll · Esc dismiss", m.Theme()))
 	title := "Message · !/Esc dismiss"
 	if m.activeMessage().Severity == "error" {
 		title = "Error · !/Esc dismiss"

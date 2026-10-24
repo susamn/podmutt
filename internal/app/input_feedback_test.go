@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestInvalidURLStaysEditableWithVisibleFeedback(t *testing.T) {
@@ -17,7 +18,7 @@ func TestInvalidURLStaysEditableWithVisibleFeedback(t *testing.T) {
 		if cmd := updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEnter}); cmd != nil || !m.browse.searching || directory.calls != 0 {
 			t.Fatal("invalid URL dispatched")
 		}
-		if strings.Contains(m.notice, "private-secret") || !strings.Contains(m.View().Content, "HTTP(S)") || !strings.Contains(m.View().Content, "Esc cancel") {
+		if strings.Contains(m.notice, "private-secret") || !strings.Contains(m.View().Content, "HTTP(S)") || !strings.Contains(ansi.Strip(m.View().Content), "Esc cancel") {
 			t.Fatal("feedback hidden", m.notice, m.View().Content)
 		}
 		updateLibrary(&m, tea.KeyPressMsg{Code: tea.KeyEscape})

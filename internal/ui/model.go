@@ -42,15 +42,17 @@ type Item struct {
 }
 
 type Dialog struct {
-	TruncateBody bool // preserve one explicit detail per row in compact confirmations
-	Scrollable   bool
-	URLLabels    bool // style the known, sanitized URL-popup labels only
-	Scroll       int
-	Title        string
-	Body         string
-	InputLabel   string
-	InputValue   string
-	Hint         string
+	TruncateBody  bool // preserve one explicit detail per row in compact confirmations
+	Scrollable    bool
+	URLLabels     bool // style the known, sanitized URL-popup labels only
+	Scroll        int
+	SectionLabels []string // trusted structural body rows, not remote metadata
+	ActionLabel   string   // trusted action row, e.g. the favorite command
+	Title         string
+	Body          string
+	InputLabel    string
+	InputValue    string
+	Hint          string
 }
 
 type Data struct {

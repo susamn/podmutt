@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestChapterPickerCompactPagingAndEscOwnership(t *testing.T) {
@@ -17,7 +18,7 @@ func TestChapterPickerCompactPagingAndEscOwnership(t *testing.T) {
 		rows[i] = ChapterRow{Time: fmt.Sprintf("%d:00", i), Title: fmt.Sprintf("Part %d", i)}
 	}
 	m = m.WithChapters(&ChapterPicker{Episode: "An episode", Show: "A show", Rows: rows, Selected: 0})
-	compact := m.View().Content
+	compact := ansi.Strip(m.View().Content)
 	if !strings.Contains(compact, "Part 0") || m.ChapterSelection() != 0 || !strings.Contains(compact, "An episode") || !strings.Contains(compact, "A show") || !strings.Contains(compact, "Enter jump · Esc") {
 		t.Fatal("compact picker identity/navigation missing", compact)
 	}
@@ -34,7 +35,7 @@ func TestChapterPickerCompactPagingAndEscOwnership(t *testing.T) {
 		t.Fatal("UI key leaked behind picker")
 	}
 	m = resize(m, 90, 28)
-	wide := m.View().Content
+	wide := ansi.Strip(m.View().Content)
 	if !strings.Contains(wide, "NOW PLAYING") || !strings.Contains(wide, "PgUp/PgDn") || !strings.Contains(wide, "30/30") {
 		t.Fatal("wide picker identity/paging missing", wide)
 	}
