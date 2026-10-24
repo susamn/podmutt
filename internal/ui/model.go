@@ -43,6 +43,9 @@ type Item struct {
 
 type Dialog struct {
 	TruncateBody bool // preserve one explicit detail per row in compact confirmations
+	Scrollable   bool
+	URLLabels    bool // style the known, sanitized URL-popup labels only
+	Scroll       int
 	Title        string
 	Body         string
 	InputLabel   string
