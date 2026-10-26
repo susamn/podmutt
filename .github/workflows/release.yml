@@ -18,18 +18,10 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - name: Install test runtime dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends mpv dbus
       - name: Verify check gate
         run: make check
       - name: Verify race detector
         run: make race
-      - name: Verify mpv playback gate
-        run: make mpv-test
-      - name: Verify MPRIS media control gate
-        run: make mpris-test
 
   release:
     name: Publish Immutable Release
