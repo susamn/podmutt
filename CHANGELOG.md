@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.1] - 2026-10-26
+
+### Added
+
+- **Playback URL inspection:** press `I` to open a scrollable, read-only URL modal for the active playback (feed RSS, feed artwork, audio, episode artwork, and chapters links). Scroll with `j`/`k`, arrows, or `PgUp`/`PgDn`; close with `Esc` or `I`.
+- **Themed popup typography:** unified structural labels, sections, and hints across all dialogs (Settings, Help, URL modal, feedback/error messages, and input/confirmation dialogs) styled with active theme colors.
+
+### Changed
+
+- **Sanitized modal rendering:** remote titles, URLs, and error summaries are scrubbed of terminal escape sequences before rendering, preventing styling leaks while keeping structural labels highlighted.
+- **Mac bridge test verification:** bundled native media tests and real-mpv playback coverage are incorporated into the Darwin verification gate (`native-verify`) to enforce the aggregate 95% statement coverage threshold.
+
 ## [1.3.0] - 2026-10-23
 
 ### Added

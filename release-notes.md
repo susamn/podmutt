@@ -1,17 +1,8 @@
 ## Highlights
 
-- **Persistent Favorites** — a dedicated Favorites pane independent of the playback queue; mark queued episodes from the actions menu and remove favorites directly.
-- **Chapter navigation** — chapter indicators plus a `C` picker for the current playback, with jumps that preserve paused/playing state. Supports Podcasting 2.0, Podlove, and embedded mpv chapters.
-- **Apple Discover restoration** — cached chart/search results and view selection appear immediately, then refresh asynchronously; failed refreshes retain saved Apple results and can be retried.
-- **Volume hotkeys** — `=` / `-` adjust volume in 5% steps, from 0–130%. Volume starts at 100% on each launch and is not persisted.
-- **Relative publication dates** — recent episodes show readable labels such as “Today” and “3 days back.”
-- **Compact Player layout** — Player stays below the active pane in compact terminals; the wide layout is unchanged.
-- **Clearer dialogs and recovery feedback** — unified Settings, Help, confirmation, and input layouts, with actionable failure guidance.
-
-### Other improvements
-
-- Confirmed Queue episode removal, including current playback, with single-step undo.
-- Favorites is pane 5 and Player is pane 6; Help and README keybindings reflect the current layout.
-- Discover provider caching follows provider policy; Podcast Index search results are not durably cached.
+- **Playback URL Inspector (`I`)** — View stored URLs for the active episode and feed at any time. Press `I` to open a read-only, scrollable popup displaying RSS, audio, artwork, and chapter links. Scroll with `j`/`k`, arrows, or `PgUp`/`PgDn`, and dismiss with `Esc` or `I`.
+- **Themed Popups & Consistent Labels** — Unified visual styling across Settings, Help, URL inspection, confirmations, and error dialogs using palette accent and cyan highlights for section headers and field labels with muted shortcut hints.
+- **Sanitized Modal Rendering** — Strips ANSI escape sequences from remote metadata and URLs so long addresses wrap cleanly without terminal formatting glitches.
+- **Darwin Bridge Test Coverage & Gate** — Combined real-mpv and native macOS media bridge test profiles into `native-verify`, enforcing the 95% statement coverage threshold alongside regression coverage for Apple rating recovery and IPC error replies.
 
 Audio streaming requires `mpv`.
