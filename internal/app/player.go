@@ -1,11 +1,13 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
-	"context"
 	"podmutt/internal/library"
 	"podmutt/internal/playback"
 	"podmutt/internal/store"
@@ -388,4 +390,148 @@ func (m *libraryShell) confirmationKey(key tea.KeyPressMsg) tea.Cmd {
 		})
 	}
 	return work(ctx, "Clearing Up next…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.ClearQueue(ctx, confirmation.ids)} })
+}
+
+func (m libraryShell) updatePlaybackEvents(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case chaptersSynced:
+		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
+			m.recordBackgroundFailure("Update chapters", msg.err)
+		}
+		return m, nil, true
+	case favoriteEdited:
+		var cmd tea.Cmd
+		if msg.err != nil {
+			m.report("Favorites update", msg.err, "")
+		} else if msg.added {
+			m.notice = "Added to favorites · ♥"
+			cmd = m.reload()
+		} else {
+			m.notice = "Removed from favorites"
+			cmd = m.reload()
+		}
+		return m, cmd, true
+	case latestQueued:
+		if msg.err != nil {
+			m.recordBackgroundFailure("Update latest episodes", msg.err)
+		} else {
+			m.clearBackgroundFailure("Update latest episodes")
+		}
+		return m, nil, true
+	case queueEdited:
+		var cmd tea.Cmd
+		rebuild := false
+		if msg.state != nil {
+			if m.state.Current != nil && (msg.state.Current == nil || m.state.Current.ID != msg.state.Current.ID) {
+				cmd = m.reload()
+			}
+			m.shell = m.shell.withPlayback(*msg.state)
+			rebuild = true
+		}
+		m.queueEditing = false
+		pending := m.queueUndoPending
+		m.queueUndoPending = false
+		if errors.Is(msg.err, playback.ErrNoQueueUndo) {
+			m.Model = m.Model.ClearFeedback("Queue edit")
+			m.notice = "Nothing to undo in Up next"
+		} else if msg.err != nil {
+			m.report("Queue edit", msg.err, "")
+		} else if msg.undo {
+			m.Model = m.Model.ClearFeedback("Queue edit")
+			m.notice = "Restored to Up next"
+		} else {
+			m.Model = m.Model.ClearFeedback("Queue edit")
+			m.notice = "Removed from Up next · u undo"
+			if pending {
+				cmd = tea.Batch(cmd, m.undoQueueRemoval())
+			}
+		}
+		if rebuild {
+			m.renderLibrary()
+			cmd = tea.Batch(cmd, m.syncLibrarySelection())
+		} else {
+			m.renderStatus()
+		}
+		return m, cmd, true
+	case playerEdited:
+		var cmd tea.Cmd
+		rebuild := false
+		if msg.state != nil {
+			m.shell = m.shell.withPlayback(*msg.state)
+			rebuild = true
+		}
+		if msg.err == nil && len(msg.enqueued) > 0 {
+			var ids []string
+			for _, id := range msg.enqueued {
+				ids = append(ids, strconv.FormatInt(id, 10))
+			}
+			m.Model = m.Model.WithQueueTail(ids)
+			m.queueSelectID = ids[len(ids)-1]
+		}
+		if msg.cached {
+			cmd = m.reload()
+		}
+		if errors.Is(msg.err, playback.ErrNoEpisode) {
+			m.report("Playback", msg.err, "")
+		} else if msg.err != nil {
+			m.report("Playback", msg.err, "")
+		} else {
+			m.Model = m.Model.ClearFeedback("Playback")
+			m.notice = ""
+			if msg.volume && msg.state != nil {
+				m.notice = fmt.Sprintf("Volume %d%%", msg.state.Volume)
+			}
+		}
+		if rebuild {
+			m.renderLibrary()
+			cmd = tea.Batch(cmd, m.syncLibrarySelection())
+		} else {
+			m.renderStatus()
+		}
+		return m, cmd, true
+	case playbackUpdate:
+		if msg.ok && msg.state.Revision != 0 && msg.state.Revision < m.state.Revision {
+			return m, m.shell.wait(), true
+		}
+		var cmd tea.Cmd
+		changed := msg.ok && msg.state.Current != nil && (m.state.Current == nil || m.state.Current.ID != msg.state.Current.ID)
+		chaptersChanged := msg.ok && msg.state.Current != nil && m.state.Current != nil &&
+			msg.state.Current.ID == m.state.Current.ID && (msg.state.Current.ChaptersJSON != m.state.Current.ChaptersJSON ||
+			msg.state.Current.ChaptersState != m.state.Current.ChaptersState)
+		if chaptersChanged {
+			cmd = tea.Batch(cmd, m.reload())
+		}
+		rebuild := false
+		if msg.ok {
+			id, completed := int64(0), false
+			if msg.state.Current != nil {
+				id, completed = msg.state.Current.ID, msg.state.Current.Completed
+			}
+			if m.lastPlayingID != id || m.lastCompleted != completed {
+				cmd = m.reload()
+			}
+			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
+			rebuild = chaptersChanged || m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
+				currentInQueue(m.state) != currentInQueue(msg.state) ||
+				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
+			m.lastPlayingID, m.lastCompleted = id, completed
+		}
+		updated, wait := m.shell.Update(msg)
+		m.shell = updated.(shell)
+		m.renderDetails()
+		cmd = tea.Batch(wait, cmd)
+		if rebuild {
+			m.renderLibrary()
+			cmd = tea.Batch(cmd, m.syncLibrarySelection())
+		} else {
+			m.renderStatus()
+		}
+		if changed {
+			m.selectCurrent()
+			m.renderDetails()
+		}
+		return m, cmd, true
+	default:
+		return m, nil, false
+	}
 }
