@@ -268,9 +268,10 @@ func (m *libraryShell) openQueueActions() tea.Cmd {
 	}
 	m.confirming = &queueConfirmation{episodeID: episode.ID, action: "favorite"}
 	m.Model = m.Model.WithDialog(&ui.Dialog{
-		Title: "Episode Actions",
-		Body:  cleanTitle(episode.Title) + "\n" + cleanShow(episode.FeedTitle) + "\n\n" + action,
-		Hint:  "Enter apply · Esc cancel",
+		Title:       "Episode Actions",
+		Body:        cleanTitle(episode.Title) + "\n" + cleanShow(episode.FeedTitle) + "\n\n" + action,
+		ActionLabel: action,
+		Hint:        "Enter apply · Esc cancel",
 	})
 	return nil
 }
