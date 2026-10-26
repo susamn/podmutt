@@ -10,19 +10,29 @@ permissions:
 
 jobs:
   test:
+    name: Test Gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: go.mod
           check-latest: true
+      - name: Install test runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends mpv dbus
       - name: Verify check gate
         run: make check
       - name: Verify race detector
         run: make race
+      - name: Verify mpv playback gate
+        run: make mpv-test
+      - name: Verify MPRIS media control gate
+        run: make mpris-test
 
   release:
+    name: Publish Immutable Release
     # Never publish a tag whose tests do not pass.
     needs: test
     runs-on: ubuntu-latest
@@ -34,26 +44,27 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: go.mod
           check-latest: true
-      # Fail loudly and early rather than after the GitHub release is already
-      # published — without this the release succeeds and the tap silently
-      # stays stale on a 401.
-      - name: Require tap token
-        run: |
-          if [ -z "${{ secrets.HOMEBREW_TAP_TOKEN }}" ]; then
-            echo "HOMEBREW_TAP_TOKEN is not set on this repo."
-            echo "Set it with: gh secret set HOMEBREW_TAP_TOKEN --repo ${{ github.repository }}"
-            exit 1
-          fi
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: "v2.18.3"
           # Use the curated release notes rather than the raw commit list.
           args: release --clean --release-notes=release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # A PAT with contents:write on susamn/homebrew-tap. The default
-          # GITHUB_TOKEN cannot push to another repository.
+
+  downstream-homebrew:
+    name: Update Homebrew Tap
+    needs: release
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Homebrew Cask
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          ./packaging/homebrew/update-tap.sh "${{ github.ref_name }}"
