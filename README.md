@@ -61,7 +61,7 @@ Browse Apple Top 100 and search results, then preview shows and episodes without
 
 ## Install
 
-### Homebrew (macOS and Linux)
+### macOS (Homebrew Cask)
 
 ```sh
 brew tap susamn/tap
@@ -74,15 +74,39 @@ brew install --cask podmutt
 > ```
 > *(Or click **Open Anyway** in **System Settings > Privacy & Security**).*
 
-Runtime playback streams audio through `mpv`:
+### Linux (.deb & .rpm Packages)
+
+Standalone native packages for Linux (`amd64` and `arm64`) are provided on [GitHub Releases](https://github.com/susamn/podmutt/releases). Package managers automatically satisfy runtime dependencies (`mpv` and `ca-certificates`).
+
+#### Debian / Ubuntu (.deb)
+```sh
+# Download the .deb asset for your architecture:
+sudo apt update
+sudo apt install ./podmutt_<version>_amd64.deb    # or arm64
+```
+
+#### Fedora / RHEL (.rpm)
+```sh
+# Download the .rpm asset for your architecture:
+sudo dnf install ./podmutt-<version>-1.x86_64.rpm  # or aarch64
+```
+
+> **Channel Notes**:
+> - Signed distribution repositories (APT/DNF repos, Copr, PPA), Arch AUR, and Nix flakes remain separate downstream efforts; releases are currently published as standalone immutable assets.
+> - Upgrading or removing packages (`apt purge`, `dnf remove`) preserves user preferences, catalog databases, and listening progress in `~/.config/podmutt`.
+> - `arm64` Linux binaries are cross-compiled and artifact-verified in CI.
+
+### Audio Runtime Requirement
+
+`podmutt` streams audio via an external `mpv` process using private JSON IPC. If installing from tarballs or source, ensure `mpv` is installed:
 - macOS: `brew install mpv`
 - Ubuntu/Debian: `sudo apt install mpv`
-- Arch Linux: `sudo pacman -S mpv`
 - Fedora: `sudo dnf install mpv`
+- Arch Linux: `sudo pacman -S mpv`
 
-### Pre-built Binaries
+### Pre-built Tarballs
 
-Download pre-compiled standalone archives for Linux and macOS (`amd64` and `arm64`) from [GitHub Releases](https://github.com/susamn/podmutt/releases).
+Standalone compressed archives for Linux and macOS (`amd64` and `arm64`) are also available from [GitHub Releases](https://github.com/susamn/podmutt/releases).
 
 ### Build from Source
 
