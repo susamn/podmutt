@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.0] - 2026-10-26
+
+### Added
+
+- **Native Linux DEB and RPM Packages:** standalone binary packages for Debian/Ubuntu (`.deb`) and Fedora/RHEL (`.rpm`) supporting both `amd64` and `arm64` architectures.
+- **Canonical Installation Manifest:** standardized `/usr` hierarchy with desktop entry (`/usr/share/applications/podmutt.desktop`), scalable and 512x512 icons, copyright notice, and documentation.
+- **Package Verification Suite:** deterministic inspection script `packaging/linux/verify-packages.sh` (`make package-verify`) verifying metadata, payload paths, static ELF linking, and runtime smoke execution.
+- **Container Lifecycle Testing:** containerized test suite `packaging/linux/test-install-lifecycle.sh` (`make package-lifecycle`) verifying clean `apt`/`dnf` installs, non-root execution, upgrade resilience, and user profile data retention.
+
+### Changed
+
+- **Release Automation Hardening:** pinned GoReleaser to `v2.18.3`, aligned Go selection across workflows with `go.mod`, configured immutable release assets (`mode: keep-existing`), and integrated `mpv-test` and `mpris-test` gates.
+- **Decoupled Downstream Publishing:** separated core immutable release publishing from downstream Homebrew tap updates, preventing downstream network or token failures from blocking the primary release.
+- **Documentation:** updated `README.md` to document manual `.deb` and `.rpm` installations, clarified channel boundaries, and corrected Homebrew `--cask` documentation to designate it as macOS-only.
+
 ## [1.3.1] - 2026-10-26
 
 ### Added
