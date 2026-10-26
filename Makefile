@@ -14,7 +14,7 @@ export CGO_CXXFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO
 export CGO_LDFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_LDFLAGS)) -mmacosx-version-min=13.0
 endif
 
-.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean
+.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean install-linux install-linux-desktop install-linux-docs package-verify
 
 help:
 	@printf '%s\n' 'make check    Format, modules, vet, tests, and coverage gate' \
@@ -167,6 +167,16 @@ install-linux-desktop:
 	install -m 644 assets/logo.svg $(DESTDIR)$(DATADIR)/icons/hicolor/scalable/apps/podmutt.svg
 	install -d $(DESTDIR)$(DATADIR)/icons/hicolor/512x512/apps
 	install -m 644 assets/logo.png $(DESTDIR)$(DATADIR)/icons/hicolor/512x512/apps/podmutt.png
+
+install-linux-docs:
+	install -d $(DESTDIR)$(DATADIR)/doc/podmutt
+	install -m 644 README.md $(DESTDIR)$(DATADIR)/doc/podmutt/README.md
+	install -m 644 LICENSE $(DESTDIR)$(DATADIR)/doc/podmutt/copyright
+
+install-linux: install install-linux-desktop install-linux-docs
+
+package-verify:
+	./packaging/linux/verify-packages.sh dist
 
 clean:
 	rm -rf bin dist coverage

@@ -84,3 +84,45 @@ release:
     name: podmutt
   replace_existing_artifacts: true
   mode: replace
+
+nfpms:
+  - id: packages
+    package_name: podmutt
+    ids:
+      - podmutt
+    vendor: susamn
+    homepage: "https://github.com/susamn/podmutt"
+    maintainer: "Supratim Samanta <supratim.iee23.ju2005@gmail.com>"
+    description: "Modern, keyboard-driven podcast client (TUI) for Linux"
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    section: sound
+    priority: optional
+    dependencies:
+      - mpv
+      - ca-certificates
+    file_name_template: "{{ .ConventionalFileName }}"
+    contents:
+      - src: packaging/linux/podmutt.desktop
+        dst: /usr/share/applications/podmutt.desktop
+        file_info:
+          mode: 0644
+      - src: assets/logo.svg
+        dst: /usr/share/icons/hicolor/scalable/apps/podmutt.svg
+        file_info:
+          mode: 0644
+      - src: assets/logo.png
+        dst: /usr/share/icons/hicolor/512x512/apps/podmutt.png
+        file_info:
+          mode: 0644
+      - src: LICENSE
+        dst: /usr/share/doc/podmutt/copyright
+        file_info:
+          mode: 0644
+      - src: README.md
+        dst: /usr/share/doc/podmutt/README.md
+        file_info:
+          mode: 0644
