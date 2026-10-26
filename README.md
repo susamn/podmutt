@@ -14,22 +14,23 @@ A modern, keyboard-driven podcast client (TUI) for Linux and macOS inspired by l
 
 Bordered panels, single-key contextual actions, vim navigation, and live audio streaming through mpv — no mouse required. See the [changelog](CHANGELOG.md) for release history.
 
-## What's New in v1.3.0
+## What's New in v1.4.0
 
-Version 1.3.0 adds persistent Favorites, chapter navigation, refreshed Settings, relative publication dates, compact Player placement, and quick volume controls.
+Version 1.4.0 introduces native Linux `.deb` and `.rpm` distribution packages, the playback URL inspector (`I`), unified themed dialogs, and hardened release pipelines.
 
-### Favorites & Dashboard
-Favorites now has a dedicated pane and persists independently of the playback queue. The dashboard shows Library, Episodes, Queue, Details, Favorites, and Player together.
+### Native Linux Packages (.deb & .rpm)
+First-class distribution packages for Debian, Ubuntu, Fedora, and RHEL across `amd64` and `arm64` architectures. Package managers automatically resolve external `mpv` and `ca-certificates` dependencies. Installs standard desktop integration (`podmutt.desktop`), scalable and 512×512 icons, and guarantees user data in `~/.config/podmutt` is preserved during upgrades or removal.
+
+### Playback URL Inspector (`I`)
+Press `I` from anywhere during playback to inspect stored URLs (RSS feed, media stream, artwork, and chapters) in a themed, scrollable modal without leaving the TUI.
+
+### Favorites & Chapters
+Favorites has a dedicated pane (`5`) and persists independently of the playback queue. Open chapters for the current playback with `C`; jump without changing its paused or playing state.
 
 ![v1.3.0 dashboard with the Favorites pane](assets/screenshot-dashboard-1.3.0.png)
 
-### Chapters
-Open chapters for the current playback with `C`; jump without changing its paused or playing state. Chapter indicators also appear in episode and queue lists.
-
-![Chapter picker for the current playback](assets/screenshot-chapters-1.3.0.png)
-
-### Settings
-Choose a theme and discovery country from the in-app settings panel.
+### Settings & Theming
+Choose a theme (Catppuccin, Solarized Dark, Cyberpunk) and discovery country from the in-app settings panel. Unified themed typography across all popups and dialogs.
 
 ![v1.3.0 settings](assets/screenshot-settings-1.3.0.png)
 
