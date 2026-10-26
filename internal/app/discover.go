@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -30,25 +29,50 @@ type freshShowDirectory interface {
 	SearchFresh(context.Context, string) ([]discovery.Show, error)
 	TopFresh(context.Context) ([]discovery.Show, error)
 }
+
 type browseState struct {
-	indexDirectory                              discovery.Searcher
-	usingIndex, searchIndex                     bool
-	country, loadedKey, selectedFeedURL         string
-	savedAt                                     time.Time
-	directory                                   showDirectory
-	active, loaded, loading, localResults       bool
-	shows                                       []discovery.Show
-	hits                                        []store.Episode
-	query, localQuery                           string
-	generation                                  uint64
-	cancel                                      context.CancelFunc
-	preview                                     *feed.Resolved
-	previewKey, source                          string
-	previewGeneration                           uint64
-	previewCancel                               context.CancelFunc
-	searching, searchApple, urlInput, directURL bool
-	input, errorText, inputError                string
-	retryPreview                                bool
+	// View & navigation mode
+	active       bool
+	localResults bool
+	directURL    bool
+	retryPreview bool
+
+	// Directory provider & parameters
+	directory       showDirectory
+	indexDirectory  discovery.Searcher
+	usingIndex      bool
+	country         string
+	query           string
+	localQuery      string
+	selectedFeedURL string
+
+	// Cached directory results
+	loaded    bool
+	loadedKey string
+	savedAt   time.Time
+	shows     []discovery.Show
+	hits      []store.Episode
+
+	// In-flight directory request
+	loading    bool
+	generation uint64
+	cancel     context.CancelFunc
+	errorText  string
+
+	// Show & episode preview request
+	preview           *feed.Resolved
+	previewKey        string
+	source            string
+	previewGeneration uint64
+	previewCancel     context.CancelFunc
+
+	// Search & URL modal input
+	searching   bool
+	searchApple bool
+	searchIndex bool
+	urlInput    bool
+	input       string
+	inputError  string
 }
 type discoverStartup struct{}
 type directoryLoaded struct {
@@ -137,12 +161,8 @@ func (m *libraryShell) restoreDiscoverView() tea.Cmd {
 			m.browse.loadedKey = discoverKey(view.Provider, view.Country, view.Query, view.Mode)
 			m.browse.shows, m.browse.loaded, m.browse.savedAt = nil, false, time.Time{}
 			if view.Provider == "apple" {
-				snapshot, err := m.s.store.LoadDiscoverSnapshot(m.s.ctx, view.Provider, view.Country, view.Query, view.Mode)
-				if err == nil {
-					var shows []discovery.Show
-					if json.Unmarshal(snapshot.Results, &shows) == nil {
-						m.browse.shows, m.browse.loaded, m.browse.savedAt = shows, true, snapshot.FetchedAt
-					}
+				if shows, fetchedAt, ok := loadCachedDiscoverSnapshot(m.s.ctx, m.s.store, view.Country, view.Query, view.Mode); ok {
+					m.browse.shows, m.browse.loaded, m.browse.savedAt = shows, true, fetchedAt
 				}
 			}
 		}
@@ -180,7 +200,13 @@ func (m *libraryShell) saveDiscoverViewSelection() {
 	if provider == "podcast_index" {
 		selected = ""
 	}
-	_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: provider, Country: m.browse.country, Query: m.browse.query, Mode: mode, SelectedFeedURL: selected})
+	_ = saveDiscoverView(m.s.ctx, m.s.store, store.DiscoverView{
+		Provider:        provider,
+		Country:         m.browse.country,
+		Query:           m.browse.query,
+		Mode:            mode,
+		SelectedFeedURL: selected,
+	})
 }
 func (m libraryShell) directoryName() string {
 	if m.browse.usingIndex {
@@ -223,14 +249,11 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	if key != m.browse.loadedKey {
 		selected = ""
 		m.browse.shows, m.browse.loaded, m.browse.savedAt = nil, false, time.Time{}
-		if providerName == "apple" && m.s.store != nil {
-			if snapshot, err := m.s.store.LoadDiscoverSnapshot(m.s.ctx, "apple", country, query, mode); err == nil {
-				var cached []discovery.Show
-				if json.Unmarshal(snapshot.Results, &cached) == nil {
-					m.browse.shows, m.browse.loaded, m.browse.savedAt = cached, true, snapshot.FetchedAt
-					if len(cached) > 0 {
-						selected = cached[0].FeedURL
-					}
+		if providerName == "apple" {
+			if cached, fetchedAt, ok := loadCachedDiscoverSnapshot(m.s.ctx, m.s.store, country, query, mode); ok {
+				m.browse.shows, m.browse.loaded, m.browse.savedAt = cached, true, fetchedAt
+				if len(cached) > 0 {
+					selected = cached[0].FeedURL
 				}
 			}
 		}
@@ -245,11 +268,11 @@ func (m *libraryShell) searchDirectory(query string) tea.Cmd {
 	} else {
 		m.notice = "Searching " + m.directoryName() + "…"
 	}
-	if providerName == "apple" && m.s.store != nil {
-		_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: providerName, Country: country, Query: query, Mode: mode, SelectedFeedURL: selected})
-	} else if m.s.store != nil {
-		_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: providerName, Country: country, Query: query, Mode: mode})
+	view := store.DiscoverView{Provider: providerName, Country: country, Query: query, Mode: mode}
+	if providerName == "apple" {
+		view.SelectedFeedURL = selected
 	}
+	_ = saveDiscoverView(m.s.ctx, m.s.store, view)
 	ctx, cancel := context.WithCancel(m.s.ctx)
 	m.browse.cancel = cancel
 	generation, directory := m.browse.generation, m.browse.directory
@@ -390,32 +413,14 @@ func (m *libraryShell) applyDirectory(msg directoryLoaded) {
 				m.browse.selectedFeedURL = msg.shows[0].FeedURL
 			}
 		}
-		if msg.provider == "apple" && m.s.store != nil {
-			results, _ := json.Marshal(shows)
-			_ = m.s.store.SaveDiscoverSnapshot(m.s.ctx, store.DiscoverSnapshot{Provider: "apple", Country: msg.country, Query: msg.query, Mode: msg.mode, Results: results, FetchedAt: m.browse.savedAt})
-			_ = m.s.store.SaveDiscoverView(m.s.ctx, store.DiscoverView{Provider: "apple", Country: msg.country, Query: msg.query, Mode: msg.mode, SelectedFeedURL: m.browse.selectedFeedURL})
+		if msg.provider == "apple" {
+			_ = persistDiscoverSnapshot(m.s.ctx, m.s.store, msg.country, msg.query, msg.mode, m.browse.selectedFeedURL, shows, m.browse.savedAt)
 		}
 		source := m.directoryName()
 		if !m.browse.usingIndex && msg.country != "" && strings.ToUpper(msg.country) != "US" {
 			source += " (" + strings.ToUpper(msg.country) + ")"
 		}
 		m.notice = fmt.Sprintf("%s · %d shows · Enter preview · u subscribe", source, len(msg.shows))
-		if m.s.store != nil && len(msg.shows) > 0 && msg.provider == "apple" {
-			if sourceID, err := m.s.store.SourceID(m.s.ctx, "apple"); err == nil && sourceID > 0 {
-				var toStore []store.DiscoveredShow
-				for _, show := range msg.shows {
-					toStore = append(toStore, store.DiscoveredShow{
-						Title:            show.Title,
-						FeedURL:          show.FeedURL,
-						ArtworkURL:       show.SourceURL,
-						Country:          msg.country,
-						SourceID:         sourceID,
-						SourceExternalID: show.ExternalID,
-					})
-				}
-				_ = m.s.store.UpsertDiscoveredShows(m.s.ctx, msg.country, sourceID, toStore)
-			}
-		}
 	}
 	m.renderLibrary()
 	if !msg.local && msg.err == nil && m.browse.selectedFeedURL != "" {
@@ -805,22 +810,10 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 	if !ok || show.Rating > 0 || show.ExternalID == "" {
 		return nil
 	}
-	if m.s.store != nil {
-		shows, err := m.s.store.DiscoveredShows(m.s.ctx, m.browse.country, show.Title, 5)
-		if err == nil {
-			for _, s := range shows {
-				if s.FeedURL == show.FeedURL && s.Rating > 0 {
-					for i := range m.browse.shows {
-						if m.browse.shows[i].FeedURL == show.FeedURL {
-							m.browse.shows[i].Rating = s.Rating
-							m.browse.shows[i].ReviewCount = s.ReviewCount
-							m.renderDetails()
-							return nil
-						}
-					}
-				}
-			}
-		}
+	if rating, count, found := cachedShowRating(m.s.ctx, m.s.store, m.browse.country, show.Title, show.FeedURL); found {
+		m.applyShowRating(show.FeedURL, rating, count)
+		m.renderDetails()
+		return nil
 	}
 	apple, ok := m.browse.directory.(*discovery.Apple)
 	if !ok {
@@ -834,6 +827,16 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 		r, c, _ := apple.Ratings(ctx, country, id)
 		return showRatingLoaded{feedURL: feedURL, rating: r, count: c}
 	})
+}
+
+func (m *libraryShell) applyShowRating(feedURL string, rating float64, count int) {
+	for i := range m.browse.shows {
+		if m.browse.shows[i].FeedURL == feedURL {
+			m.browse.shows[i].Rating = rating
+			m.browse.shows[i].ReviewCount = count
+			break
+		}
+	}
 }
 
 func (m libraryShell) updateDiscovery(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
@@ -851,25 +854,8 @@ func (m libraryShell) updateDiscovery(msg tea.Msg) (libraryShell, tea.Cmd, bool)
 		return m, nil, true
 	case showRatingLoaded:
 		if msg.rating > 0 {
-			for i := range m.browse.shows {
-				if m.browse.shows[i].FeedURL == msg.feedURL {
-					m.browse.shows[i].Rating = msg.rating
-					m.browse.shows[i].ReviewCount = msg.count
-					break
-				}
-			}
-			if m.s.store != nil {
-				sourceID, _ := m.s.store.SourceID(m.s.ctx, "apple")
-				if sourceID > 0 {
-					shows, _ := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, "", 100)
-					for _, s := range shows {
-						if s.FeedURL == msg.feedURL {
-							_ = m.s.store.UpsertShowRating(m.s.ctx, s.ID, sourceID, msg.rating, msg.count)
-							break
-						}
-					}
-				}
-			}
+			m.applyShowRating(msg.feedURL, msg.rating, msg.count)
+			_ = persistShowRating(m.s.ctx, m.s.store, m.s.config.Country, msg.feedURL, msg.rating, msg.count)
 			m.renderDetails()
 		}
 		return m, nil, true
