@@ -14,7 +14,7 @@ export CGO_CXXFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO
 export CGO_LDFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_LDFLAGS)) -mmacosx-version-min=13.0
 endif
 
-.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean install-linux install-linux-desktop install-linux-docs package-verify
+.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean install-linux install-linux-desktop install-linux-docs package-verify package-lifecycle
 
 help:
 	@printf '%s\n' 'make check    Format, modules, vet, tests, and coverage gate' \
@@ -177,6 +177,9 @@ install-linux: install install-linux-desktop install-linux-docs
 
 package-verify:
 	./packaging/linux/verify-packages.sh dist
+
+package-lifecycle:
+	./packaging/linux/run-container-lifecycle.sh all
 
 clean:
 	rm -rf bin dist coverage
