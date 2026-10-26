@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	uv "github.com/charmbracelet/ultraviolet"
 	"podmutt/internal/artwork"
 	"podmutt/internal/chapters"
 	"podmutt/internal/discovery"
@@ -25,14 +23,6 @@ import (
 	"podmutt/internal/theme"
 	"podmutt/internal/ui"
 )
-
-type themeSignal struct{}
-type themeReloadMsg struct {
-	reload    bool
-	palette   theme.Palette
-	themeName string
-	themePath string
-}
 
 type libraryLoaded struct {
 	version   uint64
@@ -261,153 +251,65 @@ func (m libraryShell) selectedEpisode() (store.Episode, bool) {
 	return store.Episode{}, false
 }
 
+func (m libraryShell) postUpdate(command tea.Cmd) (tea.Model, tea.Cmd) {
+	if chapterPlaybackChanged(m.chapterRequest, m.state) {
+		m.closeChapters()
+	}
+	m.applyQueueFocus()
+	var cmd tea.Cmd
+	m, cmd = m.syncArt()
+	var progress tea.Cmd
+	m.Model, progress = m.Model.SyncProgress()
+	var animation tea.Cmd
+	m.Model, animation = m.Model.SyncAnimation()
+	return m, tea.Batch(command, cmd, progress, animation)
+}
+
 func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	defer func() {
 		if updated, ok := result.(libraryShell); ok {
-			if chapterPlaybackChanged(updated.chapterRequest, updated.state) {
-				updated.closeChapters()
-			}
-			updated.applyQueueFocus()
-			var cmd tea.Cmd
-			updated, cmd = updated.syncArt()
-			var progress tea.Cmd
-			updated.Model, progress = updated.Model.SyncProgress()
-			var animation tea.Cmd
-			updated.Model, animation = updated.Model.SyncAnimation()
-			result = updated
-			command = tea.Batch(command, cmd, progress, animation)
+			result, command = updated.postUpdate(command)
 		}
 	}()
-	var cmd tea.Cmd
-	rebuild, alignCurrent := false, false
+
+	if updated, cmd, handled := m.updateSettings(msg); handled {
+		return updated, cmd
+	}
+	if updated, cmd, handled := m.updateArtwork(msg); handled {
+		return updated, cmd
+	}
+	if updated, cmd, handled := m.updateDiscovery(msg); handled {
+		return updated, cmd
+	}
+	if updated, cmd, handled := m.updatePlaybackEvents(msg); handled {
+		return updated, cmd
+	}
+	if updated, cmd, handled := m.updateLibraryEvents(msg); handled {
+		return updated, cmd
+	}
+	if updated, cmd, handled := m.updateInput(msg); handled {
+		return updated, cmd
+	}
+	return m.delegate(msg)
+}
+
+func (m libraryShell) updateLibraryEvents(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
 	switch msg := msg.(type) {
-	case countryChangedMsg:
-		m.s.config.Country = msg.country
-		if apple, ok := m.browse.directory.(*discovery.Apple); ok {
-			apple.SetCountry(msg.country)
-		}
-		m.Model = m.Model.WithSettings(m.s.settingsData())
-		m.Model = m.Model.ClearFeedback("Save country")
-		m.notice = "Country saved: " + strings.ToUpper(msg.country)
-		if m.browse.active {
-			m.browse.country = msg.country
-			m.browse.loaded = false
-			return m, m.searchDirectory(m.browse.query)
-		}
-		return m, nil
-	case settingsError:
-		m.Model = m.Model.WithSettings(m.s.settingsData())
-		message := feedback.For("Save "+msg.setting, msg.err)
-		message.Summary = "Could not save " + msg.setting + " to config.toml."
-		message.Action = "Check free disk space and that config.toml is a writable file, not a directory. Previous setting remains active. Config: " + feedback.PublicLabel(m.s.paths.Config)
-		m.notice = message.Text()
-		m.Model = m.Model.WithFeedback(message)
-		return m, nil
-	case themeSignal:
-		name, paths, ctx := m.s.config.Theme, m.s.paths, m.s.ctx
-		return m, tea.Batch(m.waitSignal(), work(ctx, "Reloading theme…", func(context.Context) tea.Msg {
-			pal, path := theme.Load(paths.ConfigDir(), name)
-			return themeReloadMsg{palette: pal, themeName: name, themePath: path, reload: true}
-		}))
-	case themeReloadMsg:
-		if msg.reload && msg.themeName != m.s.config.Theme {
-			return m, nil
-		}
-		if !msg.reload {
-			m.Model = m.Model.ClearFeedback("Save theme")
-		}
-		m.s.theme = msg.palette
-		if msg.themeName != "" {
-			m.s.config.Theme = msg.themeName
-		}
-		m.Model = m.Model.WithTheme(msg.palette)
-		if !msg.reload {
-			m.Model = m.Model.WithSettings(m.s.settingsData())
-		}
-		return m, nil
 	case midnightTick:
 		m.renderLibrary()
 		m.renderDetails()
-		return m, m.waitMidnight()
-	case artProbe:
-		cmd = m.probeArt()
-	case artProbeTimeout:
-		if !m.art.kitty {
-			m.art.probeExpired = true
-			m.art.probed = true
-		}
-	case tea.TerminalVersionMsg:
-		if m.art.possible && !m.art.probeExpired {
-			m.art.versionOK = artwork.KittyVersion(msg.Name)
-			m.art.kitty = m.art.versionOK && m.art.graphicsOK
-		}
-	case uv.KittyGraphicsEvent:
-		if m.art.possible && !m.art.probed && uint32(msg.Options.ID) == m.art.id {
-			m.art.probed = true
-			m.art.graphicsOK = string(msg.Payload) == "OK"
-			m.art.kitty = m.art.graphicsOK && m.art.versionOK
-		}
-	case artAcknowledged:
-		m.art.inFlight = false
-	case artLoaded:
-		if msg.generation != m.art.generation {
-			return m, nil
-		}
-		if m.art.cancel != nil {
-			m.art.cancel()
-			m.art.cancel = nil
-		}
-		m.art.complete = true
-		m.art.image = msg.img
-		if msg.err != nil {
-			m.art.image = nil
-		}
-	case chaptersSynced:
-		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
-			m.recordBackgroundFailure("Update chapters", msg.err)
-		}
+		return m, m.waitMidnight(), true
 	case libraryStartup:
-		cmd = m.resumeStartup()
-	case discoverStartup:
-		if m.browse.active && !m.browse.loaded && !m.browse.loading {
-			cmd = m.restoreDiscoverView()
-		}
-	case directoryLoaded:
-		m.applyDirectory(msg)
-	case previewLoaded:
-		m.applyPreview(msg)
-	case showRatingLoaded:
-		if msg.rating > 0 {
-			for i := range m.browse.shows {
-				if m.browse.shows[i].FeedURL == msg.feedURL {
-					m.browse.shows[i].Rating = msg.rating
-					m.browse.shows[i].ReviewCount = msg.count
-					break
-				}
-			}
-			if m.s.store != nil {
-				sourceID, _ := m.s.store.SourceID(m.s.ctx, "apple")
-				if sourceID > 0 {
-					shows, _ := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, "", 100)
-					for _, s := range shows {
-						if s.FeedURL == msg.feedURL {
-							_ = m.s.store.UpsertShowRating(m.s.ctx, s.ID, sourceID, msg.rating, msg.count)
-							break
-						}
-					}
-				}
-			}
-			m.renderDetails()
-		}
-		return m, nil
+		return m, m.resumeStartup(), true
 	case libraryLoaded:
 		if msg.version != m.version {
-			return m, nil
+			return m, nil, true
 		}
 		if m.loadCancel != nil {
 			m.loadCancel()
 			m.loadCancel = nil
 		}
+		var cmd tea.Cmd
 		if msg.err != nil {
 			m.recordBackgroundFailure("Load library", msg.err)
 		} else {
@@ -423,86 +325,20 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			if m.browse.localResults {
 				cmd = m.searchLibrary(m.browse.localQuery)
 			}
-			rebuild = true
+			m.renderLibrary()
+			cmd = tea.Batch(cmd, m.syncLibrarySelection())
 		}
-	case favoriteEdited:
-		if msg.err != nil {
-			m.report("Favorites update", msg.err, "")
-		} else if msg.added {
-			m.notice = "Added to favorites · ♥"
-			cmd = m.reload()
-		} else {
-			m.notice = "Removed from favorites"
-			cmd = m.reload()
-		}
-	case latestQueued:
-		if msg.err != nil {
-			m.recordBackgroundFailure("Update latest episodes", msg.err)
-		} else {
-			m.clearBackgroundFailure("Update latest episodes")
-		}
-	case queueEdited:
-		if msg.state != nil {
-			if m.state.Current != nil && (msg.state.Current == nil || m.state.Current.ID != msg.state.Current.ID) {
-				cmd = m.reload()
-			}
-			m.shell = m.shell.withPlayback(*msg.state)
-			rebuild = true
-		}
-		m.queueEditing = false
-		pending := m.queueUndoPending
-		m.queueUndoPending = false
-		if errors.Is(msg.err, playback.ErrNoQueueUndo) {
-			m.Model = m.Model.ClearFeedback("Queue edit")
-			m.notice = "Nothing to undo in Up next"
-		} else if msg.err != nil {
-			m.report("Queue edit", msg.err, "")
-		} else if msg.undo {
-			m.Model = m.Model.ClearFeedback("Queue edit")
-			m.notice = "Restored to Up next"
-		} else {
-			m.Model = m.Model.ClearFeedback("Queue edit")
-			m.notice = "Removed from Up next · u undo"
-			if pending {
-				cmd = tea.Batch(cmd, m.undoQueueRemoval())
-			}
-		}
-	case playerEdited:
-		if msg.state != nil {
-			m.shell = m.shell.withPlayback(*msg.state)
-			rebuild = true
-		}
-		if msg.err == nil && len(msg.enqueued) > 0 {
-			var ids []string
-			for _, id := range msg.enqueued {
-				ids = append(ids, strconv.FormatInt(id, 10))
-			}
-			m.Model = m.Model.WithQueueTail(ids)
-			m.queueSelectID = ids[len(ids)-1]
-		}
-		if msg.cached {
-			cmd = m.reload()
-		}
-		if errors.Is(msg.err, playback.ErrNoEpisode) {
-			m.report("Playback", msg.err, "")
-		} else if msg.err != nil {
-			m.report("Playback", msg.err, "")
-		} else {
-			m.Model = m.Model.ClearFeedback("Playback")
-			m.notice = ""
-			if msg.volume && msg.state != nil {
-				m.notice = fmt.Sprintf("Volume %d%%", msg.state.Volume)
-			}
-		}
+		return m, cmd, true
 	case libraryEdited:
 		m.mutating = false
 		if msg.err != nil {
 			m.report("Library update", msg.err, "")
 			var fault *feedback.Fault
+			var cmd tea.Cmd
 			if errors.As(msg.err, &fault) && fault.Code == feedback.Partial {
 				cmd = m.reload()
 			}
-			break
+			return m, cmd, true
 		}
 		m.Model = m.Model.ClearFeedback("Library update")
 		m.notice = ""
@@ -512,6 +348,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 		if msg.episode != nil && m.detailTarget != nil && m.detailTarget.ID == msg.episode.ID {
 			m.detailTarget.Completed = msg.episode.Completed
 		}
+		rebuild := false
 		if msg.added {
 			m.discardIndexResults()
 			m.cancelDirectory()
@@ -524,10 +361,17 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 			rebuild = true
 			m.refresher.RefreshNow()
 		}
-		cmd = m.reload()
+		cmd := m.reload()
+		if rebuild {
+			m.renderLibrary()
+			cmd = tea.Batch(cmd, m.syncLibrarySelection())
+		} else {
+			m.renderStatus()
+		}
+		return m, cmd, true
 	case refreshUpdate:
 		if !msg.ok {
-			return m, nil
+			return m, nil, true
 		}
 		if msg.result.Error != nil {
 			if !errors.Is(msg.result.Error, context.Canceled) {
@@ -539,7 +383,7 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				delete(m.refreshErrors, 0)
 			}
 		}
-		cmd = tea.Batch(m.waitRefresh(), m.reload())
+		cmd := tea.Batch(m.waitRefresh(), m.reload())
 		if msg.result.Error == nil {
 			cmd = tea.Batch(cmd, m.queueLatest(msg.result.FeedID))
 			if msg.result.FeedID > 0 {
@@ -549,223 +393,218 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 				}))
 			}
 		}
-	case playbackUpdate:
-		if msg.ok && msg.state.Revision != 0 && msg.state.Revision < m.state.Revision {
-			return m, m.shell.wait()
-		}
-		changed := msg.ok && msg.state.Current != nil && (m.state.Current == nil || m.state.Current.ID != msg.state.Current.ID)
-		chaptersChanged := msg.ok && msg.state.Current != nil && m.state.Current != nil &&
-			msg.state.Current.ID == m.state.Current.ID && (msg.state.Current.ChaptersJSON != m.state.Current.ChaptersJSON ||
-			msg.state.Current.ChaptersState != m.state.Current.ChaptersState)
-		if chaptersChanged {
-			cmd = tea.Batch(cmd, m.reload())
-		}
-		if msg.ok {
-			id, completed := int64(0), false
-			if msg.state.Current != nil {
-				id, completed = msg.state.Current.ID, msg.state.Current.Completed
-			}
-			if m.lastPlayingID != id || m.lastCompleted != completed {
-				cmd = m.reload()
-			}
-			started := func(episode *store.Episode) bool { return episode != nil && episode.PositionSeconds > 0 }
-			rebuild = chaptersChanged || m.lastPlayingID != id || m.lastCompleted != completed || started(m.state.Current) != started(msg.state.Current) ||
-				currentInQueue(m.state) != currentInQueue(msg.state) ||
-				!slices.EqualFunc(m.state.Queue, msg.state.Queue, func(a, b store.Episode) bool { return a.ID == b.ID })
-			m.lastPlayingID, m.lastCompleted = id, completed
-		}
-		updated, wait := m.shell.Update(msg)
-		m.shell = updated.(shell)
-		alignCurrent = changed
-		m.renderDetails()
-		cmd = tea.Batch(wait, cmd)
+		return m, cmd, true
+	default:
+		return m, nil, false
+	}
+}
+
+func (m libraryShell) updateInput(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
+	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if m.browse.searching {
 			m.appendSearch(msg.Content)
-			break
+			return m, nil, true
 		}
 		if m.adding {
 			m.appendInput(msg.Content)
-			break
+			return m, nil, true
 		}
-		return m.delegate(msg)
+		updated, cmd := m.delegate(msg)
+		return updated.(libraryShell), cmd, true
 	case tea.KeyPressMsg:
-		if m.urlDialog != nil {
-			switch msg.String() {
-			case "esc", "I":
-				m.urlDialog = nil
-				m.Model = m.Model.WithDialog(nil)
-			case "j", "down", "pgdown", "ctrl+d":
-				m.urlDialog.Scroll++
-			case "k", "up", "pgup", "ctrl+u":
-				m.urlDialog.Scroll = max(0, m.urlDialog.Scroll-1)
-			case "q", "ctrl+c":
-				return m.delegate(msg)
-			}
-			return m, nil
+		return m.handleKey(msg)
+	default:
+		return m, nil, false
+	}
+}
+
+func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, bool) {
+	if m.urlDialog != nil {
+		switch msg.String() {
+		case "esc", "I":
+			m.urlDialog = nil
+			m.Model = m.Model.WithDialog(nil)
+		case "j", "down", "pgdown", "ctrl+d":
+			m.urlDialog.Scroll++
+		case "k", "up", "pgup", "ctrl+u":
+			m.urlDialog.Scroll = max(0, m.urlDialog.Scroll-1)
+		case "q", "ctrl+c":
+			updated, cmd := m.delegate(msg)
+			return updated.(libraryShell), cmd, true
 		}
-		if m.chapterList != nil {
-			return m, m.chapterKey(msg.String())
+		return m, nil, true
+	}
+	if m.chapterList != nil {
+		return m, m.chapterKey(msg.String()), true
+	}
+	if m.onboarding {
+		return m, m.onboardingKey(msg), true
+	}
+	if m.confirming != nil {
+		cmd := m.confirmationKey(msg)
+		m.renderStatus()
+		return m, cmd, true
+	}
+	if m.adding {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit, true
 		}
-		if m.onboarding {
-			return m, m.onboardingKey(msg)
+		cmd := m.inputKey(msg)
+		m.renderStatus()
+		return m, cmd, true
+	}
+	if m.browse.searching {
+		cmd := m.searchKey(msg)
+		m.renderStatus()
+		return m, cmd, true
+	}
+	if m.Model.Busy() {
+		updated, cmd := m.delegate(msg)
+		return updated.(libraryShell), cmd, true
+	}
+
+	key := msg.String()
+	focus := m.Model.Focus()
+	var cmd tea.Cmd
+	rebuild := false
+	switch key {
+	case "I":
+		m.openCurrentURLs()
+	case "C":
+		cmd = m.openChapters()
+	case "b":
+		cmd = m.switchBrowse()
+	case "f":
+		m.openSearch()
+	case "U":
+		m.openURL()
+	case "t":
+		m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
+		cmd = m.searchDirectory("")
+	case "esc":
+		if msg.String() == "esc" && m.Model.HasFilter(focus) {
+			updated, cmd := m.delegate(msg)
+			return updated.(libraryShell), cmd, true
 		}
-		if m.confirming != nil {
-			cmd = m.confirmationKey(msg)
-			break
+		if m.browse.loading || m.browse.previewCancel != nil {
+			m.cancelDirectory()
+			m.cancelPreview()
+			m.notice = "Discovery request canceled"
+			m.renderLibrary()
+		} else if m.Model.Focus() == ui.Details && m.detailTarget != nil {
+			m.leaveDetails()
+		} else if m.browse.active && m.browse.preview != nil && (focus == ui.Podcasts || focus == ui.Episodes) {
+			m.cancelPreview()
+			m.Model = m.Model.WithFocus(ui.Podcasts)
+			m.renderLibrary()
+		} else if m.browse.localResults {
+			cmd = m.searchLibrary("")
+		} else {
+			updated, cmd := m.delegate(msg)
+			return updated.(libraryShell), cmd, true
 		}
-		if m.adding {
-			if msg.String() == "ctrl+c" {
-				return m, tea.Quit
-			}
-			cmd = m.inputKey(msg)
-			break
+	case "=", "-":
+		engine, ctx := m.s.playback, m.s.ctx
+		delta := playback.VolumeStep
+		if key == "-" {
+			delta = -playback.VolumeStep
 		}
-		if m.browse.searching {
-			cmd = m.searchKey(msg)
-			break
+		cmd = work(ctx, "Updating volume…", func(ctx context.Context) tea.Msg {
+			state, err := engine.AdjustVolume(ctx, delta)
+			return playerEdited{err: err, state: &state, volume: true}
+		})
+	case "space":
+		engine, ctx := m.s.playback, m.s.ctx
+		cmd = work(ctx, "Updating playback…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} })
+	case "i":
+		m.openDetails()
+	case "a", "A":
+		cmd = m.enqueue(msg.String() == "A")
+	case "J", "K":
+		// Queue order is presentation-only; manual moves are no longer supported.
+	case "m":
+		if focus == ui.Queue {
+			cmd = m.openQueueActions()
 		}
-		if m.Model.Busy() {
-			return m.delegate(msg)
+	case "d", "delete":
+		if focus == ui.Favorites {
+			cmd = m.removeFavorite()
+		} else if focus == ui.Queue {
+			cmd = m.removeQueueItem()
 		}
-		key := msg.String()
-		focus := m.Model.Focus()
-		switch key {
-		case "I":
-			m.openCurrentURLs()
-		case "C":
-			cmd = m.openChapters()
-		case "b":
-			cmd = m.switchBrowse()
-		case "f":
-			m.openSearch()
-		case "U":
-			m.openURL()
-		case "t":
-			m.Model = m.Model.ClearFilter(ui.Podcasts).ClearFilter(ui.Episodes).Reset(ui.Podcasts).Reset(ui.Episodes).WithFocus(ui.Podcasts)
-			cmd = m.searchDirectory("")
-		case "esc":
-			if msg.String() == "esc" && m.Model.HasFilter(focus) {
-				return m.delegate(msg)
-			}
-			if m.browse.loading || m.browse.previewCancel != nil {
-				m.cancelDirectory()
-				m.cancelPreview()
-				m.notice = "Discovery request canceled"
+	case "D":
+		m.confirmClearQueue()
+	case "N":
+		if !m.mutating {
+			m.adding = true
+			m.input = ""
+		}
+	case "o":
+		if focus == ui.Queue {
+			m.Model = m.Model.ToggleQueueOrder()
+		} else if focus == ui.Podcasts || focus == ui.Episodes {
+			m.order = (m.order + 1) % 3
+			rebuild = true
+		}
+	case "R":
+		if m.browse.active {
+			if m.browse.retryPreview || m.browse.directURL {
+				cmd = m.previewShow()
 				m.renderLibrary()
-			} else if m.Model.Focus() == ui.Details && m.detailTarget != nil {
-				m.leaveDetails()
-			} else if m.browse.active && m.browse.preview != nil && (focus == ui.Podcasts || focus == ui.Episodes) {
-				m.cancelPreview()
-				m.Model = m.Model.WithFocus(ui.Podcasts)
-				m.renderLibrary()
-			} else if m.browse.localResults {
-				cmd = m.searchLibrary("")
-			} else {
-				return m.delegate(msg)
-			}
-		case "=", "-":
-			engine, ctx := m.s.playback, m.s.ctx
-			delta := playback.VolumeStep
-			if key == "-" {
-				delta = -playback.VolumeStep
-			}
-			cmd = work(ctx, "Updating volume…", func(ctx context.Context) tea.Msg {
-				state, err := engine.AdjustVolume(ctx, delta)
-				return playerEdited{err: err, state: &state, volume: true}
-			})
-		case "space":
-			engine, ctx := m.s.playback, m.s.ctx
-			cmd = work(ctx, "Updating playback…", func(ctx context.Context) tea.Msg { return playerEdited{err: engine.Toggle(ctx, 0)} })
-		case "i":
-			m.openDetails()
-		case "a", "A":
-			cmd = m.enqueue(msg.String() == "A")
-		case "J", "K":
-			// Queue order is presentation-only; manual moves are no longer supported.
-		case "m":
-			if focus == ui.Queue {
-				cmd = m.openQueueActions()
-			}
-		case "d", "delete":
-			if focus == ui.Favorites {
-				cmd = m.removeFavorite()
-			} else if focus == ui.Queue {
-				cmd = m.removeQueueItem()
-			}
-		case "D":
-			m.confirmClearQueue()
-		case "N":
-			if !m.mutating {
-				m.adding = true
-				m.input = ""
-			}
-		case "o":
-			if focus == ui.Queue {
-				m.Model = m.Model.ToggleQueueOrder()
-			} else if focus == ui.Podcasts || focus == ui.Episodes {
-				m.order = (m.order + 1) % 3
-				rebuild = true
-			}
-		case "R":
-			if m.browse.active {
-				if m.browse.retryPreview || m.browse.directURL {
-					cmd = m.previewShow()
-					m.renderLibrary()
-					break
-				}
-				cmd = m.searchDirectory(m.browse.query)
 				break
 			}
-			m.notice = "No subscribed feeds to refresh"
-			for _, source := range m.snapshot.Feeds {
-				if source.Subscribed {
-					m.notice = "Refreshing…"
-					m.refresher.RefreshNow()
-					break
-				}
+			cmd = m.searchDirectory(m.browse.query)
+			break
+		}
+		m.notice = "No subscribed feeds to refresh"
+		for _, source := range m.snapshot.Feeds {
+			if source.Subscribed {
+				m.notice = "Refreshing…"
+				m.refresher.RefreshNow()
+				break
 			}
-		case "u":
-			if focus == ui.Queue {
-				cmd = m.undoQueueRemoval()
-			} else if m.browse.active {
-				cmd = m.subscribePreview()
-			} else {
-				cmd = m.subscribe()
+		}
+	case "u":
+		if focus == ui.Queue {
+			cmd = m.undoQueueRemoval()
+		} else if m.browse.active {
+			cmd = m.subscribePreview()
+		} else {
+			cmd = m.subscribe()
+		}
+	case "c":
+		cmd = m.complete()
+	case "enter":
+		if m.Model.Focus() == ui.PlayerPanel {
+			updated, cmd := m.delegate(msg)
+			return updated.(libraryShell), cmd, true
+		}
+		if m.Model.Focus() == ui.Podcasts {
+			if m.browse.active {
+				cmd = m.previewShow()
+				m.renderLibrary()
+				break
 			}
-		case "c":
-			cmd = m.complete()
-		case "enter":
-			if m.Model.Focus() == ui.PlayerPanel {
-				return m.delegate(msg)
+			if _, ok := m.Model.Selected(ui.Podcasts); !ok {
+				m.notice = "Select a show or focus Episodes with 2"
+				break
 			}
-			if m.Model.Focus() == ui.Podcasts {
-				if m.browse.active {
-					cmd = m.previewShow()
-					m.renderLibrary()
-					break
-				}
-				if _, ok := m.Model.Selected(ui.Podcasts); !ok {
-					m.notice = "Select a show or focus Episodes with 2"
-					break
-				}
-				if m.browse.localResults {
-					m.selectLibraryShow()
-				}
-				cmd = m.syncLibrarySelection()
-				rebuild = true
-				m.Model = m.Model.WithFocus(ui.Episodes)
-				if cmd == nil {
-					cmd = m.reload()
-				}
-			} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Details || m.Model.Focus() == ui.Favorites {
-				cmd = m.playSelected()
+			if m.browse.localResults {
+				m.selectLibraryShow()
 			}
-		default:
-			return m.delegate(msg)
+			cmd = m.syncLibrarySelection()
+			rebuild = true
+			m.Model = m.Model.WithFocus(ui.Episodes)
+			if cmd == nil {
+				cmd = m.reload()
+			}
+		} else if m.Model.Focus() == ui.Queue || m.Model.Focus() == ui.Episodes || m.Model.Focus() == ui.Details || m.Model.Focus() == ui.Favorites {
+			cmd = m.playSelected()
 		}
 	default:
-		return m.delegate(msg)
+		updated, cmd := m.delegate(msg)
+		return updated.(libraryShell), cmd, true
 	}
 	if rebuild {
 		m.renderLibrary()
@@ -773,12 +612,9 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 	} else {
 		m.renderStatus()
 	}
-	if alignCurrent {
-		m.selectCurrent()
-		m.renderDetails()
-	}
-	return m, cmd
+	return m, cmd, true
 }
+
 func (m libraryShell) delegate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	before, _ := m.Model.Selected(ui.Podcasts)
 	origin := m.Model.Focus()

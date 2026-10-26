@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"podmutt/internal/activity"
 	"podmutt/internal/artwork"
 	"podmutt/internal/ui"
@@ -182,4 +183,49 @@ func (m libraryShell) syncArt() (libraryShell, tea.Cmd) {
 		draw = tea.Sequence(tea.Raw(packet), func() tea.Msg { return artAcknowledged{} })
 	}
 	return m, tea.Batch(load, draw)
+}
+
+func (m libraryShell) updateArtwork(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case artProbe:
+		return m, m.probeArt(), true
+	case artProbeTimeout:
+		if !m.art.kitty {
+			m.art.probeExpired = true
+			m.art.probed = true
+		}
+		return m, nil, true
+	case tea.TerminalVersionMsg:
+		if m.art.possible && !m.art.probeExpired {
+			m.art.versionOK = artwork.KittyVersion(msg.Name)
+			m.art.kitty = m.art.versionOK && m.art.graphicsOK
+		}
+		return m, nil, true
+	case uv.KittyGraphicsEvent:
+		if m.art.possible && !m.art.probed && uint32(msg.Options.ID) == m.art.id {
+			m.art.probed = true
+			m.art.graphicsOK = string(msg.Payload) == "OK"
+			m.art.kitty = m.art.graphicsOK && m.art.versionOK
+		}
+		return m, nil, true
+	case artAcknowledged:
+		m.art.inFlight = false
+		return m, nil, true
+	case artLoaded:
+		if msg.generation != m.art.generation {
+			return m, nil, true
+		}
+		if m.art.cancel != nil {
+			m.art.cancel()
+			m.art.cancel = nil
+		}
+		m.art.complete = true
+		m.art.image = msg.img
+		if msg.err != nil {
+			m.art.image = nil
+		}
+		return m, nil, true
+	default:
+		return m, nil, false
+	}
 }

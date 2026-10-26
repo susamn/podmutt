@@ -835,3 +835,45 @@ func (m *libraryShell) ensureShowRating() tea.Cmd {
 		return showRatingLoaded{feedURL: feedURL, rating: r, count: c}
 	})
 }
+
+func (m libraryShell) updateDiscovery(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case discoverStartup:
+		if m.browse.active && !m.browse.loaded && !m.browse.loading {
+			return m, m.restoreDiscoverView(), true
+		}
+		return m, nil, true
+	case directoryLoaded:
+		m.applyDirectory(msg)
+		return m, nil, true
+	case previewLoaded:
+		m.applyPreview(msg)
+		return m, nil, true
+	case showRatingLoaded:
+		if msg.rating > 0 {
+			for i := range m.browse.shows {
+				if m.browse.shows[i].FeedURL == msg.feedURL {
+					m.browse.shows[i].Rating = msg.rating
+					m.browse.shows[i].ReviewCount = msg.count
+					break
+				}
+			}
+			if m.s.store != nil {
+				sourceID, _ := m.s.store.SourceID(m.s.ctx, "apple")
+				if sourceID > 0 {
+					shows, _ := m.s.store.DiscoveredShows(m.s.ctx, m.s.config.Country, "", 100)
+					for _, s := range shows {
+						if s.FeedURL == msg.feedURL {
+							_ = m.s.store.UpsertShowRating(m.s.ctx, s.ID, sourceID, msg.rating, msg.count)
+							break
+						}
+					}
+				}
+			}
+			m.renderDetails()
+		}
+		return m, nil, true
+	default:
+		return m, nil, false
+	}
+}

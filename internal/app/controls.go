@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"podmutt/internal/control"
+	"podmutt/internal/discovery"
 	"podmutt/internal/feedback"
 	"podmutt/internal/playback"
 	"podmutt/internal/profile"
@@ -59,6 +60,64 @@ type shell struct {
 
 type countryChangedMsg struct {
 	country string
+}
+type themeSignal struct{}
+type themeReloadMsg struct {
+	reload    bool
+	palette   theme.Palette
+	themeName string
+	themePath string
+}
+
+func (m libraryShell) updateSettings(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case countryChangedMsg:
+		m.s.config.Country = msg.country
+		if apple, ok := m.browse.directory.(*discovery.Apple); ok {
+			apple.SetCountry(msg.country)
+		}
+		m.Model = m.Model.WithSettings(m.s.settingsData())
+		m.Model = m.Model.ClearFeedback("Save country")
+		m.notice = "Country saved: " + strings.ToUpper(msg.country)
+		if m.browse.active {
+			m.browse.country = msg.country
+			m.browse.loaded = false
+			return m, m.searchDirectory(m.browse.query), true
+		}
+		return m, nil, true
+	case settingsError:
+		m.Model = m.Model.WithSettings(m.s.settingsData())
+		message := feedback.For("Save "+msg.setting, msg.err)
+		message.Summary = "Could not save " + msg.setting + " to config.toml."
+		message.Action = "Check free disk space and that config.toml is a writable file, not a directory. Previous setting remains active. Config: " + feedback.PublicLabel(m.s.paths.Config)
+		m.notice = message.Text()
+		m.Model = m.Model.WithFeedback(message)
+		return m, nil, true
+	case themeSignal:
+		name, paths, ctx := m.s.config.Theme, m.s.paths, m.s.ctx
+		return m, tea.Batch(m.waitSignal(), work(ctx, "Reloading theme…", func(context.Context) tea.Msg {
+			pal, path := theme.Load(paths.ConfigDir(), name)
+			return themeReloadMsg{palette: pal, themeName: name, themePath: path, reload: true}
+		})), true
+	case themeReloadMsg:
+		if msg.reload && msg.themeName != m.s.config.Theme {
+			return m, nil, true
+		}
+		if !msg.reload {
+			m.Model = m.Model.ClearFeedback("Save theme")
+		}
+		m.s.theme = msg.palette
+		if msg.themeName != "" {
+			m.s.config.Theme = msg.themeName
+		}
+		m.Model = m.Model.WithTheme(msg.palette)
+		if !msg.reload {
+			m.Model = m.Model.WithSettings(m.s.settingsData())
+		}
+		return m, nil, true
+	default:
+		return m, nil, false
+	}
 }
 
 func newShell(s *session) shell {
