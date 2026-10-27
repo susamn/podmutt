@@ -133,9 +133,9 @@ func TestPlayerDisplaysVolumeAtCompactAndWideWidths(t *testing.T) {
 }
 
 func TestPlayerButtonsUseSharedActionsAndDisabledCapabilities(t *testing.T) {
-	var commands []string
-	m := resize(New(fixture()), 140, 32).WithFocus(PlayerPanel).WithActions(func(command string) tea.Cmd {
-		return func() tea.Msg { commands = append(commands, command); return nil }
+	var commands []Action
+	m := resize(New(fixture()), 140, 32).WithFocus(PlayerPanel).WithActions(func(act Action) tea.Cmd {
+		return func() tea.Msg { commands = append(commands, act); return nil }
 	})
 	update := func(key tea.KeyPressMsg) {
 		t.Helper()
@@ -156,7 +156,7 @@ func TestPlayerButtonsUseSharedActionsAndDisabledCapabilities(t *testing.T) {
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	update(tea.KeyPressMsg{Code: tea.KeyRight})
 	update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if fmt.Sprint(commands) != "[toggle stop next]" {
+	if fmt.Sprint(commands) != "[{toggle } {stop } {next }]" {
 		t.Fatal(commands)
 	}
 	update(tea.KeyPressMsg{Code: tea.KeyRight})

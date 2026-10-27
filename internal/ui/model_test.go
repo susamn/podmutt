@@ -212,14 +212,14 @@ func TestUntrustedTextCannotControlTerminal(t *testing.T) {
 }
 
 func TestSettingsOverlay(t *testing.T) {
-	var dispatched string
+	var dispatched Action
 	m := New(fixture()).WithSettings(SettingsData{
 		ActiveTheme: "colors",
 		Themes:      []string{"colors", "solarized-dark", "catppuccin"},
 		ConfigPath:  "/test/config.toml",
 		ThemePath:   "/test/colors.toml",
 		RefreshMin:  30,
-	}).WithActions(func(cmd string) tea.Cmd {
+	}).WithActions(func(cmd Action) tea.Cmd {
 		dispatched = cmd
 		return nil
 	})
@@ -245,8 +245,8 @@ func TestSettingsOverlay(t *testing.T) {
 
 	m = press(m, "j")
 	m = press(m, "enter")
-	if dispatched != "theme:solarized-dark" {
-		t.Fatalf("expected action theme:solarized-dark, got %q", dispatched)
+	if dispatched.Kind != ActionSetTheme || dispatched.Payload != "solarized-dark" {
+		t.Fatalf("expected action theme:solarized-dark, got %+v", dispatched)
 	}
 
 	m = press(m, "esc")

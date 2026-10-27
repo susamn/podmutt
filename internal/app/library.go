@@ -419,7 +419,34 @@ func (m libraryShell) updateInput(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
 	}
 }
 
+// handleKey routes keyboard input through explicit precedence layers:
+// 1. Application modals and text inputs (URL viewer, chapters, onboarding, confirmation, feed URL, search)
+// 2. UI presentation modals (column filter, settings theme picker, help popup, message viewer)
+// 3. Application actions for the focused context (transport, seeking, volume, queue/library mutations)
+// 4. Default presentation navigation (vim motions, list selection, panel focus)
 func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, bool) {
+	// Layer 1: App modals & text inputs
+	if updated, cmd, handled := m.tryModalKey(msg); handled {
+		return updated, cmd, true
+	}
+
+	// Layer 2: Presentation modals (filter, settings, help, error viewer)
+	if m.Model.Busy() {
+		updated, cmd := m.delegate(msg)
+		return updated.(libraryShell), cmd, true
+	}
+
+	// Layer 3: Application actions for focused context
+	if updated, cmd, handled := m.handleActionKey(msg); handled {
+		return updated, cmd, true
+	}
+
+	// Layer 4: Standard UI navigation
+	updated, cmd := m.delegate(msg)
+	return updated.(libraryShell), cmd, true
+}
+
+func (m libraryShell) tryModalKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, bool) {
 	if m.urlDialog != nil {
 		switch msg.String() {
 		case "esc", "I":
@@ -459,11 +486,10 @@ func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, boo
 		m.renderStatus()
 		return m, cmd, true
 	}
-	if m.Model.Busy() {
-		updated, cmd := m.delegate(msg)
-		return updated.(libraryShell), cmd, true
-	}
+	return m, nil, false
+}
 
+func (m libraryShell) handleActionKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, bool) {
 	key := msg.String()
 	focus := m.Model.Focus()
 	var cmd tea.Cmd
@@ -484,8 +510,7 @@ func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, boo
 		cmd = m.searchDirectory("")
 	case "esc":
 		if msg.String() == "esc" && m.Model.HasFilter(focus) {
-			updated, cmd := m.delegate(msg)
-			return updated.(libraryShell), cmd, true
+			return m, nil, false
 		}
 		if m.browse.loading || m.browse.previewCancel != nil {
 			m.cancelDirectory()
@@ -501,8 +526,7 @@ func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, boo
 		} else if m.browse.localResults {
 			cmd = m.searchLibrary("")
 		} else {
-			updated, cmd := m.delegate(msg)
-			return updated.(libraryShell), cmd, true
+			return m, nil, false
 		}
 	case "=", "-":
 		engine, ctx := m.s.playback, m.s.ctx
@@ -577,8 +601,7 @@ func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, boo
 		cmd = m.complete()
 	case "enter":
 		if m.Model.Focus() == ui.PlayerPanel {
-			updated, cmd := m.delegate(msg)
-			return updated.(libraryShell), cmd, true
+			return m, nil, false
 		}
 		if m.Model.Focus() == ui.Podcasts {
 			if m.browse.active {
@@ -603,8 +626,7 @@ func (m libraryShell) handleKey(msg tea.KeyPressMsg) (libraryShell, tea.Cmd, boo
 			cmd = m.playSelected()
 		}
 	default:
-		updated, cmd := m.delegate(msg)
-		return updated.(libraryShell), cmd, true
+		return m, nil, false
 	}
 	if rebuild {
 		m.renderLibrary()
