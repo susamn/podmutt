@@ -105,7 +105,7 @@ type Model struct {
 	editing                    bool
 	previous                   string
 	help                       bool
-	actions                    func(string) tea.Cmd
+	actions                    func(Action) tea.Cmd
 	detailScroll               int
 	playerButton               int
 	decoration                 bool
@@ -147,7 +147,7 @@ func (m Model) WithSettings(s SettingsData) Model {
 func (m Model) SettingsOpen() bool                             { return m.settings }
 func (m Model) OpenSettings() Model                            { m.settings = true; return m }
 func (m Model) CloseSettings() Model                           { m.settings = false; return m }
-func (m Model) WithActions(actions func(string) tea.Cmd) Model { m.actions = actions; return m }
+func (m Model) WithActions(actions func(Action) tea.Cmd) Model { m.actions = actions; return m }
 func (m Model) WithPlayerError(text string) Model              { m.data.Player.Error = text; return m }
 func (m Model) Focus() Panel                                   { return m.focus }
 func (m Model) WithFocus(panel Panel) Model                    { m.setFocus(panel); return m }
@@ -407,12 +407,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.settingsData.Themes) > 0 && m.actions != nil {
 					chosen := m.settingsData.Themes[m.settingsData.Selected]
 					m.settingsPending = true
-					return m, m.actions("theme:" + chosen)
+					return m, m.actions(Action{Kind: ActionSetTheme, Payload: chosen})
 				}
 			case "right", "left", "C":
 				if m.actions != nil {
 					m.settingsPending = true
-					return m, m.actions("country:cycle")
+					return m, m.actions(Action{Kind: ActionCycleCountry})
 				}
 			case "esc", "e":
 				m.settings = false
@@ -477,8 +477,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "space", "s", "n":
 			if m.actions != nil {
-				command := map[string]string{"space": "toggle", "s": "stop", "n": "next"}[key]
-				return m, m.actions(command)
+				kind := map[string]ActionKind{"space": ActionToggle, "s": ActionStop, "n": ActionNext}[key]
+				return m, m.actions(Action{Kind: kind})
 			}
 		case "?":
 			m.help = true
@@ -486,13 +486,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.settings = true
 		case ",", "<":
 			if m.data.Player.CanSeek && m.actions != nil {
-				cmd := m.actions("seek-backward")
+				cmd := m.actions(Action{Kind: ActionSeekBackward})
 				return m, cmd
 			}
 			return m, nil
 		case ".", ">":
 			if m.data.Player.CanSeek && m.actions != nil {
-				return m, m.actions("seek-forward")
+				return m, m.actions(Action{Kind: ActionSeekForward})
 			}
 		case "h":
 			if m.isList(m.focus) {

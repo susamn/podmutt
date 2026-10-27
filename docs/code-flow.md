@@ -81,7 +81,31 @@ func (m libraryShell) Update(msg tea.Msg) (result tea.Model, command tea.Cmd) {
 }
 ```
 
-### C. Post-Update Synchronization (`postUpdate`)
+### C. Keyboard Routing & Modal Precedence
+Keyboard input (`tea.KeyPressMsg`) follows a strict 4-layer precedence model in `handleKey`:
+1. **Application Modals & Text Inputs** (`tryModalKey`):
+   - URL Inspector (`I`), Chapters Picker (`C`), First-run Onboarding, Queue Removal Confirmation, Add Feed URL (`N`), and Directory Search (`f`/`U`).
+   - If active, the modal or text field consumes the keystroke exclusively; global hotkeys (like Space to play/pause) are blocked from mutating playback.
+2. **UI Presentation Modals** (`Model.Busy()`):
+   - Column filter (`/`), In-app Settings Theme Picker (`e`), Keyboard Help (`?`), and Error Details Viewer (`!`).
+   - If active, the key is delegated directly to `ui.Model` to handle text filtering or modal dismissal.
+3. **Application Actions** (`handleActionKey`):
+   - Global transport controls (`Space` toggle, `,`/`.` seek, `=` / `-` volume).
+   - Navigation & mode toggles (`b` browse, `t` top 100, `f` search, `R` refresh).
+   - Focused panel operations (`Enter` play/inspect, `a`/`A` queue, `d` delete/unfavorite, `m` actions, `u` subscribe/undo).
+4. **Default Presentation Navigation** (`delegate`):
+   - Vim directional navigation (`j`/`k`, `h`/`l`), list paging, Tab panel cycling, and numeric panel jumps (`1`–`6`).
+
+### D. Typed UI-to-App Action Contract
+Instead of loosely typed magic strings, presentation events flow to the application session via strongly typed `ui.Action` structures (`internal/ui/action.go`):
+- `ActionToggle`: Transport play/pause toggle.
+- `ActionStop`: Transport stop.
+- `ActionNext`: Transport advance to next queued track.
+- `ActionSeekForward` / `ActionSeekBackward`: ±15s seeking.
+- `ActionSetTheme`: Theme change with theme name payload.
+- `ActionCycleCountry`: Discovery chart country cycling.
+
+### E. Post-Update Synchronization (`postUpdate`)
 Regardless of which branch, handler, or delegated path runs, the deferred `postUpdate` stage guarantees:
 1. **Chapter Guard**: Automatically closes the chapter picker if current playback changed or stopped.
 2. **Queue Focus**: Preserves or shifts list focus when queue removals or selections take place.

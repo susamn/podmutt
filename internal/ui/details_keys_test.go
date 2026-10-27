@@ -100,7 +100,7 @@ func TestDetailsVimNavigationIsFocusScoped(t *testing.T) {
 
 func TestDetailsKeysNeverDispatchPlayerActions(t *testing.T) {
 	calls := 0
-	m := resize(New(fixture()), 140, 44).WithFocus(Details).WithDetails(strings.Repeat("text\n", 100)).WithActions(func(string) tea.Cmd { calls++; return nil })
+	m := resize(New(fixture()), 140, 44).WithFocus(Details).WithDetails(strings.Repeat("text\n", 100)).WithActions(func(Action) tea.Cmd { calls++; return nil })
 	for _, key := range []string{"j", "k", "g", "G", "ctrl+d", "ctrl+u"} {
 		m = press(m, key)
 	}

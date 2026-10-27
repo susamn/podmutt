@@ -8,9 +8,9 @@ import (
 )
 
 func TestGlobalSeekKeysAreGuardedAndIndependentOfNavigation(t *testing.T) {
-	var commands []string
-	m := resize(New(fixture()), 140, 44).WithActions(func(command string) tea.Cmd {
-		return func() tea.Msg { commands = append(commands, command); return nil }
+	var commands []Action
+	m := resize(New(fixture()), 140, 44).WithActions(func(act Action) tea.Cmd {
+		return func() tea.Msg { commands = append(commands, act); return nil }
 	})
 	key := func(value string) {
 		t.Helper()
@@ -34,7 +34,7 @@ func TestGlobalSeekKeysAreGuardedAndIndependentOfNavigation(t *testing.T) {
 			t.Fatal("seek changed focus")
 		}
 	}
-	if len(commands) != 10 || !reflect.DeepEqual(commands[:2], []string{"seek-backward", "seek-forward"}) {
+	if len(commands) != 10 || !reflect.DeepEqual(commands[:2], []Action{{Kind: ActionSeekBackward}, {Kind: ActionSeekForward}}) {
 		t.Fatal(commands)
 	}
 	key("?")

@@ -55,7 +55,7 @@ func (m Model) activatePlayer() tea.Cmd {
 	if !enabled || m.actions == nil {
 		return nil
 	}
-	return m.actions(command)
+	return m.actions(Action{Kind: ActionKind(command)})
 }
 
 func playerStatus(player Player) string {

@@ -121,19 +121,19 @@ func (m libraryShell) updateSettings(msg tea.Msg) (libraryShell, tea.Cmd, bool) 
 }
 
 func newShell(s *session) shell {
-	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(command string) tea.Cmd {
+	return shell{Model: ui.New(ui.Data{}).WithPlayerDecoration(s.config.PlayerDecoration).WithIcons(s.config.Icons).WithTheme(s.theme).WithSettings(s.settingsData()).WithVersion(Version).WithAnimation(s.ctx, nil).WithProgress(s.ctx, nil, nil).WithActivityClock(s.ctx, nil).WithActions(func(act ui.Action) tea.Cmd {
 		cfg := s.config // capture on the UI thread; workers never mutate session settings
-		return work(s.ctx, commandLabel(command), func(ctx context.Context) tea.Msg {
+		return work(s.ctx, commandLabel(string(act.Kind)), func(ctx context.Context) tea.Msg {
 			var err error
-			if strings.HasPrefix(command, "theme:") {
-				chosen := strings.TrimPrefix(command, "theme:")
+			switch act.Kind {
+			case ui.ActionSetTheme:
+				chosen := act.Payload
 				if err := profile.SetTheme(s.paths.Config, chosen); err != nil {
 					return settingsError{"theme", err}
 				}
 				pal, themePath := theme.Load(s.paths.ConfigDir(), chosen)
 				return themeReloadMsg{palette: pal, themeName: chosen, themePath: themePath}
-			}
-			if strings.HasPrefix(command, "country:") {
+			case ui.ActionCycleCountry:
 				countries := []string{"us", "de", "gb", "fr", "ca", "au", "jp", "es", "it", "nl"}
 				curr := strings.ToLower(cfg.Country)
 				nextIndex := 0
@@ -148,17 +148,16 @@ func newShell(s *session) shell {
 					return settingsError{"country", err}
 				}
 				return countryChangedMsg{country: chosen}
-			}
-			if command == "seek-forward" || command == "seek-backward" {
+			case ui.ActionSeekForward, ui.ActionSeekBackward:
 				delta := 15.0
-				if command == "seek-backward" {
+				if act.Kind == ui.ActionSeekBackward {
 					delta = -15
 				}
 				err = s.playback.SeekBy(ctx, delta)
-			} else if command == "toggle" {
+			case ui.ActionToggle:
 				err = s.playback.Toggle(ctx, 0)
-			} else {
-				_, err = control.Execute(ctx, s.playback, command)
+			default:
+				_, err = control.Execute(ctx, s.playback, string(act.Kind))
 			}
 			if err != nil {
 				return actionError{err}

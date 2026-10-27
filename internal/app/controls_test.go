@@ -176,7 +176,7 @@ func TestServiceStartupAndPlayerFailure(t *testing.T) {
 
 func TestUIActionGuards(t *testing.T) {
 	calls := 0
-	model := ui.New(ui.Data{}).WithActions(func(string) tea.Cmd { calls++; return nil })
+	model := ui.New(ui.Data{}).WithActions(func(ui.Action) tea.Cmd { calls++; return nil })
 	updated, _ := model.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
 	model = updated.(ui.Model)
 	model.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
