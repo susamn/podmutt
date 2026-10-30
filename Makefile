@@ -14,11 +14,12 @@ export CGO_CXXFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO
 export CGO_LDFLAGS := $(filter-out -mmacosx-version-min=%,$(shell $(GO) env CGO_LDFLAGS)) -mmacosx-version-min=13.0
 endif
 
-.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race mpv-test mpris-test check build dist clean install-linux install-linux-desktop install-linux-docs package-verify package-lifecycle
+.PHONY: native-macos native-media-test native-preflight native-verify help fmt fmt-check mod-check vet test coverage race vuln-check mpv-test mpris-test check build dist clean install-linux install-linux-desktop install-linux-docs package-verify package-lifecycle
 
 help:
 	@printf '%s\n' 'make check    Format, modules, vet, tests, and coverage gate' \
 		'make race     Race-detector tests (native platform, requires C compiler)' \
+		'make vuln-check Scan source and dependencies for known vulnerabilities' \
 		'make mpv-test Real mpv checks with null audio (requires mpv)' \
 		'make mpris-test Private D-Bus protocol checks (requires dbus-daemon)' \
 		'make build    Build bin/podmutt' \
@@ -73,6 +74,9 @@ coverage:
 
 race:
 	CGO_ENABLED=1 $(GO) test -race -count=1 ./...
+
+vuln-check:
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 mpv-test:
 	PODMUTT_TEST_MPV='$(MPV)' $(GO) test -count=1 -run '^TestRealMPV' -timeout=60s ./internal/player ./internal/app
