@@ -8,6 +8,7 @@ A modern, keyboard-driven podcast client (TUI) for Linux and macOS inspired by l
 
 [![Release](https://img.shields.io/github/v/release/susamn/podmutt)](https://github.com/susamn/podmutt/releases)
 [![Go Version](https://img.shields.io/badge/go-1.27%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Vulnerability Check](https://img.shields.io/badge/govulncheck-passed-brightgreen?logo=go)](https://github.com/susamn/podmutt/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
@@ -292,6 +293,7 @@ podmutt status   # outputs JSON status of running instance
 ```sh
 make check       # formatting, module consistency, vet, tests, >=95% coverage
 make race        # native race-detector tests
+make vuln-check  # scan source and dependencies for known vulnerabilities
 make mpv-test    # real-mpv lifecycle/playback tests, null audio (requires mpv)
 make mpris-test  # private D-Bus protocol tests (requires dbus-daemon)
 make build       # build bin/podmutt
