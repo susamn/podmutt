@@ -30,3 +30,15 @@ func (m Model) descriptionWidth(width int) int {
 	}
 	return width
 }
+
+// ArtworkOrigin returns the zero-based screen cell of the artwork's top-left
+// corner (Details pane origin + border + two spaces of padding) plus the
+// screen size, for sixel placement. ok is false when art has no fixed place
+// (compact layout / too small).
+func (m Model) ArtworkOrigin() (x, y, screenW, screenH int, ok bool) {
+	if m.compact() || m.width < 30 || m.height < 12 {
+		return 0, 0, 0, 0, false
+	}
+	g := m.wideLayout()
+	return g.libraryWidth + 3, g.episodes + 1, m.width, m.height, true
+}
