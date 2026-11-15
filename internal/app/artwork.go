@@ -31,6 +31,10 @@ type sixelReady struct {
 	data string
 	box  [4]int // (x, y, columns, rows)
 }
+type sixelDraw struct {
+	key, data string
+	box       [4]int
+}
 type artProbe struct{}
 type artProbeTimeout struct{}
 type artState struct {
@@ -50,6 +54,7 @@ type artState struct {
 	inFlight                            bool
 	sixel                               bool
 	sixelShown, sixelPending, sixelFail string
+	sixelDrawing                        string
 	sixelBox                            [4]int
 }
 
@@ -170,14 +175,14 @@ func (m libraryShell) syncArt() (libraryShell, tea.Cmd) {
 		hide := !visible || !placed || (m.art.complete && m.art.image == nil)
 		switch {
 		case hide:
-			m.art.sixelPending = ""
+			m.art.sixelPending, m.art.sixelDrawing = "", ""
 			if m.art.sixelShown != "" {
 				m.art.sixelShown = ""
 				sixelCmd = tea.ClearScreen
 			}
 		case m.art.image != nil && m.art.complete:
 			sixelKey = fmt.Sprintf("%d:%d:%d:%d:%d:%dx%d", m.art.generation, columns, rows, x, y, sw, sh)
-			if sixelKey != m.art.sixelShown && sixelKey != m.art.sixelPending && sixelKey != m.art.sixelFail {
+			if sixelKey != m.art.sixelShown && sixelKey != m.art.sixelPending && sixelKey != m.art.sixelDrawing && sixelKey != m.art.sixelFail {
 				m.art.sixelPending = sixelKey
 				img, ctx, box := m.art.image, m.s.ctx, [4]int{x, y, columns, rows}
 				key := sixelKey
@@ -257,13 +262,20 @@ func (m libraryShell) updateArtwork(msg tea.Msg) (libraryShell, tea.Cmd, bool) {
 			m.art.sixelFail = msg.key
 			return m, nil, true
 		}
+		draw := sixelDraw{key: msg.key, data: msg.data, box: msg.box}
+		m.art.sixelDrawing = msg.key
+		wait := tea.Tick(50*time.Millisecond, func(time.Time) tea.Msg { return draw })
+		if m.art.sixelShown != "" {
+			return m, tea.Sequence(tea.ClearScreen, wait), true
+		}
+		return m, wait, true
+	case sixelDraw:
+		if msg.key != m.art.sixelDrawing {
+			return m, nil, true
+		}
+		m.art.sixelDrawing = ""
 		var b strings.Builder
 		b.WriteString("\x1b7")
-		if m.art.sixelShown != "" && m.art.sixelBox == msg.box {
-			for r := 0; r < msg.box[3]; r++ {
-				fmt.Fprintf(&b, "\x1b[%d;%dH\x1b[%dX", msg.box[1]+1+r, msg.box[0]+1, msg.box[2])
-			}
-		}
 		fmt.Fprintf(&b, "\x1b[%d;%dH%s\x1b8", msg.box[1]+1, msg.box[0]+1, msg.data)
 		m.art.sixelShown, m.art.sixelBox = msg.key, msg.box
 		return m, tea.Raw(b.String()), true
